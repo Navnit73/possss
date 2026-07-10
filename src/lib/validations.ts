@@ -164,3 +164,54 @@ export interface Product {
   created_at: Date;
   updated_at?: Date;
 }
+
+// --- Inventory Validations ---
+
+export const batchSchema = z.object({
+  product_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Product"),
+  batch_number: z.string().min(1, "Batch number is required"),
+  supplier: z.string().optional(),
+  qty_available: z.coerce.number().min(0, "Quantity cannot be negative").default(0),
+  cost_price: z.coerce.number().min(0).default(0),
+  selling_price: z.coerce.number().min(0).default(0),
+  expiry_date: z.string().optional(),
+  rack_location: z.string().optional(),
+});
+
+export const stockMovementSchema = z.object({
+  product_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Product"),
+  batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Batch"),
+  movement_type: z.enum(["PURCHASE", "SALE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
+  quantity: z.coerce.number(), // can be negative
+  notes: z.string().optional(),
+});
+
+export interface Batch {
+  _id?: any;
+  tenant_id: string;
+  product_id: string;
+  batch_number: string;
+  supplier?: string;
+  qty_available: number;
+  cost_price: number;
+  selling_price: number;
+  expiry_date?: string;
+  rack_location?: string;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface StockMovement {
+  _id?: any;
+  tenant_id: string;
+  product_id: string;
+  batch_id: string;
+  movement_type: "PURCHASE" | "SALE" | "DAMAGE" | "RETURN" | "ADJUSTMENT";
+  quantity: number;
+  before_qty: number;
+  after_qty: number;
+  notes?: string;
+  created_by?: string;
+  created_at: Date;
+}
+

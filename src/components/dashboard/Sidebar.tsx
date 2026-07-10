@@ -10,15 +10,45 @@ import {
   Factory,
   Activity,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ClipboardList,
+  PlusCircle,
+  Settings2,
+  History,
+  AlertTriangle
 } from "lucide-react";
 import clsx from "clsx";
 
-const navItems = [
-  { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Products", href: "/dashboard/products", icon: Package },
-  { name: "Categories", href: "/dashboard/products/categories", icon: Tags },
-  { name: "Manufacturers", href: "/dashboard/products/manufacturers", icon: Factory },
+const navGroups = [
+  {
+    title: "Main",
+    items: [
+      { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    ]
+  },
+  {
+    title: "Alerts",
+    items: [
+      { name: "Low Stock", href: "/dashboard/inventory/alerts", icon: AlertTriangle },
+    ]
+  },
+  {
+    title: "Product Master",
+    items: [
+      { name: "Products", href: "/dashboard/products", icon: Package },
+      { name: "Categories", href: "/dashboard/products/categories", icon: Tags },
+      { name: "Manufacturers", href: "/dashboard/products/manufacturers", icon: Factory },
+    ]
+  },
+  {
+    title: "Inventory",
+    items: [
+      { name: "Stock List", href: "/dashboard/inventory/stock-list", icon: ClipboardList },
+      { name: "Receive Stock", href: "/dashboard/inventory/add-stock", icon: PlusCircle },
+      { name: "Adjust Stock", href: "/dashboard/inventory/adjust-stock", icon: Settings2 },
+      { name: "Stock Ledger", href: "/dashboard/inventory/history", icon: History },
+    ]
+  }
 ];
 
 export function Sidebar() {
@@ -49,37 +79,46 @@ export function Sidebar() {
         </div>
       </div>
       
-      <div className="flex-1 py-6 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
-        {navItems.map((item) => {
-          const isActive = item.href === "/dashboard" 
-            ? pathname === item.href 
-            : pathname.startsWith(item.href);
+      <div className="flex-1 py-6 px-2 overflow-y-auto overflow-x-hidden space-y-6">
+        {navGroups.map((group) => (
+          <div key={group.title} className="space-y-1">
+            {!isCollapsed && (
+              <div className="px-4 text-[10px] font-bold text-indigo-300/50 uppercase tracking-widest mb-2">
+                {group.title}
+              </div>
+            )}
+            {group.items.map((item) => {
+              const isActive = item.href === "/dashboard" 
+                ? pathname === item.href 
+                : pathname.startsWith(item.href);
 
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              title={isCollapsed ? item.name : undefined}
-              className={clsx(
-                "flex items-center rounded-lg text-sm font-medium transition-all duration-200 group",
-                isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-3 px-3 py-2.5 mx-1",
-                isActive 
-                  ? "bg-indigo-600/20 text-indigo-200" 
-                  : "text-indigo-200/70 hover:bg-indigo-900/40 hover:text-indigo-100"
-              )}
-            >
-              <item.icon className={clsx(
-                "w-5 h-5 flex-shrink-0 transition-colors", 
-                isActive ? "text-indigo-300" : "text-indigo-300/60 group-hover:text-indigo-200"
-              )} />
-              {!isCollapsed && (
-                <span className="whitespace-nowrap">
-                  {item.name}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  title={isCollapsed ? item.name : undefined}
+                  className={clsx(
+                    "flex items-center rounded-lg text-sm font-medium transition-all duration-200 group",
+                    isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-3 px-3 py-2.5 mx-1",
+                    isActive 
+                      ? "bg-indigo-600/20 text-indigo-200" 
+                      : "text-indigo-200/70 hover:bg-indigo-900/40 hover:text-indigo-100"
+                  )}
+                >
+                  <item.icon className={clsx(
+                    "w-5 h-5 flex-shrink-0 transition-colors", 
+                    isActive ? "text-indigo-300" : "text-indigo-300/60 group-hover:text-indigo-200"
+                  )} />
+                  {!isCollapsed && (
+                    <span className="whitespace-nowrap">
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       <div className="p-2 border-t border-indigo-900/50">
