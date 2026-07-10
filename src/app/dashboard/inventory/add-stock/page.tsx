@@ -3,23 +3,25 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { batchSchema } from "@/lib/validations";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import * as z from "zod";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type BatchFormType = z.infer<typeof batchSchema>;
 
 export default function AddStockPage() {
   const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<BatchFormType>({
+  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<BatchFormType>({
     resolver: zodResolver(batchSchema) as any,
     defaultValues: {
       product_id: "",
@@ -30,10 +32,14 @@ export default function AddStockPage() {
   });
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axios.get("/api/products");
-        setProducts(res.data);
+        const [prodRes, suppRes] = await Promise.all([
+          axios.get("/api/products"),
+          axios.get("/api/suppliers")
+        ]);
+        setProducts(prodRes.data);
+        setSuppliers(suppRes.data);
         
         // Auto-select product if passed in URL
         const params = new URLSearchParams(window.location.search);
@@ -42,12 +48,12 @@ export default function AddStockPage() {
           setValue("product_id", pid);
         }
       } catch (err) {
-        console.error("Failed to load products", err);
+        console.error("Failed to load data", err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchProducts();
+    fetchData();
   }, [setValue]);
 
   const onSubmit = async (data: BatchFormType) => {
@@ -84,14 +90,21 @@ export default function AddStockPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="col-span-1 md:col-span-2">
             <label className="text-sm font-medium text-foreground">Product *</label>
-            <select 
-              {...register("product_id")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              disabled={isLoading}
-            >
-              <option value="">Select Product...</option>
-              {products.map(p => <option key={p._id} value={p._id}>{p.name} {p.strength ? `(${p.strength})` : ""}</option>)}
-            </select>
+            <div className="mt-1.5">
+              <Controller
+                name="product_id"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    options={products.map((p: any) => ({ label: `${p.name} ${p.strength ? `(${p.strength})` : ""}`, value: p._id }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Search and select product..."
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </div>
             {errors.product_id && <p className="text-sm text-red-500 mt-1">{errors.product_id.message}</p>}
           </div>
 
@@ -107,11 +120,21 @@ export default function AddStockPage() {
 
           <div>
             <label className="text-sm font-medium text-foreground">Supplier</label>
-            <input 
-              {...register("supplier")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="e.g. ABC Pharma Distributors"
-            />
+            <div className="mt-1.5">
+              <Controller
+                name="supplier"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    options={suppliers.map((s: any) => ({ label: s.name, value: s.name }))}
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    placeholder="Search and select supplier..."
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </div>
           </div>
 
           <div>

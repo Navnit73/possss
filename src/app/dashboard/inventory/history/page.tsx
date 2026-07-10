@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { History, ArrowRight } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function StockHistoryPage() {
   const [movements, setMovements] = useState<any[]>([]);
@@ -45,7 +46,9 @@ export default function StockHistoryPage() {
 
       <div className="bg-surface border border-border rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading history...</div>
+          <div className="p-6">
+            <TableSkeleton columns={8} rows={6} />
+          </div>
         ) : movements.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <p>No stock movements found.</p>

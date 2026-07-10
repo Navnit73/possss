@@ -66,6 +66,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const db = client.db("pos");
     
+    // Validate category belongs to tenant
+    const category = await db.collection("categories").findOne({
+      _id: new ObjectId(validatedData.category_id),
+      tenant_id: tenantId
+    });
+    if (!category) {
+      return NextResponse.json({ error: "Invalid category selected" }, { status: 400 });
+    }
+
+    // Validate manufacturer belongs to tenant
+    const manufacturer = await db.collection("manufacturers").findOne({
+      _id: new ObjectId(validatedData.manufacturer_id),
+      tenant_id: tenantId
+    });
+    if (!manufacturer) {
+      return NextResponse.json({ error: "Invalid manufacturer selected" }, { status: 400 });
+    }
+
     // Check barcode uniqueness if changed
     if (validatedData.barcode) {
       const existing = await db.collection("products").findOne({ 

@@ -55,6 +55,26 @@ export async function POST(req: Request) {
 
     const db = client.db("pos");
     
+    // Validate product belongs to tenant
+    const product = await db.collection("products").findOne({
+      _id: new ObjectId(validatedData.product_id),
+      tenant_id: tenantId
+    });
+    if (!product) {
+      return NextResponse.json({ error: "Invalid product selected" }, { status: 400 });
+    }
+
+    // Validate supplier belongs to tenant if provided
+    if (validatedData.supplier && ObjectId.isValid(validatedData.supplier)) {
+      const supplier = await db.collection("suppliers").findOne({
+        _id: new ObjectId(validatedData.supplier),
+        tenant_id: tenantId
+      });
+      if (!supplier) {
+        return NextResponse.json({ error: "Invalid supplier selected" }, { status: 400 });
+      }
+    }
+
     // Check batch number uniqueness for the specific product
     const existing = await db.collection("batches").findOne({
       tenant_id: tenantId,

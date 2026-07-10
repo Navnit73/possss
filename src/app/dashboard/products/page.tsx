@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { Plus, Package, Search, Eye, Edit } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -63,7 +64,9 @@ export default function ProductsPage() {
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading products...</div>
+          <div className="p-6">
+            <TableSkeleton columns={7} rows={6} />
+          </div>
         ) : filteredProducts.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">

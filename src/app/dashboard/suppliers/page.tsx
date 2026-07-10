@@ -5,6 +5,7 @@ import axios from "axios";
 import Link from "next/link";
 import { Plus, Search, Eye, Edit, Truck } from "lucide-react";
 import { Supplier } from "@/lib/validations";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -63,7 +64,9 @@ export default function SuppliersPage() {
         </div>
 
         {isLoading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading suppliers...</div>
+          <div className="p-6">
+            <TableSkeleton columns={5} rows={5} />
+          </div>
         ) : filteredSuppliers.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">

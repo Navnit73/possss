@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { Plus, ChevronDown, ChevronRight, Package, AlertCircle } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function StockListPage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -70,7 +71,9 @@ export default function StockListPage() {
 
       <div className="bg-surface border border-border rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading stock data...</div>
+          <div className="p-6">
+            <TableSkeleton columns={5} rows={6} />
+          </div>
         ) : Object.keys(groupedStock).length === 0 ? (
           <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
             <Package className="w-12 h-12 mb-4 text-muted-foreground/50" />

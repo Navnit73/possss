@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { productSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
+import { ObjectId } from "mongodb";
 
 export async function GET(req: Request) {
   try {
@@ -61,6 +62,24 @@ export async function POST(req: Request) {
     const validatedData = productSchema.parse(body);
 
     const db = client.db("pos");
+    
+    // Validate category belongs to tenant
+    const category = await db.collection("categories").findOne({
+      _id: new ObjectId(validatedData.category_id),
+      tenant_id: tenantId
+    });
+    if (!category) {
+      return NextResponse.json({ error: "Invalid category selected" }, { status: 400 });
+    }
+
+    // Validate manufacturer belongs to tenant
+    const manufacturer = await db.collection("manufacturers").findOne({
+      _id: new ObjectId(validatedData.manufacturer_id),
+      tenant_id: tenantId
+    });
+    if (!manufacturer) {
+      return NextResponse.json({ error: "Invalid manufacturer selected" }, { status: 400 });
+    }
     
     // Validate barcode uniqueness if provided
     if (validatedData.barcode) {

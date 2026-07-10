@@ -6,6 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { manufacturerSchema } from "@/lib/validations";
 import { Plus, Factory, Edit } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 type ManufacturerForm = {
   name: string;
@@ -78,17 +82,17 @@ export default function ManufacturersPage() {
           <p className="text-muted-foreground mt-1">Manage pharmaceutical manufacturers and suppliers.</p>
         </div>
         {!isAdding && (
-          <button
+          <Button
             onClick={() => {
               setEditingId(null);
               reset({ name: "", contact_info: "" });
               setIsAdding(true);
             }}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
+            className="gap-2"
           >
             <Plus className="w-4 h-4" />
             Add Manufacturer
-          </button>
+          </Button>
         )}
       </div>
 
@@ -101,38 +105,34 @@ export default function ManufacturersPage() {
               {editingId ? "Edit Manufacturer" : "New Manufacturer"}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div>
-                <label className="text-sm font-medium text-foreground">Name *</label>
-                <input 
+              <div className="space-y-2">
+                <Label>Name *</Label>
+                <Input 
                   {...register("name")}
-                  className="w-full mt-1.5 px-3 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
                   placeholder="e.g. Pfizer"
                 />
                 {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Contact Info</label>
+              <div className="space-y-2">
+                <Label>Contact Info</Label>
                 <textarea 
                   {...register("contact_info")}
-                  className="w-full mt-1.5 px-3 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground resize-none"
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   placeholder="Optional contact details..."
                   rows={4}
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-                <button 
+                <Button 
                   type="button" 
+                  variant="outline"
                   onClick={handleCancel}
-                  className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
                 >
                   Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
-                >
+                </Button>
+                <Button type="submit">
                   {editingId ? "Update Manufacturer" : "Save Manufacturer"}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -141,7 +141,9 @@ export default function ManufacturersPage() {
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading manufacturers...</div>
+          <div className="p-6">
+            <TableSkeleton columns={3} rows={5} />
+          </div>
         ) : manufacturers.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center justify-center">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">

@@ -69,21 +69,21 @@ export function Sidebar() {
   return (
     <div 
       className={clsx(
-        "bg-indigo-950 text-indigo-50 border-r border-indigo-900/50 min-h-screen flex flex-col transition-all duration-300 ease-in-out relative shadow-xl shadow-indigo-950/20",
+        "bg-primary text-primary-foreground border-r border-border min-h-screen flex flex-col transition-all duration-300 ease-in-out relative",
         isCollapsed ? "w-16" : "w-64"
       )}
     >
       <div className={clsx(
-        "h-16 flex items-center border-b border-indigo-900/50 transition-all duration-300",
+        "h-16 flex items-center border-b border-white/10 transition-all duration-300",
         isCollapsed ? "justify-center px-0" : "px-6"
       )}>
         <div className={clsx(
-          "flex items-center text-indigo-400",
+          "flex items-center text-primary-foreground",
           isCollapsed ? "justify-center" : "gap-3"
         )}>
           <Activity className="w-6 h-6 flex-shrink-0" />
           {!isCollapsed && (
-            <span className="font-display font-bold text-lg tracking-tight text-white whitespace-nowrap overflow-hidden">
+            <span className="font-display font-bold text-lg tracking-tight whitespace-nowrap overflow-hidden">
               Pharmacy POS
             </span>
           )}
@@ -94,7 +94,7 @@ export function Sidebar() {
         {navGroups.map((group) => (
           <div key={group.title} className="space-y-1">
             {!isCollapsed && (
-              <div className="px-4 text-[10px] font-bold text-indigo-300/50 uppercase tracking-widest mb-2">
+              <div className="px-4 text-[10px] font-bold text-primary-foreground/50 uppercase tracking-widest mb-2">
                 {group.title}
               </div>
             )}
@@ -109,16 +109,16 @@ export function Sidebar() {
                   href={item.href}
                   title={isCollapsed ? item.name : undefined}
                   className={clsx(
-                    "flex items-center rounded-lg text-sm font-medium transition-all duration-200 group",
+                    "flex items-center rounded-sm text-sm font-medium transition-all duration-200 group",
                     isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-3 px-3 py-2.5 mx-1",
                     isActive 
-                      ? "bg-indigo-600/20 text-indigo-200" 
-                      : "text-indigo-200/70 hover:bg-indigo-900/40 hover:text-indigo-100"
+                      ? "bg-white/10 text-white" 
+                      : "text-primary-foreground/70 hover:bg-white/5 hover:text-white"
                   )}
                 >
                   <item.icon className={clsx(
                     "w-5 h-5 flex-shrink-0 transition-colors", 
-                    isActive ? "text-indigo-300" : "text-indigo-300/60 group-hover:text-indigo-200"
+                    isActive ? "text-white" : "text-primary-foreground/60 group-hover:text-white"
                   )} />
                   {!isCollapsed && (
                     <span className="whitespace-nowrap">
@@ -132,11 +132,11 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="p-2 border-t border-indigo-900/50">
+      <div className="p-2 border-t border-white/10">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={clsx(
-            "flex items-center justify-center p-2 rounded-lg text-indigo-300/70 hover:bg-indigo-900/40 hover:text-indigo-100 transition-colors mx-auto",
+            "flex items-center justify-center p-2 rounded-sm text-primary-foreground/70 hover:bg-white/5 hover:text-white transition-colors mx-auto",
             isCollapsed ? "w-10" : "w-full"
           )}
         >

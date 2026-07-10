@@ -11,38 +11,73 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
   
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   
-  --radius-xl: 1rem;
-  --radius-lg: 0.75rem;
-  --radius-md: 0.5rem;
+  /* Enforce rounded-sm globally for flat SaaS look */
+  --radius: 0.70rem;
+  --radius-xl: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+  --radius-sm: var(--radius);
 }
 
 :root {
   --background: #FAFAFA;
-  --foreground: #111827;
+  --foreground: #0F172A;
   
-  --primary: #00668C;
-  --primary-foreground: #FFFFFF;
-  --primary-hover: #005575;
+  --primary: #0F172A; /* Slate 900 for enterprise feel */
+  --primary-foreground: #F8FAFC;
+  --primary-hover: #1E293B;
+
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
   
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
   --success: #10B981;
   --success-foreground: #FFFFFF;
   
   --surface: #FFFFFF;
-  --border: #E5E7EB;
-  --muted: #F3F4F6;
-  --muted-foreground: #6B7280;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #94A3B8;
+
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove heavy shadows globally */
+* {
+  box-shadow: none !important;
+}
+
+/* Base utility for a light border instead of shadow to simulate flat SaaS cards */
+.flat-card {
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  border-radius: var(--radius);
 }
