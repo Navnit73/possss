@@ -240,7 +240,7 @@ export interface Supplier {
 export const saleItemSchema = z.object({
   product_id: z.string(),
   batch_id: z.string(),
-  qty: z.number().min(1),
+  qty: z.number().positive(),
   price: z.number().min(0), // selling price at time of sale
   discount: z.number().min(0).default(0), // item level discount %
   cost_price: z.number().min(0), // cost price to calculate profit

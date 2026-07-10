@@ -65,7 +65,7 @@ export default function ProductsPage() {
 
         {isLoading ? (
           <div className="p-6">
-            <TableSkeleton columns={7} rows={6} />
+            <TableSkeleton columns={8} rows={6} />
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">
@@ -94,6 +94,7 @@ export default function ProductsPage() {
                   <th className="p-4 text-sm font-semibold text-foreground">Brand</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Category</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Rack</th>
+                  <th className="p-4 text-sm font-semibold text-foreground">Current Stock</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Stock Alert</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Status</th>
                   <th className="p-4 text-sm font-semibold text-foreground text-right">Actions</th>
@@ -114,6 +115,11 @@ export default function ProductsPage() {
                     </td>
                     <td className="p-4 text-sm text-foreground">
                       {p.rack_number || <span className="text-muted-foreground">-</span>}
+                    </td>
+                    <td className="p-4 text-sm">
+                      <span className={`font-medium ${p.total_stock === 0 || !p.total_stock ? "text-red-500" : p.total_stock <= p.minimum_stock ? "text-amber-600" : "text-foreground"}`}>
+                        {p.total_stock || 0}
+                      </span>
                     </td>
                     <td className="p-4 text-sm">
                       {p.minimum_stock > 0 ? (

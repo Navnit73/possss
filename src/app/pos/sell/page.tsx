@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, PackageOpen, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -26,10 +26,17 @@ export default function PosSellPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   
   const [cart, setCart] = useState<POSItem[]>([]);
   const [overallDiscount, setOverallDiscount] = useState<number>(0);
   const [taxRate] = useState<number>(0.05);
+
+  const flatSearchResults = useMemo(() => {
+    return searchResults.flatMap(product => 
+      (product.batches || []).map((batch: any) => ({ product, batch }))
+    );
+  }, [searchResults]);
   
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "UPI" | "OTHER">("CASH");
@@ -90,11 +97,37 @@ export default function PosSellPage() {
         e.preventDefault();
         if (cart.length > 0 && !isProcessing) setShowPaymentModal(true);
       }
+      
+      // Navigation
+      if (flatSearchResults.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSelectedIndex(prev => Math.min(prev + 1, flatSearchResults.length - 1));
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSelectedIndex(prev => Math.max(prev - 1, 0));
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const selected = flatSearchResults[selectedIndex];
+          if (selected) {
+             const isAdded = cart.find(c => c.batch_id === selected.batch._id)?.qty === selected.batch.qty_available;
+             if (!isAdded) {
+               addToCart(selected.product, selected.batch);
+             }
+          }
+        }
+      }
+      
+      if (e.key === "Escape") {
+        setSearchQuery("");
+      }
     };
     
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cart.length, showPaymentModal, isProcessing]);
+  }, [cart.length, showPaymentModal, isProcessing, flatSearchResults, selectedIndex]);
 
   // Search API Call
   useEffect(() => {
@@ -111,6 +144,7 @@ export default function PosSellPage() {
         console.error("Search failed", err);
       } finally {
         setIsSearching(false);
+        setSelectedIndex(0);
       }
     }, 200); 
     return () => clearTimeout(timer);
@@ -141,7 +175,6 @@ export default function PosSellPage() {
         discount: 0
       }];
     });
-    setSearchQuery("");
     searchInputRef.current?.focus();
   };
 
@@ -232,10 +265,10 @@ export default function PosSellPage() {
                 {searchResults.map(product => {
                   const hasStock = product.batches && product.batches.length > 0;
                   return (
-                    <div key={product._id} className="bg-white border border-border rounded p-3 flex flex-col gap-2 hover:border-primary/30 transition-colors">
+                    <div key={product._id} className="bg-white border border-border rounded-lg shadow-sm p-3 flex flex-col gap-2 hover:border-primary/40 hover:shadow-md transition-all">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold text-foreground text-sm">{product.name}</h3>
+                          <h3 className="font-bold text-slate-900 text-sm">{product.name}</h3>
                           <p className="text-xs text-muted-foreground">{product.generic_name || product.brand}</p>
                           {product.active_ingredients && (
                             <p className="text-[10px] text-muted-foreground/80 mt-0.5 max-w-sm truncate" title={product.active_ingredients}>Comp: {product.active_ingredients}</p>
@@ -259,8 +292,9 @@ export default function PosSellPage() {
                         <div className="pt-2 mt-1 border-t border-border/50 flex flex-col gap-1.5">
                           {product.batches.map((batch: any, idx: number) => {
                             const isAdded = cart.find(c => c.batch_id === batch._id)?.qty === batch.qty_available;
+                            const isSelected = flatSearchResults.findIndex(f => f.batch._id === batch._id) === selectedIndex;
                             return (
-                              <div key={batch._id} className="flex items-center justify-between group">
+                              <div key={batch._id} className={`flex items-center justify-between group p-1.5 rounded -mx-1.5 transition-colors ${isSelected ? "bg-primary/10 border border-primary/30 shadow-sm" : "border border-transparent"}`}>
                                 <div className="flex items-center gap-3">
                                   <div className="flex flex-col">
                                     <span className="text-xs font-medium text-foreground/80 font-mono">
@@ -277,9 +311,13 @@ export default function PosSellPage() {
                                   <button
                                     onClick={() => addToCart(product, batch)}
                                     disabled={isAdded}
-                                    className="h-7 px-3 text-xs font-medium rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    className={`h-7 px-3 text-xs font-bold rounded border transition-colors cursor-pointer ${
+                                      isAdded 
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 disabled:opacity-100 disabled:cursor-not-allowed" 
+                                        : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                                    }`}
                                   >
-                                    Add
+                                    {isAdded ? "Added" : "Add"}
                                   </button>
                                 </div>
                               </div>
@@ -329,15 +367,15 @@ export default function PosSellPage() {
           ) : (
             <div className="flex flex-col gap-1">
               {cart.map(item => (
-                <div key={item.id} className="group flex flex-col p-2.5 rounded border border-transparent hover:border-border hover:bg-surface transition-colors">
+                <div key={item.id} className="group flex flex-col p-3 rounded-lg border border-border bg-white shadow-sm hover:border-primary/30 hover:shadow transition-all">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 pr-3">
-                      <div className="text-sm font-semibold text-foreground leading-tight">{item.name}</div>
+                      <div className="text-sm font-bold text-slate-900 leading-tight">{item.name}</div>
                       <div className="text-[10px] text-muted-foreground font-mono mt-0.5">#{item.batch_number}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-foreground">${(item.price * item.qty * (1 - item.discount / 100)).toFixed(2)}</div>
-                      <div className="text-[10px] text-muted-foreground">${item.price.toFixed(2)} ea</div>
+                      <div className="text-sm font-black text-indigo-700">${(item.price * item.qty * (1 - item.discount / 100)).toFixed(2)}</div>
+                      <div className="text-[10px] text-slate-500 font-medium">${item.price.toFixed(2)} ea</div>
                     </div>
                   </div>
                   
@@ -346,17 +384,21 @@ export default function PosSellPage() {
                       <div className="flex items-center gap-0 bg-white border border-border rounded shadow-sm overflow-hidden h-7">
                         <button 
                           onClick={() => updateQty(item.id, item.qty - 1)}
-                          className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted-foreground transition-colors"
+                          className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted-foreground transition-colors cursor-pointer"
                         >
                           <Minus className="w-3 h-3" />
                         </button>
-                        <div className="w-8 h-full flex items-center justify-center text-xs font-semibold bg-surface border-x border-border">
-                          {item.qty}
-                        </div>
+                        <input
+                          type="number"
+                          step="any"
+                          value={item.qty}
+                          onChange={(e) => updateQty(item.id, parseFloat(e.target.value) || 0)}
+                          className="w-24 h-full text-center text-sm font-semibold bg-surface border-x border-border outline-none focus:bg-white focus:ring-1 focus:ring-primary/50"
+                        />
                         <button 
                           onClick={() => updateQty(item.id, item.qty + 1)}
                           disabled={item.qty >= item.max_qty}
-                          className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted-foreground disabled:opacity-50 transition-colors"
+                          className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted-foreground disabled:opacity-50 transition-colors cursor-pointer"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -370,7 +412,7 @@ export default function PosSellPage() {
                           value={item.discount === 0 ? "" : item.discount}
                           onChange={(e) => updateItemDiscount(item.id, parseInt(e.target.value))}
                           placeholder="0"
-                          className="w-8 text-right outline-none px-1 text-foreground/80 bg-transparent font-medium"
+                          className="w-20 text-right outline-none px-1 text-foreground/80 bg-transparent font-medium text-sm"
                         />
                         <span className="text-muted-foreground/80 mr-1">%</span>
                       </div>
@@ -378,7 +420,7 @@ export default function PosSellPage() {
 
                     <button 
                       onClick={() => removeFromCart(item.id)}
-                      className="text-muted-foreground/80 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                      className="text-muted-foreground/80 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
                       title="Remove"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -433,7 +475,7 @@ export default function PosSellPage() {
           <button
             onClick={() => setShowPaymentModal(true)}
             disabled={cart.length === 0 || isProcessing}
-            className="w-full h-12 bg-primary text-white rounded font-bold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm transition-all focus:ring-2 focus:ring-offset-1 focus:ring-primary"
+            className="w-full h-12 bg-primary text-white rounded font-bold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm transition-all focus:ring-2 focus:ring-offset-1 focus:ring-primary cursor-pointer"
           >
             <span>Proceed to Payment</span>
             <span className="bg-primary/80 text-[10px] px-1.5 py-0.5 rounded font-mono font-medium">F9</span>
@@ -455,13 +497,13 @@ export default function PosSellPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPaymentMethod("CASH")}
-                  className={`flex items-center gap-2 p-3 rounded border text-sm font-medium transition-colors ${paymentMethod === 'CASH' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white hover:border-primary/30 text-foreground/80'}`}
+                  className={`flex items-center gap-2 p-3 rounded border text-sm font-medium transition-colors cursor-pointer ${paymentMethod === 'CASH' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white hover:border-primary/30 text-foreground/80'}`}
                 >
                   <Banknote className="w-4 h-4" /> Cash
                 </button>
                 <button
                   onClick={() => setPaymentMethod("CARD")}
-                  className={`flex items-center gap-2 p-3 rounded border text-sm font-medium transition-colors ${paymentMethod === 'CARD' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white hover:border-primary/30 text-foreground/80'}`}
+                  className={`flex items-center gap-2 p-3 rounded border text-sm font-medium transition-colors cursor-pointer ${paymentMethod === 'CARD' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-white hover:border-primary/30 text-foreground/80'}`}
                 >
                   <CreditCard className="w-4 h-4" /> Card
                 </button>
@@ -472,14 +514,14 @@ export default function PosSellPage() {
               <button
                 onClick={() => setShowPaymentModal(false)}
                 disabled={isProcessing}
-                className="flex-1 h-10 bg-white border border-border text-foreground/80 rounded font-medium text-sm hover:bg-surface transition-colors"
+                className="flex-1 h-10 bg-white border border-border text-foreground/80 rounded font-medium text-sm hover:bg-surface transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCheckout}
                 disabled={isProcessing}
-                className="flex-1 h-10 bg-primary text-white rounded font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-70 flex items-center justify-center"
+                className="flex-1 h-10 bg-primary text-white rounded font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-70 flex items-center justify-center cursor-pointer"
               >
                 {isProcessing ? (
                   <span className="flex items-center gap-2">

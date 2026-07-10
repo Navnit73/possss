@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
           from: "batches",
           let: { prodId: { $toString: "$_id" } },
           pipeline: [
-            { $match: { $expr: { $eq: ["$product_id", "$$prodId"] }, status: "ACTIVE", qty_available: { $gt: 0 } } }
+            { $match: { $expr: { $eq: ["$product_id", "$$prodId"] }, qty_available: { $gt: 0 } } }
           ],
           as: "batches"
         }
@@ -121,14 +121,14 @@ export async function GET(req: NextRequest) {
     const lowStockCount = lowStockData[0]?.count || 0;
 
     // 4. EXPIRING SOON ALERTS
-    const thirtyDaysFromNow = addDays(now, 30);
+    const todayStr = now.toISOString().split('T')[0];
+    const plus30Str = addDays(now, 30).toISOString().split('T')[0];
     const expiringSoonData = await db.collection("batches").aggregate([
       { 
         $match: { 
           tenant_id: tenantId, 
-          status: "ACTIVE", 
           qty_available: { $gt: 0 },
-          expiry_date: { $lte: thirtyDaysFromNow, $gte: now } 
+          expiry_date: { $lte: plus30Str, $gte: todayStr } 
         } 
       },
       { $count: "count" }
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
 
     // 5. INVENTORY VALUE
     const inventoryValueData = await db.collection("batches").aggregate([
-      { $match: { tenant_id: tenantId, status: "ACTIVE", qty_available: { $gt: 0 } } },
+      { $match: { tenant_id: tenantId, qty_available: { $gt: 0 } } },
       {
         $group: {
           _id: null,

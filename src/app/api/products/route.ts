@@ -43,6 +43,30 @@ export async function GET(req: Request) {
       },
       {
         $unwind: { path: "$manufacturer", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $addFields: {
+          id_string: { $toString: "$_id" }
+        }
+      },
+      {
+        $lookup: {
+          from: "batches",
+          localField: "id_string",
+          foreignField: "product_id",
+          as: "batches"
+        }
+      },
+      {
+        $addFields: {
+          total_stock: { $sum: "$batches.qty_available" }
+        }
+      },
+      {
+        $project: {
+          batches: 0,
+          id_string: 0
+        }
       }
     ]).toArray();
     

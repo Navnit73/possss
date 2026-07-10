@@ -141,6 +141,7 @@ export default function AddStockPage() {
             <label className="text-sm font-medium text-foreground">Quantity Received *</label>
             <input 
               type="number"
+              step="any"
               {...register("qty_available")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
@@ -150,7 +151,7 @@ export default function AddStockPage() {
           <div>
             <label className="text-sm font-medium text-foreground">Expiry Date</label>
             <input 
-              type="month"
+              type="date"
               {...register("expiry_date")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
