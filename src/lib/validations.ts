@@ -234,3 +234,48 @@ export interface Supplier {
   created_at: Date;
   updated_at?: Date;
 }
+
+// --- POS / Sales Validations ---
+
+export const saleItemSchema = z.object({
+  product_id: z.string(),
+  batch_id: z.string(),
+  qty: z.number().min(1),
+  price: z.number().min(0), // selling price at time of sale
+  discount: z.number().min(0).default(0), // item level discount %
+  cost_price: z.number().min(0), // cost price to calculate profit
+});
+
+export const saleSchema = z.object({
+  subtotal: z.number().min(0),
+  tax: z.number().min(0),
+  discount: z.number().min(0),
+  total: z.number().min(0),
+  payment_method: z.enum(["CASH", "CARD", "UPI", "OTHER"]),
+  items: z.array(saleItemSchema).min(1, "Cart cannot be empty"),
+});
+
+export interface SaleItem {
+  _id?: any;
+  sale_id: string; // references sales._id
+  product_id: string;
+  batch_id: string;
+  qty: number;
+  price: number;
+  discount: number; // item level discount %
+  profit: number; // (price - cost_price) * qty
+}
+
+export interface Sale {
+  _id?: any;
+  tenant_id: string;
+  invoice_no: string;
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  payment_method: "CASH" | "CARD" | "UPI" | "OTHER";
+  created_by?: string;
+  created_at: Date;
+}
+

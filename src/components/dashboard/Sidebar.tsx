@@ -16,7 +16,8 @@ import {
   Settings2,
   History,
   AlertTriangle,
-  Truck
+  Truck,
+  MonitorPlay
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -25,6 +26,7 @@ const navGroups = [
     title: "Main",
     items: [
       { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Launch POS", href: "/pos/sell", icon: MonitorPlay },
     ]
   },
   {
