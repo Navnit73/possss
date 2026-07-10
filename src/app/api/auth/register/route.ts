@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       name: validatedData.name,
       email: validatedData.email,
       password: hashedPassword,
-      role: validatedData.role,
+      role: "OWNER",
       created_at: new Date(),
     };
 
