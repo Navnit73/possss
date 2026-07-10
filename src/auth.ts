@@ -6,6 +6,7 @@ import { CredentialsSignin } from "next-auth"
 import bcrypt from "bcryptjs"
 import { ObjectId } from "mongodb"
 import { authConfig } from "./auth.config"
+import { rateLimit } from "./lib/rateLimit"
 
 class CustomAuthError extends CredentialsSignin {
   code = "custom_error";
@@ -25,9 +26,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new CustomAuthError("Email and password are required");
+        }
+
+        // Rate limit by email to prevent brute force (5 attempts per minute)
+        const identifier = `login-${credentials.email}`;
+        if (!rateLimit(identifier, 5, 60 * 1000)) {
+          throw new CustomAuthError("Too many login attempts. Please try again later.");
         }
 
         const db = client.db("pos");

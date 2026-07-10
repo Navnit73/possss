@@ -4,6 +4,7 @@ import client from "@/lib/mongodb";
 import { supplierSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkRole } from "@/lib/rbac";
 
 export async function GET(
   req: Request,
@@ -39,6 +40,9 @@ export async function PUT(
 ) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -86,6 +90,9 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

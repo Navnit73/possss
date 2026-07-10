@@ -1,11 +1,17 @@
+"use client";
+
 import Link from "next/link";
-import { BarChart3, TrendingUp, Package, AlertCircle, ArrowUpRight, ArrowDownRight, Users, Settings } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BarChart3, TrendingUp, Package, AlertCircle, ArrowUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function ReportsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   const tabs = [
     { name: "Sales", href: "/dashboard/reports/sales", icon: TrendingUp },
     { name: "Profit & Loss", href: "/dashboard/reports/profit-loss", icon: BarChart3 },
@@ -22,16 +28,24 @@ export default function ReportsLayout({
           <p className="text-sm text-slate-500">Business insights and inventory tracking.</p>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {tabs.map((tab) => (
-            <Link
-              key={tab.name}
-              href={tab.href}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.name}
-            </Link>
-          ))}
+          {tabs.map((tab) => {
+            const isActive = pathname === tab.href;
+            return (
+              <Link
+                key={tab.name}
+                href={tab.href}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors shrink-0",
+                  isActive
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                )}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.name}
+              </Link>
+            );
+          })}
         </div>
       </div>
       <div className="flex-1 bg-slate-50 p-6">

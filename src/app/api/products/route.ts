@@ -4,6 +4,8 @@ import client from "@/lib/mongodb";
 import { productSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
+import { checkRole } from "@/lib/rbac";
+import { logAction } from "@/lib/logger";
 
 export async function GET(req: Request) {
   try {
@@ -79,6 +81,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

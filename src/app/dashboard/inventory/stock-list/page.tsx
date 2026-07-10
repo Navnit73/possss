@@ -149,7 +149,7 @@ export default function StockListPage() {
                           <div className="col-span-2 font-mono text-xs">{batch.batch_number}</div>
                           <div className="col-span-2 text-muted-foreground truncate">{batch.supplier || "-"}</div>
                           <div className="col-span-2">{batch.expiry_date || "-"}</div>
-                          <div className="col-span-2">{batch.rack_location || group.product?.rack_number || "-"}</div>
+                          <div className="col-span-2">{group.product?.rack_number || "-"}</div>
                           <div className="col-span-1 text-right">${batch.cost_price.toFixed(2)}</div>
                           <div className="col-span-1 text-right">${batch.selling_price.toFixed(2)}</div>
                           <div className="col-span-1 text-right font-medium">{batch.qty_available}</div>

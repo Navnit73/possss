@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { logError } from "./logger";
+import crypto from "crypto";
 
 export async function handleApiError(error: any, endpoint: string) {
-  // Log the error internally
-  await logError(error, { endpoint });
+  const correlationId = crypto.randomUUID();
+
+  // Log the error internally with the correlation ID
+  await logError(error, { endpoint, correlationId });
   
   // Format Zod validation errors into a human-readable string
   if (error instanceof ZodError) {
@@ -25,9 +28,9 @@ export async function handleApiError(error: any, endpoint: string) {
     }, { status: 409 });
   }
 
-  // Generic fallback with the actual error message
-  const message = error instanceof Error ? error.message : String(error);
+  // Generic fallback: Do not leak error details to the client
   return NextResponse.json({ 
-    error: `An error occurred: ${message}` 
+    error: "An unexpected internal error occurred.",
+    correlationId 
   }, { status: 500 });
 }

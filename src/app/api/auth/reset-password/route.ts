@@ -4,9 +4,16 @@ import client from "@/lib/mongodb";
 import { resetPasswordSchema } from "@/lib/validations";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 3 requests per hour per IP
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    if (!rateLimit(`reset-pw-${ip}`, 3, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+    }
+
     const body = await req.json();
     const { token, password } = resetPasswordSchema.parse(body);
 

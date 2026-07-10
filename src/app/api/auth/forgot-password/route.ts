@@ -5,9 +5,16 @@ import { forgotPasswordSchema } from "@/lib/validations";
 import { sendPasswordResetEmail } from "@/lib/mail";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 3 requests per hour per IP
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    if (!rateLimit(`forgot-pw-${ip}`, 3, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+    }
+
     const body = await req.json();
     const { email } = forgotPasswordSchema.parse(body);
 
@@ -21,7 +28,7 @@ export async function POST(req: Request) {
 
     // Generate secure token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+    const resetTokenExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes from now
 
     // Save token to user document
     await db.collection("users").updateOne(

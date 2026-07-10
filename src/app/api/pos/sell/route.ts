@@ -38,25 +38,10 @@ export async function POST(req: Request) {
         
         const invoiceNo = `INV-${year}-${seq.toString().padStart(4, '0')}`;
 
-        // Create Sale
-        const sale = {
-          tenant_id: tenantId,
-          invoice_no: invoiceNo,
-          subtotal: validatedData.subtotal,
-          tax: validatedData.tax,
-          discount: validatedData.discount,
-          total: validatedData.total,
-          payment_method: validatedData.payment_method,
-          created_by: userId,
-          created_at: new Date()
-        };
-
-        const saleResult = await db.collection("sales").insertOne(sale, { session: sessionClient });
-        insertedSaleId = saleResult.insertedId.toString();
-
-        // Prepare Sale Items and Inventory updates
+        // Prepare Sale Items and Inventory updates FIRST to calculate true server totals
         const saleItems = [];
         const stockMovements = [];
+        let serverSubtotal = 0;
 
         for (const item of validatedData.items) {
           // Atomic deduction: find and update in one operation to prevent race conditions
@@ -74,15 +59,23 @@ export async function POST(req: Request) {
             throw new Error(`Insufficient stock or batch not found for product ${item.product_id}`);
           }
 
-          const profit = (item.price - item.cost_price) * item.qty;
+          // CRITICAL FIX: The server is the absolute source of truth for pricing
+          const actualPrice = batch.selling_price;
+          const actualCost = batch.cost_price;
+
+          const lineTotal = actualPrice * item.qty;
+          const lineDiscountAmt = lineTotal * (item.discount / 100);
+          const finalLinePrice = lineTotal - lineDiscountAmt;
+          
+          serverSubtotal += finalLinePrice;
+          const profit = finalLinePrice - (actualCost * item.qty);
 
           saleItems.push({
-            sale_id: insertedSaleId,
             product_id: item.product_id,
             batch_id: item.batch_id,
             qty: item.qty,
-            price: item.price,
-            cost_price: item.cost_price,
+            price: actualPrice,
+            cost_price: actualCost,
             discount: item.discount,
             profit: profit
           });
@@ -102,8 +95,41 @@ export async function POST(req: Request) {
           });
         }
 
+        // Calculate final server total
+        const serverDiscountTotal = validatedData.discount;
+        if (serverDiscountTotal > serverSubtotal) {
+          throw new Error(`Discount (${serverDiscountTotal}) cannot exceed subtotal (${serverSubtotal})`);
+        }
+        const serverTotalAfterDiscount = serverSubtotal - serverDiscountTotal;
+        const serverTaxAmount = validatedData.tax;
+        const serverGrandTotal = serverTotalAfterDiscount + serverTaxAmount;
+
+        // Tolerance check for floating point maths (allow 2 cents difference)
+        if (Math.abs(serverGrandTotal - validatedData.total) > 0.02) {
+          throw new Error(`PRICE_MISMATCH: Server calculated ${serverGrandTotal.toFixed(2)}, but client requested ${validatedData.total.toFixed(2)}. This attempt has been blocked.`);
+        }
+
+        // Create Sale using verified server totals
+        const sale = {
+          tenant_id: tenantId,
+          invoice_no: invoiceNo,
+          subtotal: serverSubtotal,
+          tax: validatedData.tax,
+          discount: validatedData.discount,
+          total: serverGrandTotal,
+          payment_method: validatedData.payment_method,
+          created_by: userId,
+          created_at: new Date()
+        };
+
+        const saleResult = await db.collection("sales").insertOne(sale, { session: sessionClient });
+        insertedSaleId = saleResult.insertedId.toString();
+
+        // Update saleItems with insertedSaleId
+        const finalSaleItems = saleItems.map(si => ({ ...si, sale_id: insertedSaleId }));
+
         // Insert all sale items
-        await db.collection("sale_items").insertMany(saleItems, { session: sessionClient });
+        await db.collection("sale_items").insertMany(finalSaleItems, { session: sessionClient });
         
         // Insert all stock movements
         await db.collection("stock_movements").insertMany(stockMovements, { session: sessionClient });
@@ -114,7 +140,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, sale_id: insertedSaleId }, { status: 201 });
   } catch (error: any) {
-    if (error.message && (error.message.includes("Insufficient stock") || error.message.includes("Batch not found"))) {
+    if (error.message && (
+      error.message.includes("Insufficient stock") || 
+      error.message.includes("Batch not found") ||
+      error.message.includes("PRICE_MISMATCH") ||
+      error.message.includes("cannot exceed subtotal")
+    )) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return await handleApiError(error, "POST /api/pos/sell");

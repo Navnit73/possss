@@ -35,3 +35,10 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 # possss
+
+## ⚠️ Security Notice
+
+A full security audit was performed on this codebase. **If you have previously hardcoded database URIs, API keys, or any secrets in this repository, those values remain visible in the Git history!**
+
+**ACTION REQUIRED:**
+You must immediately rotate (change/revoke) any passwords, MongoDB URIs, or external API keys that were ever committed to this repository. Do not use the old credentials, even if they have been moved to `.env`, because an attacker can simply look at the old commits.

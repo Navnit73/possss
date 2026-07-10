@@ -4,6 +4,7 @@ import client from "@/lib/mongodb";
 import { batchSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
+import { checkRole } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
@@ -34,6 +35,24 @@ export async function GET(req: Request) {
         $unwind: { path: "$product", preserveNullAndEmptyArrays: true }
       },
       {
+        $addFields: {
+          "product.category_obj_id": { 
+            $convert: { input: "$product.category_id", to: "objectId", onError: null, onNull: null } 
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "product.category_obj_id",
+          foreignField: "_id",
+          as: "product.category"
+        }
+      },
+      {
+        $unwind: { path: "$product.category", preserveNullAndEmptyArrays: true }
+      },
+      {
         $sort: { created_at: -1 }
       }
     ]).toArray();
@@ -47,6 +66,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
+    // Allow OWNER, MANAGER, and PHARMACIST to manage inventory batches
+    const roleError = checkRole(session, ["OWNER", "MANAGER", "PHARMACIST"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

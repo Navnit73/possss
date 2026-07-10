@@ -36,7 +36,25 @@ export async function GET(req: NextRequest) {
           as: "product"
         }
       },
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          "product.category_obj_id": { 
+            $convert: { input: "$product.category_id", to: "objectId", onError: null, onNull: null } 
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "product.category_obj_id",
+          foreignField: "_id",
+          as: "product.category"
+        }
+      },
+      {
+        $unwind: { path: "$product.category", preserveNullAndEmptyArrays: true }
+      }
     ];
 
     if (search) {
@@ -82,8 +100,8 @@ export async function GET(req: NextRequest) {
       {
         $project: {
           product_name: { $ifNull: ["$product.name", "Unknown"] },
-          category: { $ifNull: ["$product.category", "-"] },
-          rack_location: { $ifNull: ["$product.rack_location", "-"] },
+          category: { $ifNull: ["$product.category.name", "-"] },
+          rack_location: { $ifNull: ["$product.rack_number", "-"] },
           batch_number: 1,
           qty_available: 1,
           cost_price: 1,

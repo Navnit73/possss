@@ -22,6 +22,43 @@ interface LogEntry {
 
 const LOGS_DIR = path.join(process.cwd(), "logs");
 
+const SENSITIVE_KEYS = ["password", "token", "phonenumber", "card", "creditcard", "cvv", "ssn", "secret"];
+
+function redactSensitiveData(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  
+  if (typeof obj === 'string') {
+    // Optional: add regex-based redaction for strings if they contain emails, but 
+    // for now we'll rely on key-based redaction for structured data.
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => redactSensitiveData(item));
+  }
+  
+  if (typeof obj === 'object') {
+    const redacted: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const lowerKey = key.toLowerCase();
+        if (SENSITIVE_KEYS.some(sensitiveKey => lowerKey.includes(sensitiveKey))) {
+          redacted[key] = "[REDACTED]";
+        } else if (lowerKey === "email") {
+          // Keep the domain for debugging, but redact the local part if needed, or fully redact.
+          // Fully redacting email as requested in audit: "remove user emails"
+          redacted[key] = "[REDACTED]";
+        } else {
+          redacted[key] = redactSensitiveData(obj[key]);
+        }
+      }
+    }
+    return redacted;
+  }
+  
+  return obj;
+}
+
 async function writeToLocalFile(logData: any) {
   try {
     // Ensure logs directory exists
@@ -39,6 +76,7 @@ async function writeToLocalFile(logData: any) {
 export async function logAction(entry: LogEntry) {
   const logData = {
     ...entry,
+    details: redactSensitiveData(entry.details),
     timestamp: new Date(),
   };
 

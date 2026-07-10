@@ -1,7 +1,9 @@
 const { MongoClient, ObjectId } = require('mongodb');
 
 async function run() {
-  const client = new MongoClient("mongodb+srv://navnit_db_user:ypqb4zzehy@clinicemr.85aceo4.mongodb.net/pos");
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI is required");
+  const client = new MongoClient(uri);
   try {
     await client.connect();
     const db = client.db("pos");
