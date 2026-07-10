@@ -82,6 +82,7 @@ export async function POST(req: Request) {
             batch_id: item.batch_id,
             qty: item.qty,
             price: item.price,
+            cost_price: item.cost_price,
             discount: item.discount,
             profit: profit
           });

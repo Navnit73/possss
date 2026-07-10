@@ -17,7 +17,8 @@ import {
   History,
   AlertTriangle,
   Truck,
-  MonitorPlay
+  MonitorPlay,
+  BarChart3
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -51,6 +52,12 @@ const navGroups = [
       { name: "Receive Stock", href: "/dashboard/inventory/add-stock", icon: PlusCircle },
       { name: "Adjust Stock", href: "/dashboard/inventory/adjust-stock", icon: Settings2 },
       { name: "Stock Ledger", href: "/dashboard/inventory/history", icon: History },
+    ]
+  },
+  {
+    title: "Analytics",
+    items: [
+      { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
     ]
   }
 ];
