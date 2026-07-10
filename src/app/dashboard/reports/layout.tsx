@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, TrendingUp, Package, AlertCircle, ArrowUpRight } from "lucide-react";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
 
 export default function ReportsLayout({
@@ -22,13 +21,13 @@ export default function ReportsLayout({
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-4">
-        <PageHeader 
-          title="Reports & Analytics"
-          description="Business insights and inventory tracking."
-        />
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex flex-col min-h-screen bg-zinc-50 ">
+      <div className="bg-white border-b border-zinc-200 px-8 pt-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-black tracking-tight text-zinc-900">Reports & Analytics</h1>
+          <p className="text-zinc-500 mt-1">Business insights and inventory tracking.</p>
+        </div>
+        <div className="flex gap-6 overflow-x-auto scrollbar-hide">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
             return (
@@ -36,10 +35,10 @@ export default function ReportsLayout({
                 key={tab.name}
                 href={tab.href}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors shrink-0",
+                  "flex items-center gap-2 pb-3 text-sm font-semibold transition-colors shrink-0 border-b-2",
                   isActive
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "border-indigo-600 text-indigo-700"
+                    : "border-transparent text-zinc-500 hover:text-zinc-900 hover:border-zinc-300"
                 )}
               >
                 <tab.icon className="w-4 h-4" />
@@ -49,7 +48,7 @@ export default function ReportsLayout({
           })}
         </div>
       </div>
-      <div className="flex-1 bg-slate-50 p-6">
+      <div className="flex-1 p-8">
         {children}
       </div>
     </div>

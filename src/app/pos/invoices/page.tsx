@@ -30,7 +30,7 @@ export default function PosInvoicesPage() {
   );
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-surface text-foreground font-sans p-6">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-surface text-foreground  p-6">
       <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

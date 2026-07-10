@@ -237,7 +237,7 @@ export default function PosSellPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-surface font-sans text-foreground">
+    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-surface  text-foreground">
       
       {/* Left Panel: Search & Products */}
       <div className="flex-1 flex flex-col bg-white z-0">

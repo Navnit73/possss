@@ -53,7 +53,7 @@ export default function StockListPage() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8 font-sans">
+    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8 ">
       <PageHeader 
         title="Stock List"
         description="Manage inventory levels across all product batches."

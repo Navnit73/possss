@@ -94,7 +94,7 @@ export default function StockHistoryPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 font-sans">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 ">
       <PageHeader 
         title="Stock History"
         description="Immutable ledger of all inventory transactions."
