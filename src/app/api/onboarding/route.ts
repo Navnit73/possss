@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { createStoreSchema, businessDetailsSchema, subscriptionSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
+import { logAction, logError } from "@/lib/logger";
 
 export async function POST(req: Request) {
   try {
@@ -29,8 +30,16 @@ export async function POST(req: Request) {
       { $set: { tenant_id: result.insertedId.toString() } }
     );
 
+    await logAction({
+      action: "STORE_CREATED",
+      userId: session.user.id,
+      tenantId: result.insertedId.toString(),
+      details: { business_name }
+    });
+
     return NextResponse.json({ tenant_id: result.insertedId, message: "Store created" }, { status: 201 });
   } catch (error: any) {
+    await logError(error, { endpoint: "POST /api/onboarding" });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -51,13 +60,16 @@ export async function PUT(req: Request) {
     }
 
     let updateData = {};
+    let auditAction = "";
 
     if (step === "business-details") {
       const validated = businessDetailsSchema.parse(data);
       updateData = { ...validated };
+      auditAction = "BUSINESS_DETAILS_UPDATED";
     } else if (step === "subscription") {
       const validated = subscriptionSchema.parse(data);
       updateData = { ...validated, status: "ACTIVE" };
+      auditAction = "SUBSCRIPTION_ACTIVATED";
     } else {
       return NextResponse.json({ error: "Invalid step" }, { status: 400 });
     }
@@ -67,8 +79,16 @@ export async function PUT(req: Request) {
       { $set: updateData }
     );
 
+    await logAction({
+      action: auditAction as any,
+      userId: session.user.id,
+      tenantId: user.tenant_id,
+      details: updateData
+    });
+
     return NextResponse.json({ message: "Store updated successfully" }, { status: 200 });
   } catch (error: any) {
+    await logError(error, { endpoint: "PUT /api/onboarding" });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
