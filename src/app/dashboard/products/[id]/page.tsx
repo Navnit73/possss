@@ -40,7 +40,7 @@ export default function ViewProductPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-4">
           <Link 
@@ -64,9 +64,10 @@ export default function ViewProductPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
+        {/* Basic Info */}
+        <div className="bg-surface border border-border rounded-lg p-6  md:col-span-2">
           <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Basic Info</h2>
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <span className="text-sm text-muted-foreground block">Category</span>
               <span className="font-medium">{product.category?.name || "Uncategorized"}</span>
@@ -76,34 +77,114 @@ export default function ViewProductPage() {
               <span className="font-medium">{product.manufacturer?.name || "Unknown"}</span>
             </div>
             <div>
-              <span className="text-sm text-muted-foreground block">Brand</span>
-              <span className="font-medium">{product.brand || "-"}</span>
+              <span className="text-sm text-muted-foreground block">Generic Name</span>
+              <span className="font-medium">{product.generic_name || "-"}</span>
             </div>
             <div>
-              <span className="text-sm text-muted-foreground block">SKU</span>
-              <span className="font-medium">{product.sku || "-"}</span>
+              <span className="text-sm text-muted-foreground block">Brand</span>
+              <span className="font-medium">{product.brand || "-"}</span>
             </div>
             <div>
               <span className="text-sm text-muted-foreground block">Barcode</span>
               <span className="font-medium">{product.barcode || "-"}</span>
             </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">SKU</span>
+              <span className="font-medium">{product.sku || "-"}</span>
+            </div>
           </div>
         </div>
 
-        <div className="bg-surface border border-border rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Medicine Details</h2>
+        {/* Clinical & Administration */}
+        <div className="bg-surface border border-border rounded-lg p-6  md:col-span-2">
+          <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Clinical & Administration</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span className="text-sm text-muted-foreground block">Strength</span>
+              <span className="font-medium">{product.strength || "-"}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Dosage Form</span>
+              <span className="font-medium">{product.dosage_form || "-"}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Route of Admin</span>
+              <span className="font-medium">{product.route_of_administration || "-"}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Storage</span>
+              <span className="font-medium">{product.storage_conditions || "-"}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Pregnancy Cat.</span>
+              <span className="font-medium">{product.pregnancy_category || "-"}</span>
+            </div>
+            <div>
+              <span className="text-sm text-muted-foreground block">Requires Rx</span>
+              <span className={`font-medium ${product.requires_prescription ? 'text-red-500' : 'text-green-500'}`}>
+                {product.requires_prescription ? "Yes" : "No"}
+              </span>
+            </div>
+            <div className="col-span-2">
+              <span className="text-sm text-muted-foreground block">Active Ingredients</span>
+              <span className="font-medium">{product.active_ingredients || "-"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Regulatory & Packaging */}
+        <div className="bg-surface border border-border rounded-lg p-6 ">
+          <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Regulatory & Packaging</h2>
           <div className="space-y-4">
-            <div>
-              <span className="text-sm text-muted-foreground block">Strength & Form</span>
-              <span className="font-medium">{product.strength} {product.dosage_form}</span>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Schedule Class</span>
+              <span className="font-medium">{product.schedule_class || "-"}</span>
             </div>
-            <div>
-              <span className="text-sm text-muted-foreground block">Prescription</span>
-              <span className="font-medium">{product.requires_prescription ? "Required (Rx)" : "Over the counter (OTC)"}</span>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">HSN Code</span>
+              <span className="font-medium">{product.hsn_code || "-"}</span>
             </div>
-            <div>
-              <span className="text-sm text-muted-foreground block">Status</span>
-              <span className="font-medium">{product.status}</span>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">NDC Code</span>
+              <span className="font-medium">{product.ndc_code || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Dispense Unit (UOM)</span>
+              <span className="font-medium">{product.unit_of_measure || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Package Type</span>
+              <span className="font-medium">{product.package_type || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Package Size</span>
+              <span className="font-medium">{product.package_size || 1} units</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Inventory Settings */}
+        {/* Inventory Settings */}
+        <div className="bg-surface border border-border rounded-lg p-6 ">
+          <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Inventory Settings</h2>
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Rack Number</span>
+              <span className="font-medium">{product.rack_number || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Minimum Stock Alert</span>
+              <span className="font-medium">{product.minimum_stock || 0} units</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Tax Rate</span>
+              <span className="font-medium">{product.tax_rate || 0}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <span className={`font-medium ${product.status === "ACTIVE" ? 'text-green-600' : 'text-red-500'}`}>
+                {product.status}
+              </span>
             </div>
           </div>
         </div>

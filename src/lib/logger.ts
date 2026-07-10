@@ -9,6 +9,7 @@ export type AuditLogAction =
   | "STORE_CREATED" 
   | "BUSINESS_DETAILS_UPDATED" 
   | "SUBSCRIPTION_ACTIVATED"
+  | "PRODUCT_UPDATED"
   | "ERROR";
 
 interface LogEntry {

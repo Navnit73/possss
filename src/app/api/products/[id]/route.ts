@@ -4,6 +4,7 @@ import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { productSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
+import { logAction } from "@/lib/logger";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -77,13 +78,38 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    const existingProduct = await db.collection("products").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
+    if (!existingProduct) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
     const result = await db.collection("products").updateOne(
       { _id: new ObjectId(id), tenant_id: tenantId },
       { $set: { ...validatedData, updated_at: new Date() } }
     );
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    // Calculate changes for audit log
+    const changes: Record<string, { old: any, new: any }> = {};
+    for (const key of Object.keys(validatedData)) {
+      const newVal = (validatedData as any)[key];
+      const oldVal = existingProduct[key];
+      // Basic equality check
+      if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+        changes[key] = { old: oldVal, new: newVal };
+      }
+    }
+
+    if (Object.keys(changes).length > 0) {
+      await logAction({
+        action: "PRODUCT_UPDATED",
+        userId: session?.user?.id,
+        tenantId,
+        details: {
+          productId: id,
+          productName: validatedData.name,
+          changes
+        }
+      });
     }
 
     return NextResponse.json({ message: "Product updated successfully" }, { status: 200 });

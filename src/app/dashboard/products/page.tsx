@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
-import { Plus, Package, Search } from "lucide-react";
+import { Plus, Package, Search, Eye, Edit } from "lucide-react";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -48,7 +48,7 @@ export default function ProductsPage() {
         </Link>
       </div>
 
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col shadow-sm">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col ">
         <div className="p-4 border-b border-border bg-secondary/30">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -88,24 +88,29 @@ export default function ProductsPage() {
               <thead>
                 <tr className="border-b border-border bg-secondary/50">
                   <th className="p-4 text-sm font-semibold text-foreground">Medicine Name</th>
+                  <th className="p-4 text-sm font-semibold text-foreground">Brand</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Category</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Strength & Form</th>
+                  <th className="p-4 text-sm font-semibold text-foreground">Rack</th>
                   <th className="p-4 text-sm font-semibold text-foreground">Stock Alert</th>
-                  <th className="p-4 text-sm font-semibold text-foreground text-right">Status</th>
+                  <th className="p-4 text-sm font-semibold text-foreground">Status</th>
+                  <th className="p-4 text-sm font-semibold text-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredProducts.map((p) => (
-                  <tr key={p._id} className="hover:bg-secondary/30 transition-colors group cursor-pointer">
+                  <tr key={p._id} className="hover:bg-secondary/30 transition-colors group">
                     <td className="p-4">
-                      <p className="font-medium text-foreground group-hover:text-primary transition-colors">{p.name}</p>
+                      <p className="font-medium text-foreground">{p.name}</p>
                       {p.generic_name && <p className="text-xs text-muted-foreground">{p.generic_name}</p>}
+                    </td>
+                    <td className="p-4 text-sm text-foreground">
+                      {p.brand || <span className="text-muted-foreground">-</span>}
                     </td>
                     <td className="p-4 text-sm text-foreground">
                       {p.category?.name || <span className="text-muted-foreground italic">Uncategorized</span>}
                     </td>
                     <td className="p-4 text-sm text-foreground">
-                      {p.strength} {p.dosage_form}
+                      {p.rack_number || <span className="text-muted-foreground">-</span>}
                     </td>
                     <td className="p-4 text-sm">
                       {p.minimum_stock > 0 ? (
@@ -116,7 +121,7 @@ export default function ProductsPage() {
                         <span className="text-muted-foreground">-</span>
                       )}
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-4">
                       {p.status === "ACTIVE" ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
                           Active
@@ -126,6 +131,22 @@ export default function ProductsPage() {
                           Inactive
                         </span>
                       )}
+                    </td>
+                    <td className="p-4 text-right space-x-2">
+                      <Link 
+                        href={`/dashboard/products/${p._id}`}
+                        className="inline-flex items-center justify-center p-2 rounded-md bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Link>
+                      <Link 
+                        href={`/dashboard/products/${p._id}/edit`}
+                        className="inline-flex items-center justify-center p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                        title="Edit Product"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
                     </td>
                   </tr>
                 ))}

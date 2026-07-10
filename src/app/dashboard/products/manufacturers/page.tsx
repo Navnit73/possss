@@ -5,7 +5,7 @@ import axios from "axios";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { manufacturerSchema } from "@/lib/validations";
-import { Plus, Factory } from "lucide-react";
+import { Plus, Factory, Edit } from "lucide-react";
 
 type ManufacturerForm = {
   name: string;
@@ -17,6 +17,7 @@ export default function ManufacturersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ManufacturerForm>({
     resolver: zodResolver(manufacturerSchema),
@@ -37,74 +38,104 @@ export default function ManufacturersPage() {
     fetchManufacturers();
   }, []);
 
+  const handleEditClick = (man: any) => {
+    setEditingId(man._id);
+    reset({
+      name: man.name,
+      contact_info: man.contact_info || "",
+    });
+    setIsAdding(true);
+    setError("");
+  };
+
+  const handleCancel = () => {
+    setIsAdding(false);
+    setEditingId(null);
+    reset({ name: "", contact_info: "" });
+    setError("");
+  };
+
   const onSubmit = async (data: ManufacturerForm) => {
     setError("");
     try {
-      await axios.post("/api/manufacturers", data);
-      reset();
-      setIsAdding(false);
+      if (editingId) {
+        await axios.put(`/api/manufacturers/${editingId}`, data);
+      } else {
+        await axios.post("/api/manufacturers", data);
+      }
+      handleCancel();
       fetchManufacturers();
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to add manufacturer");
+      setError(err.response?.data?.error || `Failed to ${editingId ? "update" : "add"} manufacturer`);
     }
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-display font-bold text-foreground">Manufacturers</h1>
           <p className="text-muted-foreground mt-1">Manage pharmaceutical manufacturers and suppliers.</p>
         </div>
-        <button
-          onClick={() => setIsAdding(!isAdding)}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Manufacturer
-        </button>
+        {!isAdding && (
+          <button
+            onClick={() => {
+              setEditingId(null);
+              reset({ name: "", contact_info: "" });
+              setIsAdding(true);
+            }}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Manufacturer
+          </button>
+        )}
       </div>
 
       {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
 
       {isAdding && (
-        <div className="bg-surface border border-border p-6 rounded-lg">
-          <h2 className="text-lg font-bold mb-4">New Manufacturer</h2>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-md">
-            <div>
-              <label className="text-sm font-medium text-foreground">Name *</label>
-              <input 
-                {...register("name")}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. Pfizer"
-              />
-              {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Contact Info</label>
-              <textarea 
-                {...register("contact_info")}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="Optional contact details..."
-                rows={3}
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button 
-                type="button" 
-                onClick={() => setIsAdding(false)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button 
-                type="submit"
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-              >
-                Save Manufacturer
-              </button>
-            </div>
-          </form>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface border border-border p-6 rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold text-foreground mb-6">
+              {editingId ? "Edit Manufacturer" : "New Manufacturer"}
+            </h2>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div>
+                <label className="text-sm font-medium text-foreground">Name *</label>
+                <input 
+                  {...register("name")}
+                  className="w-full mt-1.5 px-3 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                  placeholder="e.g. Pfizer"
+                />
+                {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">Contact Info</label>
+                <textarea 
+                  {...register("contact_info")}
+                  className="w-full mt-1.5 px-3 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground resize-none"
+                  placeholder="Optional contact details..."
+                  rows={4}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
+                <button 
+                  type="button" 
+                  onClick={handleCancel}
+                  className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="px-5 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+                >
+                  {editingId ? "Update Manufacturer" : "Save Manufacturer"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -127,13 +158,23 @@ export default function ManufacturersPage() {
               <tr className="border-b border-border bg-secondary/50">
                 <th className="p-4 text-sm font-semibold text-foreground">Name</th>
                 <th className="p-4 text-sm font-semibold text-foreground">Contact Info</th>
+                <th className="p-4 text-sm font-semibold text-foreground text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {manufacturers.map((man) => (
-                <tr key={man._id} className="hover:bg-secondary/30 transition-colors">
+                <tr key={man._id} className="hover:bg-secondary/30 transition-colors group">
                   <td className="p-4 text-sm font-medium text-foreground">{man.name}</td>
                   <td className="p-4 text-sm text-muted-foreground">{man.contact_info || "-"}</td>
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => handleEditClick(man)}
+                      className="inline-flex items-center justify-center p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      title="Edit Manufacturer"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

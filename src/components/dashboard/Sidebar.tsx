@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -7,7 +8,9 @@ import {
   Package, 
   Tags, 
   Factory,
-  Activity
+  Activity,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -20,20 +23,34 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="w-64 bg-surface border-r border-border min-h-screen flex flex-col">
-      <div className="h-16 flex items-center px-6 border-b border-border">
-        <div className="flex items-center gap-2 text-primary">
-          <Activity className="w-6 h-6" />
-          <span className="font-display font-bold text-lg tracking-tight">Pharmacy POS</span>
+    <div 
+      className={clsx(
+        "bg-indigo-950 text-indigo-50 border-r border-indigo-900/50 min-h-screen flex flex-col transition-all duration-300 ease-in-out relative shadow-xl shadow-indigo-950/20",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
+      <div className={clsx(
+        "h-16 flex items-center border-b border-indigo-900/50 transition-all duration-300",
+        isCollapsed ? "justify-center px-0" : "px-6"
+      )}>
+        <div className={clsx(
+          "flex items-center text-indigo-400",
+          isCollapsed ? "justify-center" : "gap-3"
+        )}>
+          <Activity className="w-6 h-6 flex-shrink-0" />
+          {!isCollapsed && (
+            <span className="font-display font-bold text-lg tracking-tight text-white whitespace-nowrap overflow-hidden">
+              Pharmacy POS
+            </span>
+          )}
         </div>
       </div>
       
-      <div className="flex-1 py-6 px-4 space-y-1">
+      <div className="flex-1 py-6 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
-          // Exact match for dashboard so it doesn't stay highlighted on sub-routes,
-          // but partial match for products so it stays highlighted on /products/add
           const isActive = item.href === "/dashboard" 
             ? pathname === item.href 
             : pathname.startsWith(item.href);
@@ -42,18 +59,39 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              title={isCollapsed ? item.name : undefined}
               className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200",
+                "flex items-center rounded-lg text-sm font-medium transition-all duration-200 group",
+                isCollapsed ? "justify-center p-2.5 mx-auto" : "gap-3 px-3 py-2.5 mx-1",
                 isActive 
-                  ? "bg-primary/10 text-primary" 
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "bg-indigo-600/20 text-indigo-200" 
+                  : "text-indigo-200/70 hover:bg-indigo-900/40 hover:text-indigo-100"
               )}
             >
-              <item.icon className={clsx("w-5 h-5", isActive ? "text-primary" : "text-muted-foreground")} />
-              {item.name}
+              <item.icon className={clsx(
+                "w-5 h-5 flex-shrink-0 transition-colors", 
+                isActive ? "text-indigo-300" : "text-indigo-300/60 group-hover:text-indigo-200"
+              )} />
+              {!isCollapsed && (
+                <span className="whitespace-nowrap">
+                  {item.name}
+                </span>
+              )}
             </Link>
           );
         })}
+      </div>
+
+      <div className="p-2 border-t border-indigo-900/50">
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={clsx(
+            "flex items-center justify-center p-2 rounded-lg text-indigo-300/70 hover:bg-indigo-900/40 hover:text-indigo-100 transition-colors mx-auto",
+            isCollapsed ? "w-10" : "w-full"
+          )}
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </button>
       </div>
     </div>
   );

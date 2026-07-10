@@ -51,6 +51,7 @@ export const manufacturerSchema = z.object({
 });
 
 export const productSchema = z.object({
+  // Basic Information
   name: z.string().min(2, "Medicine Name is required"),
   generic_name: z.string().transform(v => v === "" ? undefined : v).optional(),
   brand: z.string().transform(v => v === "" ? undefined : v).optional(),
@@ -58,9 +59,28 @@ export const productSchema = z.object({
   manufacturer_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Manufacturer"),
   barcode: z.string().transform(v => v === "" ? undefined : v).optional(),
   sku: z.string().transform(v => v === "" ? undefined : v).optional(),
+  
+  // Regulatory & Compliance
+  schedule_class: z.string().transform(v => v === "" ? undefined : v).optional(),
+  hsn_code: z.string().transform(v => v === "" ? undefined : v).optional(),
+  ndc_code: z.string().transform(v => v === "" ? undefined : v).optional(),
+  
+  // Clinical & Administration
   strength: z.string().transform(v => v === "" ? undefined : v).optional(),
   dosage_form: z.string().transform(v => v === "" ? undefined : v).optional(),
+  route_of_administration: z.string().transform(v => v === "" ? undefined : v).optional(),
+  active_ingredients: z.string().transform(v => v === "" ? undefined : v).optional(),
+  storage_conditions: z.string().transform(v => v === "" ? undefined : v).optional(),
+  pregnancy_category: z.string().transform(v => v === "" ? undefined : v).optional(),
   requires_prescription: z.boolean().default(false),
+  
+  // Packaging & Dispensing
+  unit_of_measure: z.string().min(1, "Unit of Measure is required"),
+  package_type: z.string().transform(v => v === "" ? undefined : v).optional(),
+  package_size: z.coerce.number().min(1).default(1),
+  
+  // Inventory Settings
+  rack_number: z.string().transform(v => v === "" ? undefined : v).optional(),
   minimum_stock: z.coerce.number().min(0).default(0),
   tax_rate: z.coerce.number().min(0).default(0),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
@@ -120,11 +140,27 @@ export interface Product {
   sku?: string;
   category_id: string;
   manufacturer_id: string;
+  
+  schedule_class?: string;
+  hsn_code?: string;
+  ndc_code?: string;
+  
   strength?: string;
   dosage_form?: string;
+  route_of_administration?: string;
+  active_ingredients?: string;
+  storage_conditions?: string;
+  pregnancy_category?: string;
   requires_prescription: boolean;
+  
+  unit_of_measure: string;
+  package_type?: string;
+  package_size: number;
+  
+  rack_number?: string;
   minimum_stock: number;
   tax_rate: number;
   status: "ACTIVE" | "INACTIVE";
   created_at: Date;
+  updated_at?: Date;
 }
