@@ -3,7 +3,8 @@ import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { registerSchema } from "@/lib/validations";
 import { sendWelcomeEmail } from "@/lib/mail";
-import { logAction, logError } from "@/lib/logger";
+import { logAction } from "@/lib/logger";
+import { handleApiError } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
@@ -44,7 +45,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "User registered successfully" }, { status: 201 });
   } catch (error: any) {
     console.error("Registration error:", error);
-    await logError(error, { endpoint: "/api/auth/register" });
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    return await handleApiError(error, "/api/auth/register");
   }
 }

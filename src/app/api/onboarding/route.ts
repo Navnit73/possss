@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { createStoreSchema, businessDetailsSchema, subscriptionSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
-import { logAction, logError } from "@/lib/logger";
+import { logAction } from "@/lib/logger";
+import { handleApiError } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
@@ -39,8 +40,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ tenant_id: result.insertedId, message: "Store created" }, { status: 201 });
   } catch (error: any) {
-    await logError(error, { endpoint: "POST /api/onboarding" });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return await handleApiError(error, "POST /api/onboarding");
   }
 }
 
@@ -88,7 +88,6 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ message: "Store updated successfully" }, { status: 200 });
   } catch (error: any) {
-    await logError(error, { endpoint: "PUT /api/onboarding" });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return await handleApiError(error, "PUT /api/onboarding");
   }
 }

@@ -3,7 +3,8 @@ import crypto from "crypto";
 import client from "@/lib/mongodb";
 import { forgotPasswordSchema } from "@/lib/validations";
 import { sendPasswordResetEmail } from "@/lib/mail";
-import { logAction, logError } from "@/lib/logger";
+import { logAction } from "@/lib/logger";
+import { handleApiError } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +41,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "If an account exists, a reset link has been sent." }, { status: 200 });
   } catch (error: any) {
     console.error("Forgot password error:", error);
-    await logError(error, { endpoint: "/api/auth/forgot-password" });
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    return await handleApiError(error, "/api/auth/forgot-password");
   }
 }

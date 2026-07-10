@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { resetPasswordSchema } from "@/lib/validations";
-import { logAction, logError } from "@/lib/logger";
+import { logAction } from "@/lib/logger";
+import { handleApiError } from "@/lib/errorHandler";
 
 export async function POST(req: Request) {
   try {
@@ -37,7 +38,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Password reset successful" }, { status: 200 });
   } catch (error: any) {
     console.error("Reset password error:", error);
-    await logError(error, { endpoint: "/api/auth/reset-password" });
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+    return await handleApiError(error, "/api/auth/reset-password");
   }
 }

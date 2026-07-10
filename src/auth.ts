@@ -2,9 +2,18 @@ import NextAuth from "next-auth"
 import { MongoDBAdapter } from "@auth/mongodb-adapter"
 import client from "./lib/mongodb"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { CredentialsSignin } from "next-auth"
 import bcrypt from "bcryptjs"
 import { ObjectId } from "mongodb"
 import { authConfig } from "./auth.config"
+
+class CustomAuthError extends CredentialsSignin {
+  code = "custom_error";
+  constructor(message?: string) {
+    super(message);
+    this.message = message || "Invalid credentials";
+  }
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -17,19 +26,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          throw new CustomAuthError("Email and password are required");
+        }
 
         const db = client.db("pos");
         const user = await db.collection("users").findOne({ email: credentials.email });
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+          throw new CustomAuthError("Invalid email or password");
         }
 
         const isValid = await bcrypt.compare(credentials.password as string, user.password);
 
         if (!isValid) {
-          throw new Error("Invalid credentials");
+          throw new CustomAuthError("Invalid email or password");
         }
 
         let tenantStatus = null;
