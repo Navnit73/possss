@@ -59,35 +59,40 @@ export default function DashboardPage() {
       title: "Today's Sales",
       value: `$${metrics.todaySales.toFixed(2)}`,
       icon: DollarSign,
-      color: "bg-emerald-50 text-emerald-600",
+      iconWrapper: "bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 border border-emerald-100/50",
+      circleColor: "bg-emerald-500",
       link: "/dashboard/reports/sales"
     },
     {
       title: "Monthly Profit",
       value: `$${metrics.monthlyProfit.toFixed(2)}`,
       icon: TrendingUp,
-      color: "bg-indigo-50 text-indigo-600",
+      iconWrapper: "bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-600 border border-indigo-100/50",
+      circleColor: "bg-indigo-500",
       link: "/dashboard/reports/profit-loss"
     },
     {
       title: "Inventory Value",
       value: `$${metrics.inventoryValue.toFixed(2)}`,
       icon: Package,
-      color: "bg-blue-50 text-blue-600",
+      iconWrapper: "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600 border border-blue-100/50",
+      circleColor: "bg-blue-500",
       link: "/dashboard/reports/inventory-value"
     },
     {
       title: "Low Stock Items",
       value: metrics.lowStockCount,
       icon: Activity,
-      color: "bg-rose-50 text-rose-600",
+      iconWrapper: "bg-gradient-to-br from-rose-100 to-rose-50 text-rose-600 border border-rose-100/50",
+      circleColor: "bg-rose-500",
       link: "/dashboard/inventory/alerts"
     },
     {
       title: "Expiring Soon (30d)",
       value: metrics.expiringSoonCount,
       icon: Clock,
-      color: "bg-amber-50 text-amber-600",
+      iconWrapper: "bg-gradient-to-br from-amber-100 to-amber-50 text-amber-600 border border-amber-100/50",
+      circleColor: "bg-amber-500",
       link: "/dashboard/reports/expiry"
     }
   ];
@@ -103,20 +108,20 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 font-sans">
+    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-10 font-sans">
       
       {/* Header & Global Filters */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
         <PageHeader 
           title="Overview"
           description="Welcome back! Here's what's happening with your store today."
         />
-        <div className="relative">
-          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="relative group">
+          <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
           <select 
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm font-medium bg-white text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm appearance-none cursor-pointer hover:bg-slate-50 transition-colors"
+            className="pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm appearance-none cursor-pointer hover:bg-slate-50 transition-all min-w-[160px]"
           >
             <option value="today">Today</option>
             <option value="yesterday">Yesterday</option>
@@ -125,26 +130,32 @@ export default function DashboardPage() {
             <option value="thisMonth">This Month</option>
             <option value="lastMonth">Last Month</option>
           </select>
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
         {kpiCards.map((card, idx) => (
-          <Link key={idx} href={card.link} className="group flex-none w-64 snap-start">
-            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden flex flex-col h-full">
-              <div className="flex justify-between items-start mb-4 relative z-10">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${card.color}`}>
-                  <card.icon className="w-5 h-5" />
+          <Link key={idx} href={card.link} className="group block">
+            <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 p-6 rounded-2xl shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-300 relative overflow-hidden flex flex-col h-full hover:-translate-y-1">
+              <div className="flex justify-between items-start mb-6 relative z-10">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${card.iconWrapper}`}>
+                  <card.icon className="w-6 h-6" />
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
+                <div className="bg-slate-50/80 p-2 rounded-full group-hover:bg-slate-100 transition-colors border border-slate-100">
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                </div>
               </div>
               <div className="mt-auto relative z-10">
-                <p className="text-sm font-semibold text-slate-500 mb-1">{card.title}</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{card.value}</h3>
+                <p className="text-sm font-medium text-slate-500 mb-1">{card.title}</p>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight">{card.value}</h3>
               </div>
-              {/* Decorative background circle */}
-              <div className={`absolute -right-4 -bottom-4 w-24 h-24 rounded-full opacity-10 transition-transform group-hover:scale-150 duration-500 ease-out ${card.color.split(' ')[0]}`} />
+              {/* Decorative background element */}
+              <div className={`absolute -right-8 -bottom-8 w-40 h-40 rounded-full opacity-[0.04] transition-transform group-hover:scale-125 duration-700 ease-out ${card.circleColor}`} />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
             </div>
           </Link>
         ))}
@@ -153,13 +164,16 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Main Chart */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-500" /> Revenue vs Profit Trend
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+          <div className="p-6 border-b border-slate-100/80 flex items-center justify-between bg-slate-50/30">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              Revenue vs Profit Trend
             </h2>
           </div>
-          <div className="p-5 flex-1 min-h-[350px]">
+          <div className="p-6 flex-1 min-h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -178,7 +192,7 @@ export default function DashboardPage() {
                   tickFormatter={formatXAxisDate} 
                   stroke="#94a3b8" 
                   fontSize={12} 
-                  tickMargin={10}
+                  tickMargin={12}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -186,7 +200,7 @@ export default function DashboardPage() {
                   tickFormatter={(val) => `$${val}`} 
                   stroke="#94a3b8" 
                   fontSize={12} 
-                  tickMargin={10}
+                  tickMargin={12}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -196,45 +210,53 @@ export default function DashboardPage() {
                     const safeName = String(name || "");
                     return [`$${Number(value).toFixed(2)}`, safeName.charAt(0).toUpperCase() + safeName.slice(1)]
                   }}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
+                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }} />
+                <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Top Products */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-indigo-500" /> Top Selling Products
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
+          <div className="p-6 border-b border-slate-100/80 flex items-center justify-between bg-slate-50/30">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                <ShoppingCart className="w-4 h-4" />
+              </div>
+              Top Selling Products
             </h2>
-            <Link href="/dashboard/reports/fast-moving" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+            <Link href="/dashboard/reports/fast-moving" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors">
               View All
             </Link>
           </div>
           <div className="p-0 flex-1 flex flex-col">
             {topProducts.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center">
-                <ShoppingCart className="w-12 h-12 mb-3 text-slate-200" />
-                <p className="text-sm font-medium">No sales data for this period.</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center min-h-[300px]">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                  <ShoppingCart className="w-8 h-8 text-slate-300" />
+                </div>
+                <p className="text-sm font-medium text-slate-500">No sales data for this period.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100/80">
                 {topProducts.map((product: any, idx: number) => (
-                  <li key={product._id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4">
-                    <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-xs">
+                  <li key={product._id} className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors flex items-center gap-4 group">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shadow-sm">
                       #{idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{product.name}</p>
-                      <p className="text-xs text-slate-500">{product.qty_sold} units sold</p>
+                      <p className="text-[15px] font-bold text-slate-900 truncate mb-0.5">{product.name}</p>
+                      <p className="text-sm text-slate-500 flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5" />
+                        {product.qty_sold} units sold
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-indigo-600">${product.revenue.toFixed(2)}</p>
+                      <p className="text-[15px] font-black text-slate-900">${product.revenue.toFixed(2)}</p>
                     </div>
                   </li>
                 ))}

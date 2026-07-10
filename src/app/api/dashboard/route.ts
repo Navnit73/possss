@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO, addDays } from "date-fns";
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO, addDays, format } from "date-fns";
 import { ObjectId } from "mongodb";
 
 export async function GET(req: NextRequest) {
@@ -77,23 +77,17 @@ export async function GET(req: NextRequest) {
           pipeline: [{ $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }],
           as: "items"
         }
-      },
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: null,
-          profit: {
-            $sum: {
-              $subtract: [
-                { $multiply: ["$items.price", "$items.qty"] },
-                { $multiply: ["$items.cost_price", "$items.qty"] }
-              ]
-            }
-          }
-        }
       }
     ]).toArray();
-    const monthlyProfit = monthlyProfitData[0]?.profit || 0;
+    let monthlyProfit = 0;
+    monthlyProfitData.forEach(sale => {
+      const revenue = (sale.subtotal || 0) - (sale.discount || 0);
+      let cost = 0;
+      (sale.items || []).forEach((item: any) => {
+        cost += (item.cost_price || 0) * (item.qty || 0);
+      });
+      monthlyProfit += (revenue - cost);
+    });
 
     // 3. INVENTORY ALERTS (Low Stock)
     const lowStockData = await db.collection("products").aggregate([
@@ -157,36 +151,34 @@ export async function GET(req: NextRequest) {
           pipeline: [{ $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }],
           as: "items"
         }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
-          revenue: { $sum: "$total" },
-          cost: { $sum: { $sum: { $map: { input: "$items", as: "i", in: { $multiply: ["$$i.cost_price", "$$i.qty"] } } } } }
-        }
-      },
-      {
-        $project: {
-          date: "$_id",
-          revenue: 1,
-          profit: { $subtract: ["$revenue", "$cost"] }
-        }
-      },
-      { $sort: { date: 1 } }
+      }
     ]).toArray();
 
-    // Fill missing dates
+    const groupedByDate: Record<string, { revenue: number; profit: number }> = {};
+    trendResult.forEach(sale => {
+      const dateStr = format(new Date(sale.created_at), "yyyy-MM-dd");
+      if (!groupedByDate[dateStr]) {
+        groupedByDate[dateStr] = { revenue: 0, profit: 0 };
+      }
+      const revenue = (sale.subtotal || 0) - (sale.discount || 0);
+      let cost = 0;
+      (sale.items || []).forEach((item: any) => {
+        cost += (item.cost_price || 0) * (item.qty || 0);
+      });
+      groupedByDate[dateStr].revenue += revenue;
+      groupedByDate[dateStr].profit += (revenue - cost);
+    });
+
     const chartData = [];
     let current = new Date(startDate);
     while (current <= endDate) {
-      const dateStr = current.toISOString().split("T")[0];
-      const match = trendResult.find((d: any) => d.date === dateStr);
+      const dateStr = format(current, "yyyy-MM-dd");
       chartData.push({
         date: dateStr,
-        revenue: match ? match.revenue : 0,
-        profit: match ? match.profit : 0
+        revenue: groupedByDate[dateStr]?.revenue || 0,
+        profit: groupedByDate[dateStr]?.profit || 0
       });
-      current.setDate(current.getDate() + 1);
+      current = addDays(current, 1);
     }
 
     // 7. TOP PRODUCTS LEADERBOARD (Based on date range)
