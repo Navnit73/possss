@@ -148,7 +148,7 @@ export default function FastMovingReportPage() {
       ) : data ? (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
             <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-lg shadow-sm text-white flex items-center justify-between">
               <div>
                 <p className="text-indigo-100 text-sm font-medium uppercase tracking-wider mb-1">Top Selling Product</p>
@@ -160,7 +160,7 @@ export default function FastMovingReportPage() {
                 <Flame className="w-6 h-6" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Products Analyzed</p>
                 <h3 className="text-2xl font-black text-slate-900">{data.metrics.totalAnalyzed}</h3>
@@ -169,7 +169,7 @@ export default function FastMovingReportPage() {
                 <Target className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ranked By</p>
                 <h3 className="text-xl font-black text-slate-900">Total Units Sold</h3>

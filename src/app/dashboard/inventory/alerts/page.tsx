@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Package } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function LowStockAlertsPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -26,15 +27,10 @@ export default function LowStockAlertsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-red-100 rounded-xl">
-          <AlertTriangle className="w-6 h-6 text-red-600" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Low Stock Alerts</h1>
-          <p className="text-muted-foreground mt-1">Products currently at or below their minimum stock threshold.</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Low Stock Alerts"
+        description="Products currently at or below their minimum stock threshold."
+      />
 
       {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 

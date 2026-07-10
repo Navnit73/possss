@@ -7,7 +7,8 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { batchSchema } from "@/lib/validations";
 import Link from "next/link";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Search, Calendar, ChevronDown, Check } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import * as z from "zod";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -70,18 +71,11 @@ export default function AddStockPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/dashboard/inventory/stock-list"
-          className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Receive New Stock</h1>
-          <p className="text-muted-foreground mt-1">Add a new batch of product to inventory.</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Receive New Stock"
+        description="Add a new batch of product to inventory."
+        backHref="/dashboard/inventory/stock-list"
+      />
 
       {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 

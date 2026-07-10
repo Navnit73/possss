@@ -5,6 +5,7 @@ import axios from "axios";
 import Link from "next/link";
 import { Plus, ChevronDown, ChevronRight, Package, AlertCircle } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function StockListPage() {
   const [batches, setBatches] = useState<any[]>([]);
@@ -53,19 +54,19 @@ export default function StockListPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Stock List</h1>
-          <p className="text-muted-foreground mt-1">Manage inventory levels across all product batches.</p>
-        </div>
-        <Link 
-          href="/dashboard/inventory/add-stock"
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Receive Stock
-        </Link>
-      </div>
+      <PageHeader 
+        title="Stock List"
+        description="Manage inventory levels across all product batches."
+        actions={
+          <Link 
+            href="/dashboard/inventory/add-stock"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Receive Stock
+          </Link>
+        }
+      />
 
       {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 

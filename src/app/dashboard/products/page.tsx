@@ -5,6 +5,7 @@ import axios from "axios";
 import Link from "next/link";
 import { Plus, Package, Search, Eye, Edit } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -35,19 +36,19 @@ export default function ProductsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Products</h1>
-          <p className="text-muted-foreground mt-1">Manage your pharmacy's medicine master catalog.</p>
-        </div>
-        <Link
-          href="/dashboard/products/add"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Product
-        </Link>
-      </div>
+      <PageHeader 
+        title="Products"
+        description="Manage your pharmacy's medicine master catalog."
+        actions={
+          <Link
+            href="/dashboard/products/add"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add Product
+          </Link>
+        }
+      />
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col ">
         <div className="p-4 border-b border-border bg-secondary/30">

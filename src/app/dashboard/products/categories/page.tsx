@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type CategoryForm = {
   name: string;
@@ -76,25 +77,25 @@ export default function CategoriesPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Categories</h1>
-          <p className="text-muted-foreground mt-1">Manage medicine categories (e.g. Antibiotics, Painkillers).</p>
-        </div>
-        {!isAdding && (
-          <Button
-            onClick={() => {
-              setEditingId(null);
-              reset({ name: "", description: "" });
-              setIsAdding(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Category
-          </Button>
-        )}
-      </div>
+      <PageHeader 
+        title="Categories"
+        description="Manage medicine categories (e.g. Antibiotics, Painkillers)."
+        actions={
+          !isAdding && (
+            <Button
+              onClick={() => {
+                setEditingId(null);
+                reset({ name: "", description: "" });
+                setIsAdding(true);
+              }}
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Category
+            </Button>
+          )
+        }
+      />
 
       {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
 

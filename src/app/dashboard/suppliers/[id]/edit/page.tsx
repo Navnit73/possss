@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import { ArrowLeft, Save } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function EditSupplierPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -70,18 +71,11 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/dashboard/suppliers"
-          className="p-2 bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/80 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Edit Supplier</h1>
-          <p className="text-muted-foreground mt-1">Update supplier information.</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Edit Supplier"
+        description="Update supplier information."
+        backHref={`/dashboard/suppliers/${id}`}
+      />
 
       <div className="bg-surface border border-border rounded-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-6">

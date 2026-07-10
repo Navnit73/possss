@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { ArrowLeft, Edit, History } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function ViewSupplierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -40,36 +41,29 @@ export default function ViewSupplierPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
-      <div className="flex justify-between items-start">
-        <div className="flex items-center gap-4">
-          <Link 
-            href="/dashboard/suppliers"
-            className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-3xl font-display font-bold text-foreground">{supplier.name}</h1>
-            <p className="text-muted-foreground mt-1">Supplier Details</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/dashboard/suppliers/purchase-history?supplierId=${id}`}
-            className="flex items-center gap-2 bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/80 transition-colors font-medium"
-          >
-            <History className="w-4 h-4" />
-            Purchase History
-          </Link>
-          <Link
-            href={`/dashboard/suppliers/${id}/edit`}
-            className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-md hover:bg-primary/20 transition-colors font-medium"
-          >
-            <Edit className="w-4 h-4" />
-            Edit Supplier
-          </Link>
-        </div>
-      </div>
+      <PageHeader 
+        title={supplier.name}
+        description="Supplier Details"
+        backHref="/dashboard/suppliers"
+        actions={
+          <>
+            <Link
+              href={`/dashboard/suppliers/purchase-history?supplierId=${id}`}
+              className="flex items-center gap-2 bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/80 transition-colors font-medium text-sm"
+            >
+              <History className="w-4 h-4" />
+              Purchase History
+            </Link>
+            <Link
+              href={`/dashboard/suppliers/${id}/edit`}
+              className="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-md hover:bg-primary/20 transition-colors font-medium text-sm"
+            >
+              <Edit className="w-4 h-4" />
+              Edit Supplier
+            </Link>
+          </>
+        }
+      />
 
       <div className="bg-surface border border-border rounded-lg p-6">
         <h2 className="text-lg font-semibold mb-4 border-b border-border/50 pb-2">Contact Information</h2>

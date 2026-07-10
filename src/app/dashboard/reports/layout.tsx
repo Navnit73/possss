@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, TrendingUp, Package, AlertCircle, ArrowUpRight } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
 
 export default function ReportsLayout({
@@ -23,10 +24,10 @@ export default function ReportsLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reports & Analytics</h1>
-          <p className="text-sm text-slate-500">Business insights and inventory tracking.</p>
-        </div>
+        <PageHeader 
+          title="Reports & Analytics"
+          description="Business insights and inventory tracking."
+        />
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;

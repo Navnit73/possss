@@ -8,6 +8,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { ArrowLeft, Settings2 } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 const adjustSchema = z.object({
   batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Batch"),
@@ -71,18 +72,11 @@ export default function AdjustStockPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/dashboard/inventory/stock-list"
-          className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Adjust Stock</h1>
-          <p className="text-muted-foreground mt-1">Record manual adjustments, damages, or corrections.</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Adjust Stock"
+        description="Record manual adjustments, damages, or corrections."
+        backHref="/dashboard/inventory/stock-list"
+      />
 
       {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 

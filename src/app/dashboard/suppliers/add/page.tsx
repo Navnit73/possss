@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import { ArrowLeft, Save } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function AddSupplierPage() {
   const router = useRouter();
@@ -43,18 +44,11 @@ export default function AddSupplierPage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link 
-          href="/dashboard/suppliers"
-          className="p-2 bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/80 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Add Supplier</h1>
-          <p className="text-muted-foreground mt-1">Create a new supplier profile.</p>
-        </div>
-      </div>
+      <PageHeader 
+        title="Add Supplier"
+        description="Create a new supplier profile."
+        backHref="/dashboard/suppliers"
+      />
 
       <div className="bg-surface border border-border rounded-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -146,7 +146,7 @@ export default function ExpiryReportPage() {
       ) : data ? (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
             <div className="bg-red-50 p-5 rounded-lg border border-red-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-red-800 uppercase tracking-wider mb-1">Expired (Loss)</p>

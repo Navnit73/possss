@@ -149,8 +149,8 @@ export default function ProfitLossReportPage() {
       ) : data ? (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+          <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Gross Revenue</p>
                 <h3 className="text-2xl font-black text-slate-900">${data.metrics.gross_revenue.toFixed(2)}</h3>
@@ -159,7 +159,7 @@ export default function ProfitLossReportPage() {
                 <Banknote className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Product Cost</p>
                 <h3 className="text-2xl font-black text-slate-900">${data.metrics.product_cost.toFixed(2)}</h3>
@@ -168,7 +168,7 @@ export default function ProfitLossReportPage() {
                 <Activity className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Gross Profit</p>
                 <h3 className={`text-2xl font-black ${data.metrics.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -179,7 +179,7 @@ export default function ProfitLossReportPage() {
                 <Banknote className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Profit Margin</p>
                 <h3 className="text-2xl font-black text-indigo-600">{data.metrics.margin_pct.toFixed(1)}%</h3>
@@ -188,7 +188,7 @@ export default function ProfitLossReportPage() {
                 <Percent className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Discounts</p>
                 <h3 className="text-2xl font-black text-rose-600">${data.metrics.discounts_given.toFixed(2)}</h3>

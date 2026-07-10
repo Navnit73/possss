@@ -130,8 +130,8 @@ export default function InventoryValueReportPage() {
       ) : data ? (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+          <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Unique Products</p>
                 <h3 className="text-2xl font-black text-slate-900">{data.metrics.total_products}</h3>
@@ -140,7 +140,7 @@ export default function InventoryValueReportPage() {
                 <Package className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Stock Qty</p>
                 <h3 className="text-2xl font-black text-slate-900">{data.metrics.total_stock_qty}</h3>
@@ -149,7 +149,7 @@ export default function InventoryValueReportPage() {
                 <Layers className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Inventory Value (Cost)</p>
                 <h3 className="text-2xl font-black text-slate-900">${data.metrics.purchase_value.toFixed(2)}</h3>
@@ -158,7 +158,7 @@ export default function InventoryValueReportPage() {
                 <Banknote className="w-5 h-5" />
               </div>
             </div>
-            <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex-none w-64 snap-start bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Expected Profit</p>
                 <h3 className="text-2xl font-black text-emerald-600">${data.metrics.expected_profit.toFixed(2)}</h3>

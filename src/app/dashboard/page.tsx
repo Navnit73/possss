@@ -9,6 +9,7 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell
 } from "recharts";
+import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 
 export default function DashboardPage() {
@@ -106,10 +107,10 @@ export default function DashboardPage() {
       
       {/* Header & Global Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold text-slate-900 mb-1">Overview</h1>
-          <p className="text-slate-500 text-sm">Welcome back! Here's what's happening with your store today.</p>
-        </div>
+        <PageHeader 
+          title="Overview"
+          description="Welcome back! Here's what's happening with your store today."
+        />
         <div className="relative">
           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <select 
@@ -128,9 +129,9 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="flex overflow-x-auto pb-4 -mb-4 gap-4 snap-x hide-scrollbar">
         {kpiCards.map((card, idx) => (
-          <Link key={idx} href={card.link} className="group">
+          <Link key={idx} href={card.link} className="group flex-none w-64 snap-start">
             <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden flex flex-col h-full">
               <div className="flex justify-between items-start mb-4 relative z-10">
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${card.color}`}>
