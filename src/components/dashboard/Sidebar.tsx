@@ -15,7 +15,8 @@ import {
   PlusCircle,
   Settings2,
   History,
-  AlertTriangle
+  AlertTriangle,
+  Truck
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -38,6 +39,7 @@ const navGroups = [
       { name: "Products", href: "/dashboard/products", icon: Package },
       { name: "Categories", href: "/dashboard/products/categories", icon: Tags },
       { name: "Manufacturers", href: "/dashboard/products/manufacturers", icon: Factory },
+      { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
     ]
   },
   {

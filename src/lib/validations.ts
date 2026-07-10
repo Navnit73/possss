@@ -215,3 +215,22 @@ export interface StockMovement {
   created_at: Date;
 }
 
+// --- Supplier Validations ---
+
+export const supplierSchema = z.object({
+  name: z.string().min(2, "Supplier name is required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  address: z.string().optional(),
+});
+
+export interface Supplier {
+  _id?: any;
+  tenant_id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  created_at: Date;
+  updated_at?: Date;
+}
