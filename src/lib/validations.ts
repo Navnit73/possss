@@ -13,6 +13,14 @@ export const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters long"),
 });
 
+export const createUserSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters long"),
+  role: z.string(), // "CUSTOM"
+  role_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Role"),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
@@ -21,6 +29,15 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1, "Reset token is required"),
   password: z.string().min(8, "Password must be at least 8 characters long"),
 });
+
+export const profileUpdateSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  phone: z.string().optional(),
+  job_title: z.string().optional(),
+  language_preference: z.string().optional(),
+  timezone: z.string().optional(),
+});
+
 
 // --- Onboarding Validations (Tenants) ---
 
@@ -96,8 +113,14 @@ export interface User {
   store_id?: string;
   name: string;
   email: string;
+  phone?: string;
   password?: string;
   role: Role;
+  role_id?: string;
+  profile_image?: string;
+  job_title?: string;
+  language_preference?: string;
+  timezone?: string;
   resetToken?: string;
   resetTokenExpiry?: number;
   created_at: Date;
@@ -275,5 +298,33 @@ export interface Sale {
   payment_method: "CASH" | "CARD" | "UPI" | "OTHER";
   created_by?: string;
   created_at: Date;
+}
+
+// --- Roles & Permissions Validations ---
+
+export const permissionSchema = z.object({
+  module: z.string(),
+  action: z.string(),
+});
+
+export const roleSchema = z.object({
+  name: z.string().min(2, "Role name is required"),
+  description: z.string().optional(),
+  permissions: z.array(permissionSchema).default([]),
+});
+
+export interface Permission {
+  module: string;
+  action: string;
+}
+
+export interface CustomRole {
+  _id?: any;
+  tenant_id: string;
+  name: string;
+  description?: string;
+  permissions: Permission[];
+  created_at: Date;
+  updated_at?: Date;
 }
 

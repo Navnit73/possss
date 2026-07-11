@@ -3,10 +3,14 @@ import client from "@/lib/mongodb";
 import { auth } from "@/auth";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { ObjectId } from "mongodb";
+import { checkRole } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

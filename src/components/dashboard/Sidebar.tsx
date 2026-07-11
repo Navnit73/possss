@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   Truck,
   MonitorPlay,
-  BarChart3
+  BarChart3,
+  Users
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -28,6 +29,7 @@ const navGroups = [
     items: [
       { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { name: "Launch POS", href: "/pos/sell", icon: MonitorPlay },
+      { name: "Account Settings", href: "/account/profile", icon: Users },
     ]
   },
   {
@@ -62,9 +64,29 @@ const navGroups = [
   }
 ];
 
-export function Sidebar() {
+import { hasPermissionSync } from "@/lib/rbac";
+import { Session } from "next-auth";
+
+export function Sidebar({ session }: { session: Session | null }) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Filter groups and items based on permissions
+  const filteredGroups = navGroups.map(group => {
+    const items = group.items.filter(item => {
+      if (item.name === "Overview") return hasPermissionSync(session, "REPORTS", "VIEW");
+      if (item.name === "Launch POS") return hasPermissionSync(session, "SALES", "CREATE") || hasPermissionSync(session, "SALES", "VIEW");
+      if (item.name === "Account Settings") return true;
+      
+      if (group.title === "Alerts") return hasPermissionSync(session, "INVENTORY", "VIEW");
+      if (group.title === "Product Master") return hasPermissionSync(session, "PRODUCTS", "VIEW");
+      if (group.title === "Inventory") return hasPermissionSync(session, "INVENTORY", "VIEW");
+      if (group.title === "Analytics") return hasPermissionSync(session, "REPORTS", "VIEW");
+
+      return false;
+    });
+    return { ...group, items };
+  }).filter(group => group.items.length > 0);
 
   return (
     <div 
@@ -91,7 +113,7 @@ export function Sidebar() {
       </div>
       
       <div className="flex-1 py-6 px-2 overflow-y-auto overflow-x-hidden space-y-6">
-        {navGroups.map((group) => (
+        {filteredGroups.map((group) => (
           <div key={group.title} className="space-y-1">
             {!isCollapsed && (
               <div className="px-4 text-[10px] font-bold text-primary-foreground/50 uppercase tracking-widest mb-2">

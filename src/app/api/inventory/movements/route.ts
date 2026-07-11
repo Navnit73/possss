@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkRole } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
+    if (roleError) return roleError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

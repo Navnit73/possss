@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkPermission } from "@/lib/rbac";
 
 export async function GET(
   req: Request,
@@ -10,6 +11,9 @@ export async function GET(
 ) {
   try {
     const session = await auth();
+    const permError = checkPermission(session, "PRODUCTS", "VIEW");
+    if (permError) return permError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

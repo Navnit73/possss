@@ -16,3 +16,4 @@
 {"action":"STORE_CREATED","userId":"6a51306119abb34b34e1fc1b","tenantId":"6a51306819abb34b34e1fc1d","details":{"business_name":"Navnit pharmacy"},"timestamp":"2026-07-10T17:48:24.585Z"}
 {"action":"BUSINESS_DETAILS_UPDATED","userId":"6a51306119abb34b34e1fc1b","tenantId":"6a51306819abb34b34e1fc1d","details":{"country":"USA","currency":"USD","timezone":"America/New_York"},"timestamp":"2026-07-10T17:48:29.193Z"}
 {"action":"SUBSCRIPTION_ACTIVATED","userId":"6a51306119abb34b34e1fc1b","tenantId":"6a51306819abb34b34e1fc1d","details":{"subscription_plan":"pro","status":"ACTIVE"},"timestamp":"2026-07-10T17:48:32.225Z"}
+{"action":"STAFF_USER_CREATED","userId":"6a51306119abb34b34e1fc1b","details":{"createdUserId":"6a51b3c4d3c563dbdc54811a","email":"[REDACTED]","role_id":"6a51b3afd3c563dbdc548119"},"timestamp":"2026-07-11T03:08:52.336Z"}

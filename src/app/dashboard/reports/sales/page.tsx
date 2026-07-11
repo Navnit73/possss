@@ -17,7 +17,7 @@ export default function SalesReportPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filters state
-  const [dateRange, setDateRange] = useState("30days");
+  const [dateRange, setDateRange] = useState("today");
   const [search, setSearch] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [page, setPage] = useState(1);

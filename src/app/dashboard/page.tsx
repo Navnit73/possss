@@ -15,7 +15,7 @@ import Link from "next/link";
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dateRange, setDateRange] = useState("30days");
+  const [dateRange, setDateRange] = useState("today");
 
   useEffect(() => {
     const fetchDashboard = async () => {

@@ -4,13 +4,13 @@ import client from "@/lib/mongodb";
 import { categorySchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
 
 export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "PRODUCTS", "UPDATE");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

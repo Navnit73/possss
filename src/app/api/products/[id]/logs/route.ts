@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { checkPermission } from "@/lib/rbac";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
     const session = await auth();
+    const permError = checkPermission(session, "PRODUCTS", "VIEW");
+    if (permError) return permError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -4,12 +4,15 @@ import client from "@/lib/mongodb";
 import { productSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
 import { logAction } from "@/lib/logger";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
+    const permError = checkPermission(session, "PRODUCTS", "VIEW");
+    if (permError) return permError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -81,8 +84,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "PRODUCTS", "CREATE");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

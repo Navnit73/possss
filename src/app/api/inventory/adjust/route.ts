@@ -4,6 +4,7 @@ import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
+import { checkPermission } from "@/lib/rbac";
 
 const adjustSchema = z.object({
   batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid Batch ID"),
@@ -15,6 +16,9 @@ const adjustSchema = z.object({
 export async function POST(req: Request) {
   try {
     const session = await auth();
+    const permError = checkPermission(session, "INVENTORY", "UPDATE");
+    if (permError) return permError;
+
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
