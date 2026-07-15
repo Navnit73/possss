@@ -4,7 +4,8 @@ import client from "@/lib/mongodb";
 import { supplierSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(
   req: Request,
@@ -37,10 +38,11 @@ export async function GET(
   }
 }
 
-export async function PUT(
+export const PUT = withAuditLog("SUPPLIER_UPDATE", "SUPPLIERS", async (
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: { params: Promise<{ id: string }> },
+  audit: AuditContext
+) => {
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "UPDATE");
@@ -67,30 +69,37 @@ export async function PUT(
       return NextResponse.json({ error: "Another supplier with this name already exists" }, { status: 400 });
     }
 
+    const currentSupplier = await db.collection("suppliers").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
+    if (!currentSupplier) {
+      return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+    }
+    
+    audit.setBefore(currentSupplier);
+
+    const updatedFields = { ...validatedData, updated_at: new Date() };
+
     const result = await db.collection("suppliers").updateOne(
       { _id: new ObjectId(id), tenant_id: tenantId },
-      { 
-        $set: {
-          ...validatedData,
-          updated_at: new Date()
-        } 
-      }
+      { $set: updatedFields }
     );
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
     }
 
+    audit.setAfter({ ...currentSupplier, ...updatedFields });
+
     return NextResponse.json({ message: "Supplier updated" });
   } catch (error: any) {
     return await handleApiError(error, "PUT /api/suppliers/[id]");
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuditLog("SUPPLIER_DELETE", "SUPPLIERS", async (
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: { params: Promise<{ id: string }> },
+  audit: AuditContext
+) => {
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "DELETE");
@@ -114,6 +123,13 @@ export async function DELETE(
        return NextResponse.json({ error: "Cannot delete supplier as it is linked to inventory batches." }, { status: 400 });
     }
 
+    const currentSupplier = await db.collection("suppliers").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
+    if (!currentSupplier) {
+      return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+    }
+    
+    audit.setBefore(currentSupplier);
+
     const result = await db.collection("suppliers").deleteOne(
       { _id: new ObjectId(id), tenant_id: tenantId }
     );
@@ -126,4 +142,4 @@ export async function DELETE(
   } catch (error: any) {
     return await handleApiError(error, "DELETE /api/suppliers/[id]");
   }
-}
+});

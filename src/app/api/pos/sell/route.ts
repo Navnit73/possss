@@ -4,8 +4,9 @@ import client from "@/lib/mongodb";
 import { saleSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
-export async function POST(req: Request) {
+export const POST = withAuditLog("SALE", "POS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
     const tenantId = (session?.user as any)?.tenant_id;
@@ -154,6 +155,8 @@ export async function POST(req: Request) {
       await sessionClient.endSession();
     }
 
+    audit.setAfter({ sale_id: insertedSaleId, total: validatedData.total, items_count: validatedData.items.length });
+
     return NextResponse.json({ success: true, sale_id: insertedSaleId }, { status: 201 });
   } catch (error: any) {
     if (error.message && (
@@ -166,4 +169,4 @@ export async function POST(req: Request) {
     }
     return await handleApiError(error, "POST /api/pos/sell");
   }
-}
+});

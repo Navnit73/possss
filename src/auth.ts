@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs"
 import { ObjectId } from "mongodb"
 import { authConfig } from "./auth.config"
 import { rateLimit } from "./lib/rateLimit"
+import { logAuditDirectly } from "./lib/auditLogger"
 
 class CustomAuthError extends CredentialsSignin {
   code = "custom_error";
@@ -132,4 +133,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     }
   },
+  events: {
+    async signIn({ user }) {
+      if (user && (user as any).tenant_id) {
+        await logAuditDirectly({
+          tenantId: (user as any).tenant_id,
+          userId: user.id,
+          action: "LOGIN",
+          module: "AUTH",
+        });
+      }
+    },
+    async signOut({ token }) {
+      if (token && (token as any).tenant_id) {
+        await logAuditDirectly({
+          tenantId: (token as any).tenant_id,
+          userId: (token as any).id,
+          action: "LOGOUT",
+          module: "AUTH",
+        });
+      }
+    }
+  }
 })

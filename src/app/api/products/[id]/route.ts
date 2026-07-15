@@ -6,6 +6,7 @@ import { productSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
 import { logAction } from "@/lib/logger";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,7 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withAuditLog("EDIT_PRODUCT", "PRODUCTS", async (req: Request, { params }: { params: Promise<{ id: string }> }, audit: AuditContext) => {
   const { id } = await params;
   try {
     const session = await auth();
@@ -107,38 +108,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!existingProduct) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
+    
+    audit.setBefore(existingProduct);
+
+    const updatedFields = { ...validatedData, updated_at: new Date() };
 
     const result = await db.collection("products").updateOne(
       { _id: new ObjectId(id), tenant_id: tenantId },
-      { $set: { ...validatedData, updated_at: new Date() } }
+      { $set: updatedFields }
     );
 
-    // Calculate changes for audit log
-    const changes: Record<string, { old: any, new: any }> = {};
-    for (const key of Object.keys(validatedData)) {
-      const newVal = (validatedData as any)[key];
-      const oldVal = existingProduct[key];
-      // Basic equality check
-      if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
-        changes[key] = { old: oldVal, new: newVal };
-      }
-    }
-
-    if (Object.keys(changes).length > 0) {
-      await logAction({
-        action: "PRODUCT_UPDATED",
-        userId: session?.user?.id,
-        tenantId,
-        details: {
-          productId: id,
-          productName: validatedData.name,
-          changes
-        }
-      });
-    }
+    audit.setAfter({ ...existingProduct, ...updatedFields });
 
     return NextResponse.json({ message: "Product updated successfully" }, { status: 200 });
   } catch (error: any) {
     return await handleApiError(error, `PUT /api/products/${id}`);
   }
-}
+});

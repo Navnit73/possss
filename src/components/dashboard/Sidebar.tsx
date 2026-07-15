@@ -67,6 +67,7 @@ const navGroups = [
     title: "Analytics",
     items: [
       { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
+      { name: "Audit Logs", href: "/dashboard/audit-logs", icon: Activity },
     ]
   }
 ];
@@ -88,7 +89,13 @@ export function Sidebar({ session }: { session: Session | null }) {
       if (group.title === "Alerts") return hasPermissionSync(session, "INVENTORY", "VIEW");
       if (group.title === "Product Master") return hasPermissionSync(session, "PRODUCTS", "VIEW");
       if (group.title === "Inventory") return hasPermissionSync(session, "INVENTORY", "VIEW");
-      if (group.title === "Analytics") return hasPermissionSync(session, "REPORTS", "VIEW");
+      if (group.title === "Analytics") {
+        if (item.name === "Audit Logs") {
+          // Since only OWNER and MANAGER can view logs in API, we'll mimic that check here
+          return session?.user && ["OWNER", "MANAGER"].includes((session.user as any).role);
+        }
+        return hasPermissionSync(session, "REPORTS", "VIEW");
+      }
       if (group.title === "Customers") return hasPermissionSync(session, "CUSTOMERS", "VIEW");
 
       return false;

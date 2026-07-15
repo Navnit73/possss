@@ -6,6 +6,7 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { checkPermission } from "@/lib/rbac";
 import { logAction } from "@/lib/logger";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request) {
   try {
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export const POST = withAuditLog("CREATE_PRODUCT", "PRODUCTS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "CREATE");
@@ -124,14 +125,18 @@ export async function POST(req: Request) {
       }
     }
 
-    const result = await db.collection("products").insertOne({
+    const newProduct = {
       ...validatedData,
       tenant_id: tenantId,
       created_at: new Date(),
-    });
+    };
+
+    const result = await db.collection("products").insertOne(newProduct);
+
+    audit.setAfter({ _id: result.insertedId, ...newProduct });
 
     return NextResponse.json({ _id: result.insertedId, message: "Product created successfully" }, { status: 201 });
   } catch (error: any) {
     return await handleApiError(error, "POST /api/products");
   }
-}
+});

@@ -5,6 +5,7 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 const adjustSchema = z.object({
   batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid Batch ID"),
@@ -13,7 +14,7 @@ const adjustSchema = z.object({
   notes: z.string().optional(),
 });
 
-export async function POST(req: Request) {
+export const POST = withAuditLog("INVENTORY_ADJUSTMENT", "INVENTORY", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
     const permError = checkPermission(session, "INVENTORY", "UPDATE");
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
     if (!batch) {
       return NextResponse.json({ error: "Batch not found" }, { status: 404 });
     }
+
+    audit.setBefore(batch);
 
     const beforeQty = batch.qty_available;
     let afterQty = beforeQty;
@@ -67,6 +70,8 @@ export async function POST(req: Request) {
       }
     );
 
+    audit.setAfter({ ...batch, qty_available: afterQty, updated_at: new Date() });
+
     // 3. Log Stock Movement
     const stockMovement = {
       tenant_id: tenantId,
@@ -87,4 +92,4 @@ export async function POST(req: Request) {
   } catch (error: any) {
     return await handleApiError(error, "POST /api/inventory/adjust");
   }
-}
+});

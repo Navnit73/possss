@@ -6,6 +6,7 @@ import { createUserSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkRole } from "@/lib/rbac";
 import { logAction } from "@/lib/logger";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request) {
   try {
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
     const roleError = checkRole(session, ["OWNER", "MANAGER"]);
@@ -71,14 +72,10 @@ export async function POST(req: Request) {
 
     const result = await db.collection("users").insertOne(newUser);
 
-    await logAction({
-      action: "STAFF_USER_CREATED",
-      userId: (session?.user as any)?.id,
-      details: { createdUserId: result.insertedId.toString(), email: newUser.email, role_id: newUser.role_id }
-    });
+    audit.setAfter({ createdUserId: result.insertedId.toString(), email: newUser.email, role_id: newUser.role_id });
 
     return NextResponse.json({ message: "User created successfully" }, { status: 201 });
   } catch (error: any) {
     return await handleApiError(error, "POST /api/users");
   }
-}
+});
