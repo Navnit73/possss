@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Loader2, Search, ChevronLeft, ChevronRight, Activity, Globe, MonitorSmartphone, History } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -17,7 +18,17 @@ export default function AuditLogsPage() {
   
   const [actionFilter, setActionFilter] = useState("ALL");
   const [moduleFilter, setModuleFilter] = useState("ALL");
+  const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -28,6 +39,7 @@ export default function AuditLogsPage() {
       });
       if (actionFilter !== "ALL") params.append("action", actionFilter);
       if (moduleFilter !== "ALL") params.append("module", moduleFilter);
+      if (debouncedSearch) params.append("search", debouncedSearch);
       
       const res = await fetch(`/api/audit-logs?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch audit logs");
@@ -43,7 +55,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, actionFilter, moduleFilter]);
+  }, [page, actionFilter, moduleFilter, debouncedSearch]);
 
   const getActionColor = (action: string) => {
     if (action.includes("CREATE") || action.includes("LOGIN")) return "bg-emerald-100 text-emerald-800 border border-emerald-200";
@@ -66,31 +78,40 @@ export default function AuditLogsPage() {
       />
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-border bg-secondary/30 flex flex-col md:flex-row gap-4 justify-between items-center">
-          <div className="flex items-center gap-2 text-foreground font-medium text-sm">
-            <Activity className="w-4 h-4 text-primary" />
-            Activity Stream
+        <div className="p-4 border-b border-border bg-secondary/30 flex flex-col md:flex-row gap-4 justify-between">
+          <div className="relative max-w-md w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input 
+              type="text" 
+              placeholder="Search by user or action..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+            />
           </div>
-          <div className="flex flex-wrap gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-[200px]">
-              <Select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }} className="w-full bg-background border-border text-foreground text-sm focus:ring-primary/50">
-                <option value="ALL">All Modules</option>
-                <option value="AUTH">Authentication</option>
-                <option value="PRODUCTS">Products & Catalog</option>
-                <option value="INVENTORY">Inventory</option>
-                <option value="POS">Point of Sale</option>
-                <option value="SUPPLIERS">Suppliers</option>
-                <option value="USERS">Staff & Users</option>
-              </Select>
-            </div>
+          <div className="flex gap-3">
+            <Select value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(1); }} className="w-full md:w-[150px] bg-background border-border text-foreground text-sm">
+              <option value="ALL">All Actions</option>
+              <option value="CREATE">Creates</option>
+              <option value="UPDATE">Updates</option>
+              <option value="DELETE">Deletes</option>
+              <option value="LOGIN">Logins</option>
+            </Select>
+            <Select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }} className="w-full md:w-[180px] bg-background border-border text-foreground text-sm">
+              <option value="ALL">All Modules</option>
+              <option value="AUTH">Authentication</option>
+              <option value="PRODUCTS">Products & Catalog</option>
+              <option value="INVENTORY">Inventory</option>
+              <option value="POS">Point of Sale</option>
+              <option value="SUPPLIERS">Suppliers</option>
+              <option value="USERS">Staff & Users</option>
+            </Select>
           </div>
         </div>
 
         {loading ? (
           <div className="p-6">
-             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground space-y-4">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-             </div>
+             <TableSkeleton columns={5} rows={6} />
           </div>
         ) : logs.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">

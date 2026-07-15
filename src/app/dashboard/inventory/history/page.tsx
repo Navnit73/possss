@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { History, ArrowRight, Search, Download, ChevronLeft, ChevronRight, Filter } from "lucide-react";
@@ -46,7 +47,7 @@ export default function StockHistoryPage() {
       if (!exportMode) {
         setError(err.response?.data?.error || "Failed to load stock history");
       } else {
-        alert("Failed to export data");
+        Swal.fire('Error', String("Failed to export data"), 'error');
       }
     } finally {
       if (!exportMode) setIsLoading(false);

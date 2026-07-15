@@ -93,3 +93,58 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     console.error("Error sending password reset email:", error);
   }
 }
+
+export async function sendDailyReportEmail(
+  recipients: string[], 
+  pdfBuffer: Buffer, 
+  data: { date: Date, revenue: number, transactions: number, profit: number },
+  timezone: string
+) {
+  try {
+    const formattedDate = new Intl.DateTimeFormat('en-US', { 
+      timeZone: timezone,
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }).format(data.date);
+    
+    await resend.emails.send({
+      from: fromEmail,
+      to: recipients,
+      subject: `Daily Sales Report: ${formattedDate}`,
+      html: `
+        <div style="${baseStyles}">
+          <div style="${cardStyles}">
+            <h2 style="${headerStyles}">Daily Sales Report</h2>
+            <p>Your automated daily sales report for <strong>${formattedDate}</strong> is ready.</p>
+            
+            <div style="margin: 24px 0; padding: 16px; background-color: #F3F4F6; border-radius: 8px;">
+              <h3 style="margin-top: 0; color: #374151;">Executive Summary</h3>
+              <ul style="list-style-type: none; padding: 0; margin: 0; color: #4B5563;">
+                <li style="margin-bottom: 8px;"><strong>Total Revenue:</strong> $${data.revenue.toFixed(2)}</li>
+                <li style="margin-bottom: 8px;"><strong>Total Profit:</strong> $${data.profit.toFixed(2)}</li>
+                <li style="margin-bottom: 0;"><strong>Transactions:</strong> ${data.transactions}</li>
+              </ul>
+            </div>
+            
+            <p>A detailed breakdown including your top-performing products and low inventory alerts is attached as a PDF to this email.</p>
+            
+            <p style="color: #6B7280; font-size: 14px; margin-top: 32px; border-top: 1px solid #E5E7EB; padding-top: 24px;">
+              Generated automatically by Pharmacy POS
+            </p>
+          </div>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `Daily_Report_${data.date.toISOString().split('T')[0]}.pdf`,
+          content: pdfBuffer,
+        }
+      ]
+    });
+  } catch (error) {
+    console.error("Error sending daily report email:", error);
+    throw error;
+  }
+}

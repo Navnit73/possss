@@ -68,6 +68,11 @@ async function setupIndexes() {
     await db.collection("stock_movements").createIndex({ tenant_id: 1, product_id: 1 });
     await db.collection("stock_movements").createIndex({ tenant_id: 1, created_at: -1 });
 
+    // 11. Audit Logs collection
+    await db.collection("audit_logs").createIndex({ tenant_id: 1, timestamp: -1 });
+    await db.collection("audit_logs").createIndex({ tenant_id: 1, action: 1, timestamp: -1 });
+    await db.collection("audit_logs").createIndex({ tenant_id: 1, module: 1, timestamp: -1 });
+
     console.log("MongoDB indexes setup completed successfully.");
   } catch (error) {
     console.error("Error setting up indexes:", error);

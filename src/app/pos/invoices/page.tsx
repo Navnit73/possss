@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { FileText, Eye, Printer, Search, ChevronLeft } from "lucide-react";
@@ -107,14 +108,14 @@ export default function PosInvoicesPage() {
                         <button 
                           className="p-1.5 rounded bg-white border border-border text-muted-foreground hover:bg-surface hover:text-primary transition-colors"
                           title="View Receipt"
-                          onClick={() => alert("Receipt View (Stub)")}
+                          onClick={() => Swal.fire('Notice', "Receipt View (Stub)", 'info')}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button 
                           className="p-1.5 rounded bg-white border border-border text-muted-foreground hover:bg-surface hover:text-primary transition-colors"
                           title="Print"
-                          onClick={() => alert("Print Receipt (Stub)")}
+                          onClick={() => Swal.fire('Notice', "Print Receipt (Stub)", 'info')}
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </button>

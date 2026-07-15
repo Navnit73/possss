@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Shield, Check, X } from "lucide-react";
 import clsx from "clsx";
@@ -75,7 +76,7 @@ export default function PermissionsPage() {
       if (!res.ok) throw new Error(data.error);
       fetchRoles();
     } catch (err: any) {
-      alert(err.message);
+      Swal.fire('Error', String(err.message), 'error');
     }
   };
 

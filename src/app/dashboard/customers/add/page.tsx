@@ -22,7 +22,7 @@ export default function AddCustomerPage() {
     handleSubmit,
     formState: { errors },
   } = useForm<CustomerFormData>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: {
       status: "ACTIVE",
     },

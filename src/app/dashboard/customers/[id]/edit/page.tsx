@@ -9,6 +9,7 @@ import { customerSchema } from "@/lib/validations";
 import type { z } from "zod";
 import Link from "next/link";
 import { ArrowLeft, Save } from "lucide-react";
+import Swal from "sweetalert2";
 
 type CustomerFormData = z.infer<typeof customerSchema>;
 
@@ -25,7 +26,7 @@ export default function EditCustomerPage() {
     reset,
     formState: { errors },
   } = useForm<CustomerFormData>({
-    resolver: zodResolver(customerSchema),
+    resolver: zodResolver(customerSchema) as any,
     defaultValues: {
       status: "ACTIVE",
     },
@@ -51,9 +52,13 @@ export default function EditCustomerPage() {
     setError("");
     try {
       await axios.put(`/api/customers/${id}`, data);
+      await Swal.fire('Success', 'Customer updated successfully', 'success');
+      router.refresh();
       router.push(`/dashboard/customers/${id}`);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to update customer");
+      const errorMsg = err.response?.data?.error || "Failed to update customer";
+      setError(errorMsg);
+      Swal.fire('Error', errorMsg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -164,7 +169,7 @@ export default function EditCustomerPage() {
                 {...register("customer_id")}
                 className="w-full px-3 py-2 border border-border rounded-md bg-surface text-muted-foreground focus:outline-none"
                 placeholder="Leave blank to auto-generate"
-                disabled // We usually shouldn't let them edit ID easily or it breaks links if they manually type things, but schema allows it. Actually disabled is safer.
+                readOnly // We usually shouldn't let them edit ID easily or it breaks links if they manually type things, but schema allows it. Actually readOnly is safer so it submits.
               />
               {errors.customer_id && <p className="text-red-500 text-xs">{errors.customer_id.message}</p>}
             </div>

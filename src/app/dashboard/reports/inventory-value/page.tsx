@@ -1,5 +1,6 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
@@ -48,7 +49,7 @@ export default function InventoryValueReportPage() {
       }
     } catch (err) {
       console.error("Failed to fetch report", err);
-      alert("Failed to load report data");
+      Swal.fire('Error', String("Failed to load report data"), 'error');
     } finally {
       setIsLoading(false);
     }

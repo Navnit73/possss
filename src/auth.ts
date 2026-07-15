@@ -144,7 +144,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
       }
     },
-    async signOut({ token }) {
+    async signOut(params: any) {
+      const token = params.token;
       if (token && (token as any).tenant_id) {
         await logAuditDirectly({
           tenantId: (token as any).tenant_id,
