@@ -19,7 +19,8 @@ import {
   Truck,
   MonitorPlay,
   BarChart3,
-  Users
+  Users,
+  UserCircle
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -36,6 +37,12 @@ const navGroups = [
     title: "Alerts",
     items: [
       { name: "Low Stock", href: "/dashboard/inventory/alerts", icon: AlertTriangle },
+    ]
+  },
+  {
+    title: "Customers",
+    items: [
+      { name: "Customers", href: "/dashboard/customers", icon: UserCircle },
     ]
   },
   {
@@ -82,6 +89,7 @@ export function Sidebar({ session }: { session: Session | null }) {
       if (group.title === "Product Master") return hasPermissionSync(session, "PRODUCTS", "VIEW");
       if (group.title === "Inventory") return hasPermissionSync(session, "INVENTORY", "VIEW");
       if (group.title === "Analytics") return hasPermissionSync(session, "REPORTS", "VIEW");
+      if (group.title === "Customers") return hasPermissionSync(session, "CUSTOMERS", "VIEW");
 
       return false;
     });

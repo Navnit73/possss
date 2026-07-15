@@ -236,6 +236,39 @@ export interface StockMovement {
   created_at: Date;
 }
 
+// --- Customer Validations ---
+
+export const customerSchema = z.object({
+  name: z.string().min(2, "Customer name is required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+  date_of_birth: z.string().optional(),
+  customer_id: z.string().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+});
+
+export interface Customer {
+  _id?: any;
+  tenant_id: string;
+  customer_id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  date_of_birth?: string;
+  status: "ACTIVE" | "INACTIVE";
+  lifetime_spending: number;
+  outstanding_balance: number;
+  store_credit: number;
+  loyalty_points: number;
+  last_visit?: Date;
+  created_at: Date;
+  updated_at?: Date;
+}
+
 // --- Supplier Validations ---
 
 export const supplierSchema = z.object({
@@ -268,6 +301,7 @@ export const saleItemSchema = z.object({
 });
 
 export const saleSchema = z.object({
+  customer_id: z.string().optional(),
   subtotal: z.number().min(0),
   tax: z.number().min(0),
   discount: z.number().min(0),
@@ -290,6 +324,7 @@ export interface SaleItem {
 export interface Sale {
   _id?: any;
   tenant_id: string;
+  customer_id?: string;
   invoice_no: string;
   subtotal: number;
   tax: number;

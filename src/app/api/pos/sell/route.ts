@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         }
 
         // Create Sale using verified server totals
-        const sale = {
+        const sale: any = {
           tenant_id: tenantId,
           invoice_no: invoiceNo,
           subtotal: serverSubtotal,
@@ -121,6 +121,10 @@ export async function POST(req: Request) {
           created_by: userId,
           created_at: new Date()
         };
+
+        if (validatedData.customer_id) {
+          sale.customer_id = validatedData.customer_id;
+        }
 
         const saleResult = await db.collection("sales").insertOne(sale, { session: sessionClient });
         insertedSaleId = saleResult.insertedId.toString();
@@ -133,6 +137,18 @@ export async function POST(req: Request) {
         
         // Insert all stock movements
         await db.collection("stock_movements").insertMany(stockMovements, { session: sessionClient });
+        
+        // Update customer stats if applicable
+        if (validatedData.customer_id) {
+          await db.collection("customers").updateOne(
+            { _id: new ObjectId(validatedData.customer_id), tenant_id: tenantId },
+            { 
+              $inc: { lifetime_spending: serverGrandTotal },
+              $set: { last_visit: new Date() }
+            },
+            { session: sessionClient }
+          );
+        }
       });
     } finally {
       await sessionClient.endSession();
