@@ -19,7 +19,7 @@ export default function BusinessDetailsPage() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(businessDetailsSchema),
     defaultValues: {
-      country: "USA",
+      country: "United States",
       currency: "USD",
       timezone: "America/New_York",
     }
@@ -49,10 +49,11 @@ export default function BusinessDetailsPage() {
             {...register("country")}
             className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           >
-            <option value="USA">United States</option>
-            <option value="CAN">Canada</option>
-            <option value="GBR">United Kingdom</option>
-            <option value="AUS">Australia</option>
+            <option value="United States">United States</option>
+            <option value="Canada">Canada</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="Australia">Australia</option>
+            <option value="India">India</option>
           </select>
           {errors.country && <p className="text-sm text-red-500">{errors.country.message}</p>}
         </div>
@@ -67,6 +68,8 @@ export default function BusinessDetailsPage() {
             <option value="CAD">CAD ($)</option>
             <option value="GBP">GBP (£)</option>
             <option value="AUD">AUD ($)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="EUR">EUR (€)</option>
           </select>
           {errors.currency && <p className="text-sm text-red-500">{errors.currency.message}</p>}
         </div>
@@ -77,10 +80,18 @@ export default function BusinessDetailsPage() {
             {...register("timezone")}
             className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           >
-            <option value="America/New_York">Eastern Time (US & Canada)</option>
-            <option value="America/Chicago">Central Time (US & Canada)</option>
-            <option value="America/Denver">Mountain Time (US & Canada)</option>
-            <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+            <option value="America/New_York">US - Eastern Time</option>
+            <option value="America/Chicago">US - Central Time</option>
+            <option value="America/Denver">US - Mountain Time</option>
+            <option value="America/Los_Angeles">US - Pacific Time</option>
+            <option value="America/Toronto">Canada - Eastern Time</option>
+            <option value="America/Vancouver">Canada - Pacific Time</option>
+            <option value="Europe/London">UK - London</option>
+            <option value="Australia/Sydney">Australia - Sydney</option>
+            <option value="Australia/Melbourne">Australia - Melbourne</option>
+            <option value="Australia/Perth">Australia - Perth</option>
+            <option value="Asia/Kolkata">India - IST</option>
+            <option value="UTC">UTC</option>
           </select>
           {errors.timezone && <p className="text-sm text-red-500">{errors.timezone.message}</p>}
         </div>

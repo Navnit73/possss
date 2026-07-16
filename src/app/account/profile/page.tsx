@@ -15,18 +15,26 @@ const COUNTRIES = [
 
 const CURRENCIES = [
   { label: "USD - US Dollar", value: "USD" },
-  { label: "INR - Indian Rupee", value: "INR" },
-  { label: "EUR - Euro", value: "EUR" },
+  { label: "CAD - Canadian Dollar", value: "CAD" },
   { label: "GBP - British Pound", value: "GBP" },
   { label: "AUD - Australian Dollar", value: "AUD" },
+  { label: "INR - Indian Rupee", value: "INR" },
+  { label: "EUR - Euro", value: "EUR" },
 ];
 
 const TIMEZONES = [
+  { label: "US - Eastern Time", value: "America/New_York" },
+  { label: "US - Central Time", value: "America/Chicago" },
+  { label: "US - Mountain Time", value: "America/Denver" },
+  { label: "US - Pacific Time", value: "America/Los_Angeles" },
+  { label: "Canada - Eastern Time", value: "America/Toronto" },
+  { label: "Canada - Pacific Time", value: "America/Vancouver" },
+  { label: "UK - London", value: "Europe/London" },
+  { label: "Australia - Sydney", value: "Australia/Sydney" },
+  { label: "Australia - Melbourne", value: "Australia/Melbourne" },
+  { label: "Australia - Perth", value: "Australia/Perth" },
+  { label: "India - IST", value: "Asia/Kolkata" },
   { label: "UTC", value: "UTC" },
-  { label: "Asia/Kolkata", value: "Asia/Kolkata" },
-  { label: "America/New_York", value: "America/New_York" },
-  { label: "Europe/London", value: "Europe/London" },
-  { label: "Australia/Sydney", value: "Australia/Sydney" },
 ];
 
 const profileSchema = z.object({
