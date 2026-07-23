@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { roleSchema } from "@/lib/validations";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
+import { logAuditDirectly } from "@/lib/auditLogger";
+import { headers } from "next/headers";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    // Only owners/managers can view roles
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "ROLES", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,10 +28,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "ROLES", "CREATE");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
+    const userId = session?.user?.id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     // Check if role name exists in tenant
     const existing = await db.collection("roles").findOne({ 
       tenant_id: tenantId, 
-      name: { $regex: new RegExp(`^${validatedData.name}$`, "i") } 
+      name: { $regex: new RegExp(`^${validatedData.name.trim()}$`, "i") } 
     });
 
     if (existing) {
@@ -50,14 +52,31 @@ export async function POST(req: Request) {
 
     const newRole = {
       ...validatedData,
+      name: validatedData.name.trim(),
       tenant_id: tenantId,
       created_at: new Date(),
     };
 
     const result = await db.collection("roles").insertOne(newRole);
 
+    // Record Audit Log
+    const headersList = await headers();
+    const ip = headersList.get("x-forwarded-for") || req.headers.get("x-forwarded-for") || "Unknown IP";
+    const browser = headersList.get("user-agent") || req.headers.get("user-agent") || "Unknown Browser";
+
+    await logAuditDirectly({
+      tenantId,
+      userId,
+      action: "ROLE_CREATED",
+      module: "ROLES",
+      ip,
+      browser,
+      after: { roleId: result.insertedId.toString(), name: newRole.name, permissionsCount: newRole.permissions?.length || 0 }
+    });
+
     return NextResponse.json({ message: "Role created successfully", _id: result.insertedId }, { status: 201 });
   } catch (error: any) {
     return await handleApiError(error, "POST /api/roles");
   }
 }
+

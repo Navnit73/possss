@@ -4,15 +4,14 @@ import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { createUserSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkRole } from "@/lib/rbac";
-import { logAction } from "@/lib/logger";
+import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "USERS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +19,7 @@ export async function GET(req: Request) {
     const db = client.db("pos");
     const users = await db.collection("users").find(
       { tenant_id: tenantId },
-      { projection: { password: 0 } } // exclude password
+      { projection: { password: 0, resetToken: 0, resetTokenExpiry: 0 } }
     ).toArray();
 
     return NextResponse.json(users);
@@ -32,8 +31,8 @@ export async function GET(req: Request) {
 export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "USERS", "CREATE");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,7 +50,7 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
     }
 
     // Check if user exists across all tenants (emails must be unique)
-    const existingUser = await db.collection("users").findOne({ email: validatedData.email });
+    const existingUser = await db.collection("users").findOne({ email: validatedData.email.toLowerCase().trim() });
     if (existingUser) {
       return NextResponse.json({ error: "User already exists with this email" }, { status: 400 });
     }
@@ -61,8 +60,8 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
 
     // Create user
     const newUser = {
-      name: validatedData.name,
-      email: validatedData.email,
+      name: validatedData.name.trim(),
+      email: validatedData.email.toLowerCase().trim(),
       password: hashedPassword,
       role: "CUSTOM",
       role_id: role._id.toString(),
@@ -79,3 +78,4 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
     return await handleApiError(error, "POST /api/users");
   }
 });
+

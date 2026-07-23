@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Request, context: any, audit: AuditContext) => {
@@ -13,8 +13,8 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
     const { id } = params;
 
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "USERS", "EDIT");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,8 +40,8 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
     }
 
     // Check email uniqueness if email is changed
-    if (email.toLowerCase() !== targetUser.email.toLowerCase()) {
-      const emailCheck = await db.collection("users").findOne({ email: email.toLowerCase() });
+    if (email.toLowerCase().trim() !== targetUser.email.toLowerCase()) {
+      const emailCheck = await db.collection("users").findOne({ email: email.toLowerCase().trim() });
       if (emailCheck) {
         return NextResponse.json({ error: "Another user already exists with this email" }, { status: 400 });
       }
@@ -93,8 +93,8 @@ export const DELETE = withAuditLog("STAFF_USER_DELETED", "USERS", async (req: Re
     const { id } = params;
 
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "USERS", "DELETE");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     const currentUserId = (session?.user as any)?.id;
@@ -127,3 +127,4 @@ export const DELETE = withAuditLog("STAFF_USER_DELETED", "USERS", async (req: Re
     return await handleApiError(error, "DELETE /api/users/[id]");
   }
 });
+
