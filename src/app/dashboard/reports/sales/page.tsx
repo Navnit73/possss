@@ -4,19 +4,32 @@ import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { Filter, Calendar, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 
 export default function SalesReportPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filters state
+  // Draft Filters state (controlled by form inputs)
   const [dateRange, setDateRange] = useState("30days");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+
+  // Active Filters state (applied when user clicks Apply Filter)
+  const [activeFilters, setActiveFilters] = useState({
+    dateRange: "30days",
+    startDate: "",
+    endDate: "",
+    search: "",
+    paymentMethod: ""
+  });
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -37,9 +50,11 @@ export default function SalesReportPage() {
     try {
       if (!exportMode) setIsLoading(true);
       const params = {
-        dateRange,
-        search,
-        paymentMethod,
+        dateRange: activeFilters.dateRange,
+        startDate: activeFilters.startDate,
+        endDate: activeFilters.endDate,
+        search: activeFilters.search,
+        paymentMethod: activeFilters.paymentMethod,
         page,
         limit,
         export: exportMode
@@ -61,12 +76,24 @@ export default function SalesReportPage() {
 
   useEffect(() => {
     fetchReport();
-  }, [dateRange, paymentMethod, page, limit]);
+  }, [activeFilters, page, limit]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApplyFilter = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (dateRange === "custom" && (!startDate || !endDate)) {
+      Swal.fire('Warning', 'Please select both start date and end date for custom date range.', 'warning');
+      return;
+    }
+
     setPage(1);
-    fetchReport();
+    setActiveFilters({
+      dateRange,
+      startDate,
+      endDate,
+      search,
+      paymentMethod
+    });
   };
 
   const exportToCSV = (exportData: any[]) => {
@@ -96,7 +123,7 @@ export default function SalesReportPage() {
     setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
   };
 
-  // Color Palette: Amber primary instead of purple
+  // Color Palette
   const PAYMENT_COLORS: { [key: string]: string } = {
     CASH: '#10b981',   // Emerald
     CARD: '#0284c7',   // Sky Blue
@@ -104,72 +131,156 @@ export default function SalesReportPage() {
     OTHER: '#f59e0b'   // Amber
   };
 
+  const CATEGORY_COLORS = ['#f59e0b', '#0284c7', '#10b981', '#8b5cf6', '#ec4899', '#f97316'];
+  const CUSTOMER_COLORS = ['#d97706', '#64748b'];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative min-h-[600px]">
       
       {/* Top Filter Bar */}
-      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 flex flex-col md:flex-row justify-between gap-4">
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <select 
-              value={dateRange}
-              onChange={(e) => { setDateRange(e.target.value); setPage(1); }}
-              className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600"
-            >
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="7days">Last 7 Days</option>
-              <option value="30days">Last 30 Days</option>
-              <option value="thisMonth">This Month</option>
-              <option value="lastMonth">Last Month</option>
-            </select>
-          </div>
-
-          <div className="relative">
-            <select 
-              value={paymentMethod}
-              onChange={(e) => { setPaymentMethod(e.target.value); setPage(1); }}
-              className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600"
-            >
-              <option value="">All Payments</option>
-              <option value="CASH">Cash</option>
-              <option value="CARD">Card</option>
-              <option value="UPI">UPI</option>
-            </select>
-          </div>
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 sticky top-0 z-20">
+        <form onSubmit={handleApplyFilter} className="flex flex-col gap-4">
           
-          <form onSubmit={handleSearch} className="relative flex-1 min-w-[200px]">
-            <input 
-              type="text" 
-              placeholder="Search Invoice..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 placeholder:text-zinc-400"
-            />
-          </form>
-        </div>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Filter Inputs Group */}
+            <div className="flex flex-wrap items-center gap-3">
+              
+              {/* Date Range Selector */}
+              <div className="relative">
+                <select 
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  disabled={isLoading}
+                  className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded disabled:opacity-60"
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="lastMonth">Last Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
 
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => fetchReport(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 transition-colors rounded"
-          >
-            Export CSV
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
-          >
-            Print
-          </button>
-        </div>
+              {/* Custom Date Pickers */}
+              {dateRange === "custom" && (
+                <div className="flex items-center gap-2 bg-amber-50 p-1.5 rounded border border-amber-200">
+                  <Calendar className="w-4 h-4 text-amber-600 ml-1" />
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={isLoading}
+                    className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                  />
+                  <span className="text-xs text-zinc-500">to</span>
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={isLoading}
+                    className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                  />
+                </div>
+              )}
+
+              {/* Payment Method Selector */}
+              <div className="relative">
+                <select 
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  disabled={isLoading}
+                  className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded disabled:opacity-60"
+                >
+                  <option value="">All Payments</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              
+              {/* Search Box */}
+              <div className="relative min-w-[200px]">
+                <input 
+                  type="text" 
+                  placeholder="Search Invoice..." 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 placeholder:text-zinc-400 rounded disabled:opacity-60"
+                />
+              </div>
+
+              {/* Apply Filter Button */}
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 disabled:bg-amber-400 transition-colors rounded shadow-xs cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying Filters...
+                  </>
+                ) : (
+                  <>
+                    <Filter className="w-4 h-4" />
+                    Apply Filter
+                  </>
+                )}
+              </button>
+
+            </div>
+
+            {/* Export & Print Actions */}
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={() => fetchReport(true)}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white font-semibold text-sm hover:bg-zinc-900 disabled:opacity-60 transition-colors rounded shadow-xs"
+              >
+                Export CSV
+              </button>
+              <button 
+                type="button"
+                onClick={() => window.print()}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 disabled:opacity-60 transition-colors rounded shadow-xs"
+              >
+                Print
+              </button>
+            </div>
+
+          </div>
+        </form>
 
       </div>
 
-      {isLoading && !data ? (
-        <div className="h-64 flex items-center justify-center text-zinc-400 font-mono text-sm uppercase tracking-wider">Loading data...</div>
-      ) : data ? (
+      {/* Loading Overlay Backdrop Screen */}
+      {isLoading && (
+        <div className="absolute inset-0 top-20 bg-white/80 backdrop-blur-xs z-30 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4 flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-zinc-900">Applying Filters & Processing Sales Analytics</h4>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Calculating revenue, net profit, rush hours, and medicine category trends for your selected timeframe...
+              </p>
+            </div>
+            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-amber-500 h-full w-2/3 animate-pulse rounded-full" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Content Screen */}
+      {data && (
         <>
           {/* Key Metrics - Ledger Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
@@ -179,25 +290,25 @@ export default function SalesReportPage() {
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Total Orders</p>
-              <h3 className="text-3xl font-mono text-zinc-900">{data.metrics.totalOrders}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{data.metrics.totalOrders}</h3>
             </div>
             <div className="p-6 border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Items Sold</p>
-              <h3 className="text-3xl font-mono text-zinc-900">{data.metrics.totalQtySold}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{data.metrics.totalQtySold}</h3>
             </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Avg Order Value</p>
-              <h3 className="text-3xl font-mono text-zinc-900">${data.metrics.avgOrderValue.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">${data.metrics.avgOrderValue.toFixed(2)}</h3>
             </div>
           </div>
 
-          {/* Charts Section */}
+          {/* Row 1 Charts: Daily Sales Trend & Revenue by Payment */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Daily Sales & Payment Method Trend Line Chart */}
+            {/* Chart 1: Daily Sales & Payment Line Chart */}
             <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Daily Sales Trend & Payment Breakdown</h3>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">1. Daily Sales Trend & Payment Breakdown</h3>
                 <div className="flex items-center gap-4 text-xs font-mono">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> Total</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-sky-600 inline-block" /> Card</span>
@@ -214,25 +325,18 @@ export default function SalesReportPage() {
                     <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
                     <RechartsTooltip cursor={{stroke: '#f59e0b', strokeWidth: 1}} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
                     
-                    {/* Line 1: Total Revenue (Amber Color) */}
                     <Line type="monotone" dataKey="revenue" name="Total Revenue" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
-                    
-                    {/* Line 2: Card Payments (Sky Blue Line) */}
                     <Line type="monotone" dataKey="card" name="Card Payments" stroke="#0284c7" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} />
-
-                    {/* Line 3: Cash Payments (Emerald Line) */}
                     <Line type="monotone" dataKey="cash" name="Cash Payments" stroke="#10b981" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} />
-
-                    {/* Line 4: UPI Payments (Violet Line) */}
                     <Line type="monotone" dataKey="upi" name="UPI Payments" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Revenue by Payment Pie Chart */}
+            {/* Chart 2: Revenue by Payment Donut */}
             <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">Revenue by Payment</h3>
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">2. Revenue by Payment Method</h3>
               <div className="h-72 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -247,14 +351,140 @@ export default function SalesReportPage() {
                       nameKey="method"
                     >
                       {data.charts.paymentMethods.map((entry: any) => (
-                        <Cell 
-                          key={entry.method} 
-                          fill={PAYMENT_COLORS[entry.method] || '#f59e0b'} 
-                        />
+                        <Cell key={entry.method} fill={PAYMENT_COLORS[entry.method] || '#f59e0b'} />
                       ))}
                     </Pie>
                     <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
                     <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontFamily: 'monospace'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Row 2 Charts: Revenue vs Profit & Peak Hours */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Chart 3: Revenue vs Profit Area Chart */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">3. Sales Revenue vs Net Profit ($)</h3>
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" /> Revenue</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> Profit</span>
+                </div>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={data.charts.dailyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorProf" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                    <XAxis dataKey="date" tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#f59e0b" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProf)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 4: Peak Sales Rush Hours Bar Chart */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">4. Peak Pharmacy Rush Hours (Hourly Sales)</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.charts.hourlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                    <XAxis dataKey="hour" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <Bar dataKey="revenue" name="Hourly Revenue" fill="#d97706" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Row 3 Charts: Top Products, Category Breakdown, Customer Type */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* Chart 5: Top 5 Best Selling Medicines */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">5. Top 5 Best Selling Medicines</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.charts.topProducts} layout="vertical" margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" />
+                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <YAxis dataKey="name" type="category" width={90} tick={{fontSize: 10, fill: '#3f3f46', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <Bar dataKey="revenue" name="Revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 6: Sales by Category Donut */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">6. Sales by Medicine Category</h3>
+              <div className="h-64 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.charts.categoryBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="revenue"
+                      nameKey="name"
+                    >
+                      {data.charts.categoryBreakdown.map((entry: any, index: number) => (
+                        <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 7: Customer Type Breakdown */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">7. Patient / Customer Breakdown</h3>
+              <div className="h-64 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.charts.customerType}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="revenue"
+                      nameKey="name"
+                    >
+                      {data.charts.customerType.map((entry: any, index: number) => (
+                        <Cell key={entry.name} fill={CUSTOMER_COLORS[index % CUSTOMER_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Legend iconType="square" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -268,6 +498,7 @@ export default function SalesReportPage() {
               <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Sales Register</h3>
               <div className="relative">
                 <button 
+                  type="button"
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors"
                 >
@@ -350,16 +581,18 @@ export default function SalesReportPage() {
               </div>
               <div className="flex gap-1">
                 <button 
+                  type="button"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={data.table.pagination.page === 1}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider"
+                  disabled={data.table.pagination.page === 1 || isLoading}
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Prev
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setPage(p => Math.min(data.table.pagination.totalPages, p + 1))}
-                  disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider"
+                  disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0 || isLoading}
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Next
                 </button>
@@ -367,7 +600,7 @@ export default function SalesReportPage() {
             </div>
           </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

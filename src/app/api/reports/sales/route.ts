@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // 3. Aggregate Sales Metrics & Charts
+    // 3. Parallel Aggregations for Sales Metrics & Charts
     const salesMetricsPipeline = [
       { $match: saleMatch },
       {
@@ -130,16 +130,157 @@ export async function GET(req: NextRequest) {
       }
     ];
 
-    const [metricsResult, trendResult, paymentResult] = await Promise.all([
+    // Chart 1: Hourly Sales Rush Breakdown
+    const hourlyPipeline = [
+      { $match: saleMatch },
+      {
+        $group: {
+          _id: { $hour: "$created_at" },
+          revenue: { $sum: "$total" },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ];
+
+    // Chart 2: Customer Type Breakdown (Registered vs Walk-in)
+    const customerTypePipeline = [
+      { $match: saleMatch },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $and: [{ $ne: ["$customer_id", null] }, { $ne: ["$customer_id", ""] }] },
+              "Registered Patient",
+              "Walk-in Customer"
+            ]
+          },
+          revenue: { $sum: "$total" },
+          count: { $sum: 1 }
+        }
+      }
+    ];
+
+    // Chart 3 & 4: Top 5 Products & Sales by Medicine Category
+    const itemsAggregationPipeline = [
+      { $match: saleMatch },
+      {
+        $lookup: {
+          from: "sale_items",
+          let: { saleId: { $toString: "$_id" } },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }
+          ],
+          as: "items"
+        }
+      },
+      { $unwind: "$items" },
+      {
+        $lookup: {
+          from: "products",
+          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
+          ],
+          as: "product"
+        }
+      },
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          "product.category_obj_id": { 
+            $convert: { input: "$product.category_id", to: "objectId", onError: null, onNull: null } 
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "product.category_obj_id",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+      {
+        $facet: {
+          topProducts: [
+            {
+              $group: {
+                _id: "$items.product_id",
+                product_name: { $first: { $ifNull: ["$product.name", "Unknown Medicine"] } },
+                qty_sold: { $sum: "$items.qty" },
+                revenue: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
+                    ]
+                  }
+                },
+                profit: { $sum: { $ifNull: ["$items.profit", 0] } }
+              }
+            },
+            { $sort: { revenue: -1 } },
+            { $limit: 5 }
+          ],
+          categoryBreakdown: [
+            {
+              $group: {
+                _id: { $ifNull: ["$category.name", "General Health"] },
+                revenue: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
+                    ]
+                  }
+                },
+                qty: { $sum: "$items.qty" }
+              }
+            },
+            { $sort: { revenue: -1 } }
+          ],
+          dailyProfitTrend: [
+            {
+              $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+                profit: { $sum: { $ifNull: ["$items.profit", 0] } }
+              }
+            },
+            { $sort: { _id: 1 } }
+          ]
+        }
+      }
+    ];
+
+    const [
+      metricsResult, 
+      trendResult, 
+      paymentResult,
+      hourlyResult,
+      customerTypeResult,
+      itemsFacetResult
+    ] = await Promise.all([
       db.collection("sales").aggregate(salesMetricsPipeline).toArray(),
       db.collection("sales").aggregate(dailyTrendPipeline).toArray(),
-      db.collection("sales").aggregate(paymentTrendPipeline).toArray()
+      db.collection("sales").aggregate(paymentTrendPipeline).toArray(),
+      db.collection("sales").aggregate(hourlyPipeline).toArray(),
+      db.collection("sales").aggregate(customerTypePipeline).toArray(),
+      db.collection("sales").aggregate(itemsAggregationPipeline).toArray()
     ]);
 
     const metrics = metricsResult[0] || { total_revenue: 0, total_orders: 0, total_tax: 0, total_discount: 0 };
     const avgOrderValue = metrics.total_orders > 0 ? metrics.total_revenue / metrics.total_orders : 0;
     
-    // Group daily trend by date with payment method breakdowns
+    // Process items facet results
+    const facet = itemsFacetResult[0] || { topProducts: [], categoryBreakdown: [], dailyProfitTrend: [] };
+    const profitMap = new Map<string, number>();
+    for (const p of facet.dailyProfitTrend) {
+      profitMap.set(p._id, p.profit);
+    }
+
+    // Group daily trend by date with payment method breakdowns & net profit
     const trendMap = new Map<string, any>();
     let maxDayRevenue = 0;
     let bestDayDate = "N/A";
@@ -148,7 +289,16 @@ export async function GET(req: NextRequest) {
       const date = item._id.date;
       const method = (item._id.method || "OTHER").toString().toUpperCase();
       if (!trendMap.has(date)) {
-        trendMap.set(date, { date, revenue: 0, orders: 0, cash: 0, card: 0, upi: 0, other: 0 });
+        trendMap.set(date, { 
+          date, 
+          revenue: 0, 
+          orders: 0, 
+          cash: 0, 
+          card: 0, 
+          upi: 0, 
+          other: 0,
+          profit: profitMap.get(date) || 0 
+        });
       }
       const entry = trendMap.get(date);
       entry.revenue += item.revenue;
@@ -166,6 +316,23 @@ export async function GET(req: NextRequest) {
     }
 
     const dailyTrend = Array.from(trendMap.values());
+
+    // Format Hourly Rush Data (0 to 23 hours)
+    const hourlyMap = new Map<number, { hour: string; revenue: number; orders: number }>();
+    for (let h = 8; h <= 22; h++) {
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const formattedHour = `${h % 12 === 0 ? 12 : h % 12} ${ampm}`;
+      hourlyMap.set(h, { hour: formattedHour, revenue: 0, orders: 0 });
+    }
+    for (const hItem of hourlyResult) {
+      const h = hItem._id;
+      if (hourlyMap.has(h)) {
+        const entry = hourlyMap.get(h)!;
+        entry.revenue = hItem.revenue;
+        entry.orders = hItem.orders;
+      }
+    }
+    const hourlyTrend = Array.from(hourlyMap.values());
 
     // 4. Aggregate Sale Items for Table View
     const itemsPipeline: any[] = [
@@ -284,7 +451,11 @@ export async function GET(req: NextRequest) {
       },
       charts: {
         dailyTrend,
-        paymentMethods: paymentResult.map(p => ({ method: p._id, revenue: p.revenue, count: p.count }))
+        paymentMethods: paymentResult.map((p: any) => ({ method: p._id, revenue: p.revenue, count: p.count })),
+        hourlyTrend,
+        customerType: customerTypeResult.map((c: any) => ({ name: c._id, revenue: c.revenue, count: c.count })),
+        topProducts: facet.topProducts.map((p: any) => ({ name: p.product_name, revenue: p.revenue, qty: p.qty_sold })),
+        categoryBreakdown: facet.categoryBreakdown.map((c: any) => ({ name: c._id, revenue: c.revenue, qty: c.qty }))
       },
       table: {
         data: items,

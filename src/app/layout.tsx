@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/components/providers/AuthProvider";
 
-const inter = Inter({
-  variable: "--font-inter",
+const poppins = Poppins({
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
   subsets: ["latin"],
-});
-
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -17,16 +15,14 @@ export const metadata: Metadata = {
   description: "Modern Point of Sale System for Pharmacies",
 };
 
-import { AuthProvider } from "@/components/providers/AuthProvider";
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${jakarta.variable} antialiased`}>
+    <html lang="en" className={poppins.variable}>
+      <body className={`${poppins.className} antialiased`}>
         <AuthProvider>
           {children}
         </AuthProvider>
