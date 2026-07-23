@@ -6,6 +6,10 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { checkPermission } from "@/lib/rbac";
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -19,6 +23,8 @@ export async function GET(req: Request) {
     
     const batches = await db.collection("batches").aggregate([
       { $match: { tenant_id: tenantId } },
+      { $sort: { created_at: -1 } },
+      { $limit: 100 },
       {
         $addFields: {
           product_obj_id: { 
@@ -54,9 +60,6 @@ export async function GET(req: Request) {
       },
       {
         $unwind: { path: "$product.category", preserveNullAndEmptyArrays: true }
-      },
-      {
-        $sort: { created_at: -1 }
       }
     ]).toArray();
     
@@ -100,18 +103,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // Check batch number uniqueness for the specific product
+    // Check batch number uniqueness for the specific product (safely escaped)
+    const escapedBatchNo = escapeRegExp(validatedData.batch_number);
     const existing = await db.collection("batches").findOne({
       tenant_id: tenantId,
       product_id: validatedData.product_id,
-      batch_number: { $regex: new RegExp(`^${validatedData.batch_number}$`, "i") }
+      batch_number: { $regex: new RegExp(`^${escapedBatchNo}$`, "i") }
     });
     
     if (existing) {
       return NextResponse.json({ error: "This batch number already exists for this product" }, { status: 400 });
     }
 
-    // Start a logical transaction (using normal ops since we may not have a replica set setup)
     const newBatch = {
       ...validatedData,
       tenant_id: tenantId,

@@ -3,6 +3,10 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -10,28 +14,29 @@ export async function GET(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q") || "";
+    const query = searchParams.get("q")?.trim() || "";
 
     const db = client.db("pos");
 
-    // We will search products by name, generic_name, barcode, or sku.
     const productMatchQuery: any = {
       tenant_id: tenantId,
       status: "ACTIVE"
     };
 
     if (query) {
+      const escaped = escapeRegExp(query);
       productMatchQuery.$or = [
-        { name: { $regex: new RegExp(query, "i") } },
-        { generic_name: { $regex: new RegExp(query, "i") } },
-        { active_ingredients: { $regex: new RegExp(query, "i") } },
-        { barcode: { $regex: new RegExp(`^${query}$`, "i") } }, 
-        { sku: { $regex: new RegExp(`^${query}$`, "i") } }
+        { barcode: query }, // Exact barcode match first
+        { sku: query },     // Exact SKU match first
+        { name: { $regex: new RegExp(escaped, "i") } },
+        { generic_name: { $regex: new RegExp(escaped, "i") } },
+        { active_ingredients: { $regex: new RegExp(escaped, "i") } }
       ];
     }
 
     const products = await db.collection("products").aggregate([
       { $match: productMatchQuery },
+      { $limit: 20 },
       {
         $addFields: {
           product_id_str: { $toString: "$_id" }
@@ -54,16 +59,10 @@ export async function GET(req: Request) {
                 }
               }
             },
-            // Sort by expiry_date nearest first
             { $sort: { expiry_date: 1 } }
           ],
           as: "batches"
         }
-      },
-      // Removing the out of stock filter so all matching products are shown in search
-      // which prevents confusion when a user searches for an existing product with 0 stock.
-      {
-        $limit: 20
       }
     ]).toArray();
     

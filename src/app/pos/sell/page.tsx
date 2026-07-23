@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, PackageOpen, Tag, UserCircle, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { InvoiceReceiptModal } from "@/components/pos/InvoiceReceiptModal";
 
 interface POSItem {
   id: string; // unique cart id
@@ -39,6 +40,8 @@ export default function PosSellPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isSearchingCustomer, setIsSearchingCustomer] = useState(false);
 
+  const [completedSaleId, setCompletedSaleId] = useState<string | null>(null);
+
   const flatSearchResults = useMemo(() => {
     return searchResults.flatMap(product => 
       (product.batches || []).map((batch: any) => ({ product, batch }))
@@ -61,7 +64,7 @@ export default function PosSellPage() {
     startWidth.current = rightWidth;
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
-    document.body.style.userSelect = 'none'; // prevent text selection while dragging
+    document.body.style.userSelect = 'none';
   };
 
   const onMouseMove = (e: MouseEvent) => {
@@ -89,7 +92,7 @@ export default function PosSellPage() {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (showPaymentModal) return; // Disable shortcuts when modal is open
+      if (showPaymentModal || completedSaleId) return;
       
       if (e.key === "F2" || (e.key === "/" && document.activeElement !== searchInputRef.current && document.activeElement?.tagName !== 'INPUT')) {
         e.preventDefault();
@@ -134,9 +137,9 @@ export default function PosSellPage() {
     
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [cart.length, showPaymentModal, isProcessing, flatSearchResults, selectedIndex]);
+  }, [cart.length, showPaymentModal, completedSaleId, isProcessing, flatSearchResults, selectedIndex]);
 
-  // Search API Call
+  // Fast Product Search API Call (80ms debounce for high-speed responsiveness)
   useEffect(() => {
     const timer = setTimeout(async () => {
       if (!searchQuery.trim()) {
@@ -153,7 +156,7 @@ export default function PosSellPage() {
         setIsSearching(false);
         setSelectedIndex(0);
       }
-    }, 200); 
+    }, 80); 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -176,7 +179,7 @@ export default function PosSellPage() {
       } finally {
         setIsSearchingCustomer(false);
       }
-    }, 300); 
+    }, 150); 
     return () => clearTimeout(timer);
   }, [customerSearchQuery, selectedCustomer]);
 
@@ -254,14 +257,15 @@ export default function PosSellPage() {
       };
 
       const res = await axios.post("/api/pos/sell", payload);
-      Swal.fire('Success', String(`Sale completed! Invoice ID: ${res.data.sale_id}`), 'success');
+      
+      // Complete sale & show printable receipt modal
       setCart([]);
       setOverallDiscount(0);
       setShowPaymentModal(false);
       setSearchQuery("");
       setSelectedCustomer(null);
       setCustomerSearchQuery("");
-      searchInputRef.current?.focus();
+      setCompletedSaleId(res.data.sale_id);
     } catch (err: any) {
       Swal.fire('Error', String(err.response?.data?.error || "Failed to process sale"), 'error');
     } finally {
@@ -270,7 +274,7 @@ export default function PosSellPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-surface  text-foreground">
+    <div className="h-[calc(100vh-3.5rem)] flex overflow-hidden bg-surface text-foreground">
       
       {/* Left Panel: Search & Products */}
       <div className="flex-1 flex flex-col bg-white z-0">
@@ -653,6 +657,14 @@ export default function PosSellPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Completed Sale Printable Receipt Modal */}
+      {completedSaleId && (
+        <InvoiceReceiptModal
+          saleId={completedSaleId}
+          onClose={() => setCompletedSaleId(null)}
+        />
       )}
     </div>
   );
