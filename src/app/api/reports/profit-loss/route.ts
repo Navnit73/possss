@@ -146,9 +146,104 @@ export async function GET(req: NextRequest) {
       { $group: { _id: null, total_global_discount: { $sum: "$discount" } } }
     ];
 
-    const [metricsResult, globalDiscResult] = await Promise.all([
+    // Additional Chart Aggregations
+    const chartsFacetPipeline = [
+      ...basePipeline,
+      {
+        $addFields: {
+          "product.category_obj_id": { 
+            $convert: { input: "$product.category_id", to: "objectId", onError: null, onNull: null } 
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "product.category_obj_id",
+          foreignField: "_id",
+          as: "category_doc"
+        }
+      },
+      { $unwind: { path: "$category_doc", preserveNullAndEmptyArrays: true } },
+      {
+        $facet: {
+          dailyProfitTrend: [
+            {
+              $group: {
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+                revenue: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
+                    ]
+                  }
+                },
+                cogs: { $sum: { $multiply: ["$items.cost_price", "$items.qty"] } },
+                profit: { $sum: { $ifNull: ["$items.profit", 0] } }
+              }
+            },
+            { $sort: { _id: 1 } }
+          ],
+          categoryProfit: [
+            {
+              $group: {
+                _id: { $ifNull: ["$category_doc.name", "General Health"] },
+                profit: { $sum: { $ifNull: ["$items.profit", 0] } },
+                revenue: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
+                    ]
+                  }
+                }
+              }
+            },
+            { $sort: { profit: -1 } }
+          ],
+          topProfitableProducts: [
+            {
+              $group: {
+                _id: "$items.product_id",
+                name: { $first: { $ifNull: ["$product.name", "Unknown Medicine"] } },
+                profit: { $sum: { $ifNull: ["$items.profit", 0] } },
+                revenue: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
+                    ]
+                  }
+                }
+              }
+            },
+            { $sort: { profit: -1 } },
+            { $limit: 5 }
+          ],
+          discountBreakdown: [
+            {
+              $group: {
+                _id: null,
+                item_discounts: {
+                  $sum: {
+                    $multiply: [
+                      { $multiply: ["$items.price", "$items.qty"] },
+                      { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ];
+
+    const [metricsResult, globalDiscResult, chartsFacetResult] = await Promise.all([
       db.collection("sales").aggregate(metricsPipeline).toArray(),
-      db.collection("sales").aggregate(globalDiscountPipeline).toArray()
+      db.collection("sales").aggregate(globalDiscountPipeline).toArray(),
+      db.collection("sales").aggregate(chartsFacetPipeline).toArray()
     ]);
 
     const metrics = metricsResult[0] || { gross_revenue: 0, product_cost: 0, discounts_given: 0, gross_profit: 0, margin_pct: 0 };
@@ -158,6 +253,9 @@ export async function GET(req: NextRequest) {
     metrics.gross_revenue -= globalDisc;
     metrics.gross_profit = metrics.gross_revenue - metrics.product_cost;
     metrics.margin_pct = metrics.gross_revenue > 0 ? (metrics.gross_profit / metrics.gross_revenue) * 100 : 0;
+
+    const facet = chartsFacetResult[0] || { dailyProfitTrend: [], categoryProfit: [], topProfitableProducts: [], discountBreakdown: [] };
+    const itemDiscTotal = facet.discountBreakdown[0]?.item_discounts || 0;
 
     const tablePipeline = [
       ...basePipeline,
@@ -229,6 +327,34 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       metrics,
+      charts: {
+        dailyProfitTrend: facet.dailyProfitTrend.map((d: any) => ({
+          date: d._id,
+          revenue: d.revenue,
+          cogs: d.cogs,
+          profit: d.profit
+        })),
+        categoryProfit: facet.categoryProfit.map((c: any) => ({
+          name: c._id,
+          profit: c.profit,
+          revenue: c.revenue
+        })),
+        topProfitableProducts: facet.topProfitableProducts.map((p: any) => ({
+          name: p.name,
+          profit: p.profit,
+          revenue: p.revenue
+        })),
+        waterfall: [
+          { category: 'Gross Revenue', amount: metrics.gross_revenue, fill: '#f59e0b' },
+          { category: 'COGS (Stock Cost)', amount: metrics.product_cost, fill: '#ef4444' },
+          { category: 'Discounts', amount: metrics.discounts_given, fill: '#f97316' },
+          { category: 'Net Profit', amount: metrics.gross_profit, fill: '#10b981' }
+        ],
+        discountBreakdown: [
+          { name: 'Item Discounts', amount: itemDiscTotal },
+          { name: 'Global Invoice Discounts', amount: globalDisc }
+        ]
+      },
       table: {
         data: items,
         pagination: {

@@ -97,13 +97,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const tablePipeline = [
+    const groupedBase = [
       ...basePipeline,
       {
         $group: {
           _id: "$items.product_id",
-          product_name: { $first: "$product.name" },
-          category: { $first: "$product.category" },
+          product_name: { $first: { $ifNull: ["$product.name", "Unknown Product"] } },
+          category: { $first: { $ifNull: ["$product.category", "General Health"] } },
           qty_sold: { $sum: "$items.qty" },
           revenue_generated: {
             $sum: {
@@ -113,9 +113,7 @@ export async function GET(req: NextRequest) {
               ]
             }
           },
-          profit_generated: {
-            $sum: "$items.profit"
-          }
+          profit_generated: { $sum: "$items.profit" }
         }
       },
       {
@@ -131,7 +129,7 @@ export async function GET(req: NextRequest) {
       },
       {
         $project: {
-          product_name: { $ifNull: ["$product_name", "Unknown"] },
+          product_name: 1,
           category: 1,
           qty_sold: 1,
           revenue_generated: 1,
@@ -161,20 +159,64 @@ export async function GET(req: NextRequest) {
       { $sort: { qty_sold: -1 } }
     ];
 
+    // Facet for Charts & Metrics
+    const facetPipeline = [
+      ...groupedBase,
+      {
+        $facet: {
+          topUnits: [
+            { $limit: 10 },
+            {
+              $project: {
+                name: "$product_name",
+                qty_sold: 1,
+                revenue: "$revenue_generated"
+              }
+            }
+          ],
+          categoryVelocity: [
+            {
+              $group: {
+                _id: "$category",
+                total_qty: { $sum: "$qty_sold" },
+                total_revenue: { $sum: "$revenue_generated" }
+              }
+            },
+            { $sort: { total_qty: -1 } }
+          ],
+          atRiskStockouts: [
+            { $match: { estimated_stock_days: { $lt: 14 } } },
+            { $limit: 5 },
+            {
+              $project: {
+                name: "$product_name",
+                qty_sold: 1,
+                current_stock: 1,
+                days_left: "$estimated_stock_days"
+              }
+            }
+          ]
+        }
+      }
+    ];
+
+    const facetResult = await db.collection("sales").aggregate(facetPipeline).toArray();
+    const facet = facetResult[0] || { topUnits: [], categoryVelocity: [], atRiskStockouts: [] };
+
     let items = [];
     let totalItemsCount = 0;
 
     if (isExport) {
-      items = await db.collection("sales").aggregate(tablePipeline).toArray();
+      items = await db.collection("sales").aggregate(groupedBase).toArray();
       totalItemsCount = items.length;
     } else {
       const paginatedPipeline = [
-        ...tablePipeline,
+        ...groupedBase,
         { $skip: skip },
         { $limit: limit }
       ];
       const countPipeline = [
-        ...tablePipeline,
+        ...groupedBase,
         { $count: "total" }
       ];
 
@@ -186,12 +228,20 @@ export async function GET(req: NextRequest) {
       totalItemsCount = countData[0]?.total || 0;
     }
 
-    const topPerformers = items.slice(0, 5);
-
     return NextResponse.json({
       metrics: {
-        topPerformers: topPerformers.map((p: any) => p.product_name),
-        totalAnalyzed: totalItemsCount
+        topPerformers: facet.topUnits.slice(0, 3).map((p: any) => p.name),
+        totalAnalyzed: totalItemsCount,
+        atRiskCount: facet.atRiskStockouts.length
+      },
+      charts: {
+        topUnits: facet.topUnits,
+        categoryVelocity: facet.categoryVelocity.map((c: any) => ({
+          name: c._id || "General Health",
+          qty: c.total_qty,
+          revenue: c.total_revenue
+        })),
+        atRiskStockouts: facet.atRiskStockouts
       },
       table: {
         data: items,

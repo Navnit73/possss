@@ -3,15 +3,31 @@
 import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+} from 'recharts';
+import { Filter, Calendar, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 
 export default function FastMovingReportPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filters state
-  const [dateRange, setDateRange] = useState("today");
+  // Draft Filters state
+  const [dateRange, setDateRange] = useState("30days");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
+
+  // Active Filters state
+  const [activeFilters, setActiveFilters] = useState({
+    dateRange: "30days",
+    startDate: "",
+    endDate: "",
+    search: ""
+  });
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -32,8 +48,10 @@ export default function FastMovingReportPage() {
     try {
       if (!exportMode) setIsLoading(true);
       const params = {
-        dateRange,
-        search,
+        dateRange: activeFilters.dateRange,
+        startDate: activeFilters.startDate,
+        endDate: activeFilters.endDate,
+        search: activeFilters.search,
         page,
         limit,
         export: exportMode
@@ -55,12 +73,23 @@ export default function FastMovingReportPage() {
 
   useEffect(() => {
     fetchReport();
-  }, [dateRange, page, limit]); 
+  }, [activeFilters, page, limit]); 
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApplyFilter = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (dateRange === "custom" && (!startDate || !endDate)) {
+      Swal.fire('Warning', 'Please select both start date and end date for custom date range.', 'warning');
+      return;
+    }
+
     setPage(1);
-    fetchReport();
+    setActiveFilters({
+      dateRange,
+      startDate,
+      endDate,
+      search
+    });
   };
 
   const exportToCSV = (exportData: any[]) => {
@@ -89,64 +118,137 @@ export default function FastMovingReportPage() {
     setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }));
   };
 
+  const CATEGORY_COLORS = ['#f59e0b', '#0284c7', '#10b981', '#8b5cf6', '#ec4899', '#f97316'];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative min-h-[600px]">
       
       {/* Top Filter Bar */}
-      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 flex flex-col md:flex-row justify-between gap-4">
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <select 
-              value={dateRange}
-              onChange={(e) => { setDateRange(e.target.value); setPage(1); }}
-              className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded"
-            >
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="7days">Last 7 Days</option>
-              <option value="30days">Last 30 Days</option>
-              <option value="thisMonth">This Month</option>
-              <option value="lastMonth">Last Month</option>
-            </select>
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 sticky top-0 z-20">
+        <form onSubmit={handleApplyFilter} className="flex flex-col gap-4">
+          
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            
+            {/* Filter Inputs Group */}
+            <div className="flex flex-wrap items-center gap-3">
+              
+              {/* Date Range Selector */}
+              <div className="relative">
+                <select 
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  disabled={isLoading}
+                  className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded disabled:opacity-60"
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="lastMonth">Last Month</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+              </div>
+
+              {/* Custom Date Pickers */}
+              {dateRange === "custom" && (
+                <div className="flex items-center gap-2 bg-amber-50 p-1.5 rounded border border-amber-200">
+                  <Calendar className="w-4 h-4 text-amber-600 ml-1" />
+                  <input 
+                    type="date" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={isLoading}
+                    className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                  />
+                  <span className="text-xs text-zinc-500">to</span>
+                  <input 
+                    type="date" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={isLoading}
+                    className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                  />
+                </div>
+              )}
+
+              {/* Search Box */}
+              <div className="relative min-w-[220px]">
+                <input 
+                  type="text" 
+                  placeholder="Search Product..." 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 placeholder:text-zinc-400 rounded disabled:opacity-60"
+                />
+              </div>
+
+              {/* Apply Filter Button */}
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 disabled:bg-amber-400 transition-colors rounded shadow-xs cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying Filters...
+                  </>
+                ) : (
+                  <>
+                    <Filter className="w-4 h-4" />
+                    Apply Filter
+                  </>
+                )}
+              </button>
+
+            </div>
+
+            {/* Export CSV Action */}
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={() => fetchReport(true)}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white font-semibold text-sm hover:bg-zinc-900 disabled:opacity-60 transition-colors rounded shadow-xs"
+              >
+                Export CSV
+              </button>
+            </div>
+
           </div>
-
-          <form onSubmit={handleSearch} className="relative flex-1 min-w-[200px]">
-            <input 
-              type="text" 
-              placeholder="Search Product..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 placeholder:text-zinc-400 rounded"
-            />
-          </form>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => fetchReport(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 transition-colors rounded"
-          >
-            Export CSV
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
-          >
-            Print
-          </button>
-        </div>
+        </form>
       </div>
 
-      {isLoading && !data ? (
-        <div className="h-64 flex items-center justify-center text-zinc-400 font-mono text-sm uppercase tracking-wider">Loading data...</div>
-      ) : data ? (
+      {/* Loading Overlay Backdrop Screen */}
+      {isLoading && (
+        <div className="absolute inset-0 top-20 bg-white/80 backdrop-blur-xs z-30 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4 flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-zinc-900">Applying Filters & Ranking Sales Velocity</h4>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Analyzing unit sales, daily velocity, stockout risks, and fast-moving medicine categories...
+              </p>
+            </div>
+            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-amber-500 h-full w-2/3 animate-pulse rounded-full" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Content */}
+      {data && (
         <>
           {/* Key Metrics - Ledger Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="grid grid-cols-2 md:grid-cols-4 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200 bg-amber-50">
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest mb-2">Top Selling Product</p>
-              <h3 className="text-2xl font-mono text-amber-900 line-clamp-1 font-bold">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest mb-2">#1 Fast-Selling Product</p>
+              <h3 className="text-xl font-mono text-amber-900 line-clamp-1 font-bold">
                 {data.metrics.topPerformers[0] || "N/A"}
               </h3>
             </div>
@@ -154,11 +256,83 @@ export default function FastMovingReportPage() {
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Products Analyzed</p>
               <h3 className="text-3xl font-mono text-zinc-900 font-bold">{data.metrics.totalAnalyzed}</h3>
             </div>
+            <div className="p-6 border-r border-zinc-200">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">At-Risk Stockouts (&lt;14 Days)</p>
+              <h3 className={`text-3xl font-mono font-bold ${data.metrics.atRiskCount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {data.metrics.atRiskCount}
+              </h3>
+            </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Ranked By</p>
-              <h3 className="text-2xl font-mono text-zinc-900 font-bold">Total Units Sold</h3>
+              <h3 className="text-xl font-mono text-zinc-900 font-bold">Total Units Sold</h3>
             </div>
           </div>
+
+          {/* Row 1 Charts: Top 10 Fast-Selling Products & Sales Velocity by Category */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Chart 1: Top 10 Fast-Selling Medicines */}
+            <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">1. Top Fast-Selling Medicines (Units Sold)</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.charts.topUnits} layout="vertical" margin={{ top: 0, right: 10, left: 30, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" />
+                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis dataKey="name" type="category" width={110} tick={{fontSize: 10, fill: '#3f3f46', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `${val} units`} />
+                    <Bar dataKey="qty_sold" name="Units Sold" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 2: Category Velocity Share */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">2. Unit Velocity Share by Category</h3>
+              <div className="h-72 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.charts.categoryVelocity}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="qty"
+                      nameKey="name"
+                    >
+                      {data.charts.categoryVelocity.map((entry: any, index: number) => (
+                        <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val: any) => `${val} units`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Row 2 Chart: Stockout Danger Warning */}
+          {data.charts.atRiskStockouts.length > 0 && (
+            <div className="bg-white border border-rose-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-6">⚠️ Fast-Selling Products at Risk of Stockout (&lt;14 Days Remaining)</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.charts.atRiskStockouts} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#fee2e2" />
+                    <XAxis dataKey="name" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #fee2e2', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Bar dataKey="days_left" name="Days of Stock Left" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* Data Table */}
           <div className="bg-white border border-zinc-200 rounded-lg shadow-sm flex flex-col overflow-hidden">
@@ -166,6 +340,7 @@ export default function FastMovingReportPage() {
               <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wider">Fast Moving Products Ranking</h3>
               <div className="relative">
                 <button 
+                  type="button"
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
                 >
@@ -249,15 +424,17 @@ export default function FastMovingReportPage() {
               </div>
               <div className="flex gap-1">
                 <button 
+                  type="button"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={data.table.pagination.page === 1}
+                  disabled={data.table.pagination.page === 1 || isLoading}
                   className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Prev
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setPage(p => Math.min(data.table.pagination.totalPages, p + 1))}
-                  disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0}
+                  disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0 || isLoading}
                   className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Next
@@ -266,7 +443,7 @@ export default function FastMovingReportPage() {
             </div>
           </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

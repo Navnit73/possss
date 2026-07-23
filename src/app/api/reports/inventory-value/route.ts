@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
 
     // Filters
     const search = url.searchParams.get("search")?.trim() || "";
+    const categoryFilter = url.searchParams.get("category") || "";
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
@@ -56,13 +57,17 @@ export async function GET(req: NextRequest) {
           from: "categories",
           localField: "product.category_obj_id",
           foreignField: "_id",
-          as: "product.category"
+          as: "category_doc"
         }
       },
-      {
-        $unwind: { path: "$product.category", preserveNullAndEmptyArrays: true }
-      }
+      { $unwind: { path: "$category_doc", preserveNullAndEmptyArrays: true } }
     ];
+
+    if (categoryFilter) {
+      basePipeline.push({
+        $match: { "category_doc.name": categoryFilter }
+      });
+    }
 
     if (search) {
       const escapedSearch = escapeRegExp(search);
@@ -76,37 +81,79 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const metricsPipeline = [
+    // Facet for Metrics & Charts
+    const facetPipeline = [
       ...basePipeline,
       {
-        $group: {
-          _id: null,
-          total_products: { $addToSet: "$product_id" },
-          total_stock_qty: { $sum: "$qty_available" },
-          purchase_value: { $sum: { $multiply: ["$qty_available", "$cost_price"] } },
-          selling_value: { $sum: { $multiply: ["$qty_available", "$selling_price"] } }
-        }
-      },
-      {
-        $project: {
-          total_products: { $size: "$total_products" },
-          total_stock_qty: 1,
-          purchase_value: 1,
-          selling_value: 1,
-          expected_profit: { $subtract: ["$selling_value", "$purchase_value"] }
+        $facet: {
+          metrics: [
+            {
+              $group: {
+                _id: null,
+                total_products: { $addToSet: "$product_id" },
+                total_stock_qty: { $sum: "$qty_available" },
+                purchase_value: { $sum: { $multiply: ["$qty_available", "$cost_price"] } },
+                selling_value: { $sum: { $multiply: ["$qty_available", "$selling_price"] } }
+              }
+            },
+            {
+              $project: {
+                total_products: { $size: "$total_products" },
+                total_stock_qty: 1,
+                purchase_value: 1,
+                selling_value: 1,
+                expected_profit: { $subtract: ["$selling_value", "$purchase_value"] }
+              }
+            }
+          ],
+          categoryValue: [
+            {
+              $group: {
+                _id: { $ifNull: ["$category_doc.name", "General Health"] },
+                cost_value: { $sum: { $multiply: ["$qty_available", "$cost_price"] } },
+                selling_value: { $sum: { $multiply: ["$qty_available", "$selling_price"] } }
+              }
+            },
+            { $sort: { cost_value: -1 } }
+          ],
+          topValuedProducts: [
+            {
+              $group: {
+                _id: "$product_id",
+                name: { $first: { $ifNull: ["$product.name", "Unknown Product"] } },
+                total_cost_value: { $sum: { $multiply: ["$qty_available", "$cost_price"] } },
+                total_qty: { $sum: "$qty_available" }
+              }
+            },
+            { $sort: { total_cost_value: -1 } },
+            { $limit: 5 }
+          ],
+          rackDistribution: [
+            {
+              $group: {
+                _id: { $ifNull: ["$product.rack_number", "Unassigned"] },
+                stock_qty: { $sum: "$qty_available" },
+                cost_value: { $sum: { $multiply: ["$qty_available", "$cost_price"] } }
+              }
+            },
+            { $sort: { stock_qty: -1 } },
+            { $limit: 6 }
+          ]
         }
       }
     ];
 
-    const metricsResult = await db.collection("batches").aggregate(metricsPipeline).toArray();
-    const metrics = metricsResult[0] || { total_products: 0, total_stock_qty: 0, purchase_value: 0, selling_value: 0, expected_profit: 0 };
+    const facetResult = await db.collection("batches").aggregate(facetPipeline).toArray();
+    const facetData = facetResult[0] || { metrics: [], categoryValue: [], topValuedProducts: [], rackDistribution: [] };
+
+    const metrics = facetData.metrics[0] || { total_products: 0, total_stock_qty: 0, purchase_value: 0, selling_value: 0, expected_profit: 0 };
 
     const tablePipeline = [
       ...basePipeline,
       {
         $project: {
           product_name: { $ifNull: ["$product.name", "Unknown"] },
-          category: { $ifNull: ["$product.category.name", "-"] },
+          category: { $ifNull: ["$category_doc.name", "-"] },
           rack_location: { $ifNull: ["$product.rack_number", "-"] },
           batch_number: 1,
           qty_available: 1,
@@ -147,6 +194,23 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       metrics,
+      charts: {
+        categoryValue: facetData.categoryValue.map((c: any) => ({
+          name: c._id,
+          cost_value: c.cost_value,
+          selling_value: c.selling_value
+        })),
+        topValuedProducts: facetData.topValuedProducts.map((p: any) => ({
+          name: p.name,
+          value: p.total_cost_value,
+          qty: p.total_qty
+        })),
+        rackDistribution: facetData.rackDistribution.map((r: any) => ({
+          rack: r._id,
+          qty: r.stock_qty,
+          value: r.cost_value
+        }))
+      },
       table: {
         data: items,
         pagination: {
