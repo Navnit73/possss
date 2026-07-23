@@ -37,7 +37,7 @@ export default function ReportsLayout({
                 className={cn(
                   "flex items-center gap-2 pb-3 text-sm font-semibold transition-colors shrink-0 border-b-2",
                   isActive
-                    ? "border-indigo-600 text-indigo-700"
+                    ? "border-amber-600 text-amber-700"
                     : "border-transparent text-zinc-500 hover:text-zinc-900 hover:border-zinc-300"
                 )}
               >

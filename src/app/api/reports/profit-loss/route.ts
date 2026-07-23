@@ -2,26 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
-import { ObjectId } from "mongodb";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "REPORTS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = client.db();
+    const db = client.db("pos");
     const url = new URL(req.url);
 
     // Filters
     const dateRange = url.searchParams.get("dateRange") || "30days";
     const startDateParam = url.searchParams.get("startDate");
     const endDateParam = url.searchParams.get("endDate");
-    const search = url.searchParams.get("search") || "";
+    const search = url.searchParams.get("search")?.trim() || "";
     
     // Pagination
     const page = parseInt(url.searchParams.get("page") || "1");
@@ -56,8 +59,7 @@ export async function GET(req: NextRequest) {
       created_at: { $gte: startDate, $lte: endDate }
     };
 
-    // To calculate P&L accurately, we must look at line items
-    const basePipeline = [
+    const basePipeline: any[] = [
       { $match: saleMatch },
       {
         $lookup: {
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: "products",
-          let: { prodId: { $toObjectId: "$items.product_id" } },
+          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
           ],
@@ -83,13 +85,13 @@ export async function GET(req: NextRequest) {
       { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } }
     ];
 
-    // Apply Product Search filter
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       basePipeline.push({
         $match: {
           $or: [
-            { "product.name": { $regex: new RegExp(search, "i") } },
-            { "product.generic_name": { $regex: new RegExp(search, "i") } }
+            { "product.name": { $regex: new RegExp(escapedSearch, "i") } },
+            { "product.generic_name": { $regex: new RegExp(escapedSearch, "i") } }
           ]
         }
       });
@@ -102,7 +104,6 @@ export async function GET(req: NextRequest) {
         $group: {
           _id: null,
           gross_revenue: { 
-            // Revenue is (price * qty) * (1 - discount/100)
             $sum: {
               $multiply: [
                 { $multiply: ["$items.price", "$items.qty"] },
@@ -114,7 +115,6 @@ export async function GET(req: NextRequest) {
             $sum: { $multiply: ["$items.cost_price", "$items.qty"] }
           },
           discounts_given: {
-            // value of item-level discounts
             $sum: {
               $multiply: [
                 { $multiply: ["$items.price", "$items.qty"] },
@@ -141,7 +141,6 @@ export async function GET(req: NextRequest) {
       }
     ];
 
-    // Note: To calculate accurate overall discounts, we also need to sum global discounts from `sales`. 
     const globalDiscountPipeline = [
       { $match: saleMatch },
       { $group: { _id: null, total_global_discount: { $sum: "$discount" } } }
@@ -155,13 +154,11 @@ export async function GET(req: NextRequest) {
     const metrics = metricsResult[0] || { gross_revenue: 0, product_cost: 0, discounts_given: 0, gross_profit: 0, margin_pct: 0 };
     const globalDisc = globalDiscResult[0]?.total_global_discount || 0;
     
-    // Adjust metrics for global discounts
     metrics.discounts_given += globalDisc;
     metrics.gross_revenue -= globalDisc;
     metrics.gross_profit = metrics.gross_revenue - metrics.product_cost;
     metrics.margin_pct = metrics.gross_revenue > 0 ? (metrics.gross_profit / metrics.gross_revenue) * 100 : 0;
 
-    // Table Data Pipeline: Group by Product
     const tablePipeline = [
       ...basePipeline,
       {

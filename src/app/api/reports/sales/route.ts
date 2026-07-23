@@ -2,26 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
-import { ObjectId } from "mongodb";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "REPORTS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = client.db();
+    const db = client.db("pos");
     const url = new URL(req.url);
 
     // Filters
-    const dateRange = url.searchParams.get("dateRange") || "30days"; // today, yesterday, 7days, 30days, thisMonth, lastMonth, custom
+    const dateRange = url.searchParams.get("dateRange") || "30days";
     const startDateParam = url.searchParams.get("startDate");
     const endDateParam = url.searchParams.get("endDate");
-    const search = url.searchParams.get("search") || "";
+    const search = url.searchParams.get("search")?.trim() || "";
     const paymentMethod = url.searchParams.get("paymentMethod") || "";
     
     // Pagination
@@ -81,8 +84,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       saleMatch.$or = [
-        { invoice_no: { $regex: new RegExp(search, "i") } }
+        { invoice_no: { $regex: new RegExp(escapedSearch, "i") } }
       ];
     }
 
@@ -104,12 +108,15 @@ export async function GET(req: NextRequest) {
       { $match: saleMatch },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+            method: "$payment_method"
+          },
           revenue: { $sum: "$total" },
           orders: { $sum: 1 }
         }
       },
-      { $sort: { _id: 1 } }
+      { $sort: { "_id.date": 1 } }
     ];
 
     const paymentTrendPipeline = [
@@ -132,14 +139,35 @@ export async function GET(req: NextRequest) {
     const metrics = metricsResult[0] || { total_revenue: 0, total_orders: 0, total_tax: 0, total_discount: 0 };
     const avgOrderValue = metrics.total_orders > 0 ? metrics.total_revenue / metrics.total_orders : 0;
     
-    // Find best sales day
-    let bestDay: any = { _id: "N/A", revenue: 0 };
-    for (const day of trendResult) {
-      if (day.revenue > bestDay.revenue) bestDay = day;
+    // Group daily trend by date with payment method breakdowns
+    const trendMap = new Map<string, any>();
+    let maxDayRevenue = 0;
+    let bestDayDate = "N/A";
+
+    for (const item of trendResult) {
+      const date = item._id.date;
+      const method = (item._id.method || "OTHER").toString().toUpperCase();
+      if (!trendMap.has(date)) {
+        trendMap.set(date, { date, revenue: 0, orders: 0, cash: 0, card: 0, upi: 0, other: 0 });
+      }
+      const entry = trendMap.get(date);
+      entry.revenue += item.revenue;
+      entry.orders += item.orders;
+
+      if (method === "CASH") entry.cash += item.revenue;
+      else if (method === "CARD") entry.card += item.revenue;
+      else if (method === "UPI") entry.upi += item.revenue;
+      else entry.other += item.revenue;
+
+      if (entry.revenue > maxDayRevenue) {
+        maxDayRevenue = entry.revenue;
+        bestDayDate = date;
+      }
     }
 
+    const dailyTrend = Array.from(trendMap.values());
+
     // 4. Aggregate Sale Items for Table View
-    // We join sale_items with sales to get a flat list of line items
     const itemsPipeline: any[] = [
       { $match: saleMatch },
       {
@@ -156,7 +184,7 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: "products",
-          let: { prodId: { $toObjectId: "$items.product_id" } },
+          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
           ],
@@ -167,7 +195,7 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: "batches",
-          let: { batchId: { $toObjectId: "$items.batch_id" } },
+          let: { batchId: { $convert: { input: "$items.batch_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$batchId"] } } }
           ],
@@ -181,8 +209,8 @@ export async function GET(req: NextRequest) {
           invoice_no: 1,
           created_at: 1,
           payment_method: 1,
-          product_name: { $ifNull: ["$product.name", "Unknown"] },
-          batch_number: { $ifNull: ["$batch.batch_number", "Unknown"] },
+          product_name: { $ifNull: ["$product.name", "Unknown Product"] },
+          batch_number: { $ifNull: ["$batch.batch_number", "N/A"] },
           qty: "$items.qty",
           price: "$items.price",
           item_discount: { $ifNull: ["$items.discount", 0] },
@@ -200,7 +228,6 @@ export async function GET(req: NextRequest) {
 
     if (isExport) {
       items = await db.collection("sales").aggregate(itemsPipeline).toArray();
-      // Calculate total quantity sold for export
       totalItemsCount = items.length;
     } else {
       const paginatedPipeline = [
@@ -223,7 +250,6 @@ export async function GET(req: NextRequest) {
       totalItemsCount = countData[0]?.total || 0;
     }
     
-    // Get total quantity sold across all items in timeframe
     const qtyPipeline = [
       { $match: saleMatch },
       {
@@ -253,11 +279,11 @@ export async function GET(req: NextRequest) {
         totalOrders: metrics.total_orders,
         avgOrderValue,
         totalQtySold,
-        bestDay: bestDay._id,
-        bestDayRevenue: bestDay.revenue,
+        bestDay: bestDayDate,
+        bestDayRevenue: maxDayRevenue,
       },
       charts: {
-        dailyTrend: trendResult.map(d => ({ date: d._id, revenue: d.revenue, orders: d.orders })),
+        dailyTrend,
         paymentMethods: paymentResult.map(p => ({ method: p._id, revenue: p.revenue, count: p.count }))
       },
       table: {

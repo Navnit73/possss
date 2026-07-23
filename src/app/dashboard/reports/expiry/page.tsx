@@ -3,10 +3,6 @@
 import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { 
-  Download, Search, Printer, ChevronLeft, ChevronRight, 
-  Settings2, AlertTriangle, AlertCircle, AlertOctagon, Info
-} from "lucide-react";
 import Papa from "papaparse";
 
 export default function ExpiryReportPage() {
@@ -94,7 +90,7 @@ export default function ExpiryReportPage() {
   };
 
   return (
-    <div className="space-y-8 ">
+    <div className="space-y-8">
       
       {/* Top Filter Bar */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 flex flex-col md:flex-row justify-between gap-4">
@@ -104,7 +100,7 @@ export default function ExpiryReportPage() {
             <select 
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-              className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 "
+              className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 rounded"
             >
               <option value="all">All At Risk (≤ 90 Days)</option>
               <option value="expired">Already Expired</option>
@@ -120,7 +116,7 @@ export default function ExpiryReportPage() {
               placeholder="Search Product..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600  placeholder:text-zinc-400"
+              className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 placeholder:text-zinc-400 rounded"
             />
           </form>
         </div>
@@ -128,13 +124,13 @@ export default function ExpiryReportPage() {
         <div className="flex items-center gap-2">
           <button 
             onClick={() => fetchReport(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors "
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors rounded"
           >
             Export CSV
           </button>
           <button 
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors "
+            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
           >
             Print
           </button>
@@ -149,21 +145,21 @@ export default function ExpiryReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Expired (Loss)</p>
-              <h3 className="text-3xl font-mono text-rose-600">
+              <h3 className="text-3xl font-mono text-rose-600 font-bold">
                 {data.metrics.expired_count} <span className="text-sm font-medium text-rose-400">(${data.metrics.expired_value.toFixed(2)})</span>
               </h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Next 30 Days</p>
-              <h3 className="text-3xl font-mono text-orange-600">{data.metrics.days30_count} <span className="text-sm font-medium text-orange-400">Batches</span></h3>
+              <h3 className="text-3xl font-mono text-orange-600 font-bold">{data.metrics.days30_count} <span className="text-sm font-medium text-orange-400">Batches</span></h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Next 60 Days</p>
-              <h3 className="text-3xl font-mono text-amber-600">{data.metrics.days60_count} <span className="text-sm font-medium text-amber-400">Batches</span></h3>
+              <h3 className="text-3xl font-mono text-amber-600 font-bold">{data.metrics.days60_count} <span className="text-sm font-medium text-amber-400">Batches</span></h3>
             </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Next 90 Days</p>
-              <h3 className="text-3xl font-mono text-yellow-600">{data.metrics.days90_count} <span className="text-sm font-medium text-yellow-500">Batches</span></h3>
+              <h3 className="text-3xl font-mono text-yellow-600 font-bold">{data.metrics.days90_count} <span className="text-sm font-medium text-yellow-500">Batches</span></h3>
             </div>
           </div>
 
@@ -174,19 +170,19 @@ export default function ExpiryReportPage() {
               <div className="relative">
                 <button 
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors "
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
                 >
                   Columns
                 </button>
                 {showColumnSettings && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-lg shadow-xl z-20 p-2 text-sm ">
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-lg shadow-xl z-20 p-2 text-sm">
                     {Object.keys(visibleColumns).map((col) => (
                       <label key={col} className="flex items-center gap-2 p-1.5 hover:bg-zinc-50 cursor-pointer capitalize">
                         <input 
                           type="checkbox" 
                           checked={visibleColumns[col as keyof typeof visibleColumns]} 
                           onChange={() => toggleColumn(col as keyof typeof visibleColumns)}
-                          className="text-indigo-600 focus:ring-indigo-500  border-zinc-300"
+                          className="text-red-600 focus:ring-red-500 border-zinc-300"
                         />
                         {col.replace(/_/g, ' ')}
                       </label>
@@ -229,7 +225,7 @@ export default function ExpiryReportPage() {
                         {visibleColumns.expiry_date && <td className="px-6 py-4 font-mono text-zinc-600">{new Date(row.expiry_date).toLocaleDateString()}</td>}
                         {visibleColumns.status && (
                           <td className="px-6 py-4 text-center">
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 border 
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 border rounded
                               ${row.status === 'Expired' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
                                 row.status === '30 Days' ? 'bg-orange-50 text-orange-700 border-orange-200' : 
                                 row.status === '60 Days' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
@@ -255,14 +251,14 @@ export default function ExpiryReportPage() {
                 <button 
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={data.table.pagination.page === 1}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors  text-xs font-semibold uppercase tracking-wider"
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Prev
                 </button>
                 <button 
                   onClick={() => setPage(p => Math.min(data.table.pagination.totalPages, p + 1))}
                   disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors  text-xs font-semibold uppercase tracking-wider"
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Next
                 </button>

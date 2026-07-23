@@ -2,26 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
 import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO, differenceInDays } from "date-fns";
-import { ObjectId } from "mongodb";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "REPORTS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = client.db();
+    const db = client.db("pos");
     const url = new URL(req.url);
 
     // Filters
     const dateRange = url.searchParams.get("dateRange") || "30days";
     const startDateParam = url.searchParams.get("startDate");
     const endDateParam = url.searchParams.get("endDate");
-    const search = url.searchParams.get("search") || "";
+    const search = url.searchParams.get("search")?.trim() || "";
     
     // Pagination
     const page = parseInt(url.searchParams.get("page") || "1");
@@ -49,7 +52,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Number of days in selected period
     let daysInPeriod = differenceInDays(endDate, startDate) + 1;
     if (daysInPeriod <= 0) daysInPeriod = 1;
 
@@ -58,7 +60,7 @@ export async function GET(req: NextRequest) {
       created_at: { $gte: startDate, $lte: endDate }
     };
 
-    const basePipeline = [
+    const basePipeline: any[] = [
       { $match: saleMatch },
       {
         $lookup: {
@@ -74,7 +76,7 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: "products",
-          let: { prodId: { $toObjectId: "$items.product_id" } },
+          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
           ],
@@ -85,16 +87,16 @@ export async function GET(req: NextRequest) {
     ];
 
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       basePipeline.push({
         $match: {
           $or: [
-            { "product.name": { $regex: new RegExp(search, "i") } }
+            { "product.name": { $regex: new RegExp(escapedSearch, "i") } }
           ]
         }
       });
     }
 
-    // Table Pipeline: Group by Product to get Sales Metrics
     const tablePipeline = [
       ...basePipeline,
       {
@@ -117,7 +119,6 @@ export async function GET(req: NextRequest) {
         }
       },
       {
-        // Now lookup current total stock from batches
         $lookup: {
           from: "batches",
           let: { prodId: "$_id" },
@@ -157,7 +158,6 @@ export async function GET(req: NextRequest) {
           }
         }
       },
-      // Fast moving means top qty_sold
       { $sort: { qty_sold: -1 } }
     ];
 
@@ -186,9 +186,7 @@ export async function GET(req: NextRequest) {
       totalItemsCount = countData[0]?.total || 0;
     }
 
-    // Generate basic metrics based on the top 100 fast moving to give a summary
     const topPerformers = items.slice(0, 5);
-    const topRevenue = items.length > 0 ? items.reduce((acc: number, val: any) => acc + val.revenue_generated, 0) : 0;
 
     return NextResponse.json({
       metrics: {

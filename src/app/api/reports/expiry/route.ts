@@ -1,24 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
-import { addDays, parseISO } from "date-fns";
-import { checkRole } from "@/lib/rbac";
+import { addDays } from "date-fns";
+import { checkPermission } from "@/lib/rbac";
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "REPORTS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = client.db();
+    const db = client.db("pos");
     const url = new URL(req.url);
 
     // Filters
-    const search = url.searchParams.get("search") || "";
-    const filterStatus = url.searchParams.get("status") || "all"; // all, expired, 30days, 60days, 90days
+    const search = url.searchParams.get("search")?.trim() || "";
+    const filterStatus = url.searchParams.get("status") || "all";
     
     // Pagination
     const page = parseInt(url.searchParams.get("page") || "1");
@@ -46,16 +50,15 @@ export async function GET(req: NextRequest) {
     } else if (filterStatus === "90days") {
       batchMatch.expiry_date = { $gt: plus60Str, $lte: plus90Str };
     } else {
-      // all at-risk (expired + up to 90 days)
       batchMatch.expiry_date = { $lte: plus90Str };
     }
 
-    const basePipeline = [
+    const basePipeline: any[] = [
       { $match: batchMatch },
       {
         $lookup: {
           from: "products",
-          let: { prodId: { $toObjectId: "$product_id" } },
+          let: { prodId: { $convert: { input: "$product_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
           ],
@@ -66,7 +69,7 @@ export async function GET(req: NextRequest) {
       {
         $lookup: {
           from: "suppliers",
-          let: { suppId: { $toObjectId: "$supplier_id" } },
+          let: { suppId: { $convert: { input: "$supplier_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$suppId"] } } }
           ],
@@ -77,17 +80,17 @@ export async function GET(req: NextRequest) {
     ];
 
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       basePipeline.push({
         $match: {
           $or: [
-            { "product.name": { $regex: new RegExp(search, "i") } },
-            { batch_number: { $regex: new RegExp(search, "i") } }
+            { "product.name": { $regex: new RegExp(escapedSearch, "i") } },
+            { batch_number: { $regex: new RegExp(escapedSearch, "i") } }
           ]
         }
       });
     }
 
-    // Metrics Pipeline - Count for all risk categories (ignore the filterStatus for global metrics)
     const metricsPipeline = [
       { 
         $match: {
@@ -111,7 +114,6 @@ export async function GET(req: NextRequest) {
     const metricsResult = await db.collection("batches").aggregate(metricsPipeline).toArray();
     const metrics = metricsResult[0] || { expired_count: 0, expired_value: 0, days30_count: 0, days60_count: 0, days90_count: 0 };
 
-    // Table Pipeline
     const tablePipeline = [
       ...basePipeline,
       {

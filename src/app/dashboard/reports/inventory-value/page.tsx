@@ -3,10 +3,6 @@
 import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { 
-  Download, Search, Printer, ChevronLeft, ChevronRight, 
-  Settings2, Package, Layers, Banknote, TrendingUp
-} from "lucide-react";
 import Papa from "papaparse";
 
 export default function InventoryValueReportPage() {
@@ -94,7 +90,7 @@ export default function InventoryValueReportPage() {
   };
 
   return (
-    <div className="space-y-8 ">
+    <div className="space-y-8">
       
       {/* Top Filter Bar */}
       <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 flex flex-col md:flex-row justify-between gap-4">
@@ -105,20 +101,20 @@ export default function InventoryValueReportPage() {
             placeholder="Search Product or Batch..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600  placeholder:text-zinc-400"
+            className="w-full px-3 py-2 border border-zinc-200 text-sm bg-white focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 placeholder:text-zinc-400 rounded"
           />
         </form>
 
         <div className="flex items-center gap-2">
           <button 
             onClick={() => fetchReport(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-colors "
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 transition-colors rounded"
           >
             Export CSV
           </button>
           <button 
             onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors "
+            className="flex items-center gap-2 px-4 py-2 bg-white text-zinc-700 font-semibold text-sm border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
           >
             Print
           </button>
@@ -133,19 +129,19 @@ export default function InventoryValueReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Unique Products</p>
-              <h3 className="text-3xl font-mono text-zinc-900">{data.metrics.total_products}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{data.metrics.total_products}</h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Total Stock Qty</p>
-              <h3 className="text-3xl font-mono text-zinc-900">{data.metrics.total_stock_qty}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{data.metrics.total_stock_qty}</h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Inventory Value (Cost)</p>
-              <h3 className="text-3xl font-mono text-zinc-900">${data.metrics.purchase_value.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-amber-600 font-bold">${data.metrics.purchase_value.toFixed(2)}</h3>
             </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Expected Profit</p>
-              <h3 className="text-3xl font-mono text-teal-600">${data.metrics.expected_profit.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-emerald-600 font-bold">${data.metrics.expected_profit.toFixed(2)}</h3>
             </div>
           </div>
 
@@ -156,19 +152,19 @@ export default function InventoryValueReportPage() {
               <div className="relative">
                 <button 
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors "
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 transition-colors rounded"
                 >
                   Columns
                 </button>
                 {showColumnSettings && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-lg shadow-xl z-20 p-2 text-sm ">
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-lg shadow-xl z-20 p-2 text-sm">
                     {Object.keys(visibleColumns).map((col) => (
                       <label key={col} className="flex items-center gap-2 p-1.5 hover:bg-zinc-50 cursor-pointer capitalize">
                         <input 
                           type="checkbox" 
                           checked={visibleColumns[col as keyof typeof visibleColumns]} 
                           onChange={() => toggleColumn(col as keyof typeof visibleColumns)}
-                          className="text-indigo-600 focus:ring-indigo-500  border-zinc-300"
+                          className="text-amber-600 focus:ring-amber-500 border-zinc-300"
                         />
                         {col.replace(/_/g, ' ')}
                       </label>
@@ -208,7 +204,7 @@ export default function InventoryValueReportPage() {
                         {visibleColumns.qty_available && <td className="px-6 py-4 text-right font-mono font-bold text-zinc-900">{row.qty_available}</td>}
                         {visibleColumns.cost_price && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.cost_price.toFixed(2)}</td>}
                         {visibleColumns.selling_price && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.selling_price.toFixed(2)}</td>}
-                        {visibleColumns.total_cost_value && <td className="px-6 py-4 text-right font-mono font-bold text-zinc-900">${row.total_cost_value.toFixed(2)}</td>}
+                        {visibleColumns.total_cost_value && <td className="px-6 py-4 text-right font-mono font-bold text-amber-600">${row.total_cost_value.toFixed(2)}</td>}
                         {visibleColumns.expiry_date && (
                           <td className="px-6 py-4 font-mono text-zinc-600">
                             {row.expiry_date ? new Date(row.expiry_date).toLocaleDateString() : 'N/A'}
@@ -230,14 +226,14 @@ export default function InventoryValueReportPage() {
                 <button 
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={data.table.pagination.page === 1}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors  text-xs font-semibold uppercase tracking-wider"
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Prev
                 </button>
                 <button 
                   onClick={() => setPage(p => Math.min(data.table.pagination.totalPages, p + 1))}
                   disabled={data.table.pagination.page === data.table.pagination.totalPages || data.table.pagination.totalPages === 0}
-                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors  text-xs font-semibold uppercase tracking-wider"
+                  className="px-3 py-1 border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 transition-colors text-xs font-semibold uppercase tracking-wider rounded"
                 >
                   Next
                 </button>

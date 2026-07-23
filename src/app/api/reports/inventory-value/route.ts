@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "REPORTS", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const db = client.db();
+    const db = client.db("pos");
     const url = new URL(req.url);
 
     // Filters
-    const search = url.searchParams.get("search") || "";
+    const search = url.searchParams.get("search")?.trim() || "";
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "20");
     const skip = (page - 1) * limit;
@@ -24,16 +28,15 @@ export async function GET(req: NextRequest) {
 
     const batchMatch: any = {
       tenant_id: tenantId,
-      qty_available: { $gt: 0 } // Only value current active stock
+      qty_available: { $gt: 0 }
     };
 
-    // Base pipeline: Batches + Products
-    const basePipeline = [
+    const basePipeline: any[] = [
       { $match: batchMatch },
       {
         $lookup: {
           from: "products",
-          let: { prodId: { $toObjectId: "$product_id" } },
+          let: { prodId: { $convert: { input: "$product_id", to: "objectId", onError: null, onNull: null } } },
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
           ],
@@ -62,17 +65,17 @@ export async function GET(req: NextRequest) {
     ];
 
     if (search) {
+      const escapedSearch = escapeRegExp(search);
       basePipeline.push({
         $match: {
           $or: [
-            { "product.name": { $regex: new RegExp(search, "i") } },
-            { batch_number: { $regex: new RegExp(search, "i") } }
+            { "product.name": { $regex: new RegExp(escapedSearch, "i") } },
+            { batch_number: { $regex: new RegExp(escapedSearch, "i") } }
           ]
         }
       });
     }
 
-    // Metrics Pipeline
     const metricsPipeline = [
       ...basePipeline,
       {
@@ -98,7 +101,6 @@ export async function GET(req: NextRequest) {
     const metricsResult = await db.collection("batches").aggregate(metricsPipeline).toArray();
     const metrics = metricsResult[0] || { total_products: 0, total_stock_qty: 0, purchase_value: 0, selling_value: 0, expected_profit: 0 };
 
-    // Table Pipeline
     const tablePipeline = [
       ...basePipeline,
       {
