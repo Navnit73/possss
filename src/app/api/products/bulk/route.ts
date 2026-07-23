@@ -6,6 +6,10 @@ import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 import { productSchema } from "@/lib/validations";
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
@@ -27,22 +31,22 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
     const manufacturersCollection = db.collection("manufacturers");
 
     // 1. Extract unique categories and manufacturers from payload
-    const categoryNames = [...new Set(body.map((item: any) => item.category_name?.trim()).filter(Boolean))];
-    const manufacturerNames = [...new Set(body.map((item: any) => item.manufacturer_name?.trim()).filter(Boolean))];
+    const categoryNames = [...new Set(body.map((item: any) => item.category_name?.toString().trim()).filter(Boolean))];
+    const manufacturerNames = [...new Set(body.map((item: any) => item.manufacturer_name?.toString().trim()).filter(Boolean))];
 
     if (categoryNames.length === 0 || manufacturerNames.length === 0) {
       return NextResponse.json({ error: "Each product must have a category_name and manufacturer_name." }, { status: 400 });
     }
 
-    // 2. Lookup existing categories and manufacturers
+    // 2. Lookup existing categories and manufacturers (case-insensitive with regex escape)
     const existingCategories = await categoriesCollection.find({
       tenant_id: tenantId,
-      name: { $in: categoryNames.map(n => new RegExp(`^${n}$`, 'i')) }
+      name: { $in: categoryNames.map(n => new RegExp(`^${escapeRegExp(n)}$`, 'i')) }
     }).toArray();
 
     const existingManufacturers = await manufacturersCollection.find({
       tenant_id: tenantId,
-      name: { $in: manufacturerNames.map(n => new RegExp(`^${n}$`, 'i')) }
+      name: { $in: manufacturerNames.map(n => new RegExp(`^${escapeRegExp(n)}$`, 'i')) }
     }).toArray();
 
     // Maps for quick lookup (lowercase name to ID string)
@@ -57,12 +61,13 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
     if (newCategories.length > 0) {
       const catDocs = newCategories.map(name => ({
         tenant_id: tenantId,
-        name,
+        name: name.trim(),
         created_at: new Date()
       }));
       const result = await categoriesCollection.insertMany(catDocs);
-      Object.entries(result.insertedIds).forEach(([index, id], idx) => {
-        catMap.set(catDocs[idx].name.toLowerCase(), id.toString());
+      catDocs.forEach((doc, idx) => {
+        const id = result.insertedIds[idx];
+        if (id) catMap.set(doc.name.toLowerCase(), id.toString());
       });
     }
 
@@ -71,17 +76,27 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
     if (newManufacturers.length > 0) {
       const mfgDocs = newManufacturers.map(name => ({
         tenant_id: tenantId,
-        name,
+        name: name.trim(),
         created_at: new Date()
       }));
       const result = await manufacturersCollection.insertMany(mfgDocs);
-      Object.entries(result.insertedIds).forEach(([index, id], idx) => {
-        mfgMap.set(mfgDocs[idx].name.toLowerCase(), id.toString());
+      mfgDocs.forEach((doc, idx) => {
+        const id = result.insertedIds[idx];
+        if (id) mfgMap.set(doc.name.toLowerCase(), id.toString());
       });
     }
 
-    // 5. Fetch all existing barcodes to prevent duplicates
-    const incomingBarcodes = body.map((item: any) => item.barcode).filter(Boolean);
+    // 5. Pre-calculate barcode frequencies in the uploaded payload for O(1) duplicate checks
+    const payloadBarcodeCounts = new Map<string, number>();
+    body.forEach((item: any) => {
+      const bc = item.barcode?.toString().trim();
+      if (bc) {
+        payloadBarcodeCounts.set(bc, (payloadBarcodeCounts.get(bc) || 0) + 1);
+      }
+    });
+
+    // Fetch existing barcodes in DB
+    const incomingBarcodes = Array.from(payloadBarcodeCounts.keys());
     let existingBarcodesSet = new Set<string>();
     
     if (incomingBarcodes.length > 0) {
@@ -101,8 +116,8 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
       const rawItem = body[i];
       const rowNum = i + 2; // Assuming row 1 is header
 
-      const catName = rawItem.category_name?.trim();
-      const mfgName = rawItem.manufacturer_name?.trim();
+      const catName = rawItem.category_name?.toString().trim();
+      const mfgName = rawItem.manufacturer_name?.toString().trim();
 
       if (!catName || !mfgName) {
         errors.push(`Row ${rowNum}: category_name and manufacturer_name are required.`);
@@ -117,31 +132,55 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
         continue;
       }
 
-      if (rawItem.barcode && existingBarcodesSet.has(rawItem.barcode)) {
-        errors.push(`Row ${rowNum}: Barcode '${rawItem.barcode}' already exists in database.`);
-        continue;
-      }
+      const barcodeStr = rawItem.barcode?.toString().trim() || undefined;
 
-      // Check for duplicates within the current payload
-      if (rawItem.barcode) {
-        const payloadDups = body.filter((item: any, idx: number) => item.barcode === rawItem.barcode && idx !== i);
-        if (payloadDups.length > 0) {
-          errors.push(`Row ${rowNum}: Barcode '${rawItem.barcode}' is duplicated in the uploaded file.`);
+      if (barcodeStr) {
+        if (existingBarcodesSet.has(barcodeStr)) {
+          errors.push(`Row ${rowNum}: Barcode '${barcodeStr}' already exists in database.`);
+          continue;
+        }
+
+        if ((payloadBarcodeCounts.get(barcodeStr) || 0) > 1) {
+          errors.push(`Row ${rowNum}: Barcode '${barcodeStr}' is duplicated multiple times in the uploaded file.`);
           continue;
         }
       }
 
+      // Format boolean field safely
+      const rxVal = rawItem.requires_prescription;
+      let requires_prescription = false;
+      if (typeof rxVal === 'boolean') {
+        requires_prescription = rxVal;
+      } else if (typeof rxVal === 'string' || typeof rxVal === 'number') {
+        const str = String(rxVal).trim().toLowerCase();
+        requires_prescription = ['true', '1', 'yes', 'y'].includes(str);
+      }
+
       const itemToValidate = {
-        ...rawItem,
+        name: rawItem.name?.toString().trim(),
+        generic_name: rawItem.generic_name?.toString().trim() || undefined,
+        brand: rawItem.brand?.toString().trim() || undefined,
         category_id,
         manufacturer_id,
-        // Ensure coercable fields are passed safely
-        package_size: rawItem.package_size ? Number(rawItem.package_size) : undefined,
-        minimum_stock: rawItem.minimum_stock ? Number(rawItem.minimum_stock) : undefined,
-        tax_rate: rawItem.tax_rate ? Number(rawItem.tax_rate) : undefined,
-        requires_prescription: typeof rawItem.requires_prescription === 'string' 
-            ? rawItem.requires_prescription.toLowerCase() === 'true' 
-            : Boolean(rawItem.requires_prescription)
+        barcode: barcodeStr,
+        sku: rawItem.sku?.toString().trim() || undefined,
+        schedule_class: rawItem.schedule_class?.toString().trim() || undefined,
+        hsn_code: rawItem.hsn_code?.toString().trim() || undefined,
+        ndc_code: rawItem.ndc_code?.toString().trim() || undefined,
+        strength: rawItem.strength?.toString().trim() || undefined,
+        dosage_form: rawItem.dosage_form?.toString().trim() || undefined,
+        route_of_administration: rawItem.route_of_administration?.toString().trim() || undefined,
+        active_ingredients: rawItem.active_ingredients?.toString().trim() || undefined,
+        storage_conditions: rawItem.storage_conditions?.toString().trim() || undefined,
+        pregnancy_category: rawItem.pregnancy_category?.toString().trim() || undefined,
+        requires_prescription,
+        unit_of_measure: rawItem.unit_of_measure?.toString().trim(),
+        package_type: rawItem.package_type?.toString().trim() || undefined,
+        package_size: rawItem.package_size && !isNaN(Number(rawItem.package_size)) ? Number(rawItem.package_size) : undefined,
+        rack_number: rawItem.rack_number?.toString().trim() || undefined,
+        minimum_stock: rawItem.minimum_stock && !isNaN(Number(rawItem.minimum_stock)) ? Number(rawItem.minimum_stock) : 0,
+        tax_rate: rawItem.tax_rate && !isNaN(Number(rawItem.tax_rate)) ? Number(rawItem.tax_rate) : 0,
+        status: rawItem.status?.toString().trim().toUpperCase() === "INACTIVE" ? "INACTIVE" : "ACTIVE"
       };
 
       try {
@@ -165,7 +204,7 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
     if (errors.length > 0) {
       return NextResponse.json({ 
         error: "Validation failed for some items.", 
-        details: errors.slice(0, 50) // Return top 50 errors max to prevent huge response
+        details: errors.slice(0, 50) // Return top 50 errors max
       }, { status: 400 });
     }
 
@@ -173,12 +212,12 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
       return NextResponse.json({ error: "No valid products found to insert." }, { status: 400 });
     }
 
-    // 7. Bulk insert
+    // 7. Bulk insert into database
     const result = await productsCollection.insertMany(productsToInsert);
 
     audit.setAfter({
       bulk_count: result.insertedCount,
-      insertedIds: result.insertedIds
+      inserted_sample: Object.values(result.insertedIds).slice(0, 5).map(id => id.toString())
     });
 
     return NextResponse.json({ 

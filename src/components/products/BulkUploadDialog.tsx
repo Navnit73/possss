@@ -20,6 +20,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
   const [errors, setErrors] = useState<string[]>([]);
   const [successCount, setSuccessCount] = useState<number>(0);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const expectedHeaders = [
     "name", "category_name", "manufacturer_name", "unit_of_measure",
@@ -52,10 +53,43 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
     document.body.removeChild(link);
   };
 
+  const processSelectedFile = (selectedFile: File) => {
+    if (!selectedFile.name.endsWith(".csv") && !selectedFile.type.includes("csv")) {
+      setErrors([
+        "Please select a valid CSV file (.csv). If you are using Excel, click 'Save As' and select 'CSV (Comma delimited)' format."
+      ]);
+      setFile(null);
+      return;
+    }
+    setFile(selectedFile);
+    setErrors([]);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setErrors([]);
+      processSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processSelectedFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -68,20 +102,17 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (header) => header.trim(),
       complete: async (results) => {
         const { data, meta, errors: parseErrors } = results;
 
-        // Basic validation of headers
-        const missingHeaders = expectedHeaders.filter(
-          h => !meta.fields?.includes(h)
-        );
-        
-        // We only enforce required ones rigidly here
         const criticalHeaders = ["name", "category_name", "manufacturer_name", "unit_of_measure"];
         const missingCritical = criticalHeaders.filter(h => !meta.fields?.includes(h));
 
         if (missingCritical.length > 0) {
-          setErrors([`Missing critical columns: ${missingCritical.join(", ")}`]);
+          setErrors([
+            `File column mismatch! Missing required columns: ${missingCritical.join(", ")}. Please use the template CSV headers.`
+          ]);
           setIsUploading(false);
           return;
         }
@@ -93,7 +124,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
         }
 
         if (data.length === 0) {
-          setErrors(["The CSV file is empty."]);
+          setErrors(["The CSV file contains no data rows."]);
           setIsUploading(false);
           return;
         }
@@ -113,7 +144,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
           
           setTimeout(() => {
             onSuccess();
-          }, 2000);
+          }, 1500);
           
         } catch (err: any) {
           console.error("Bulk upload failed", err);
@@ -153,7 +184,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                 <CheckCircle className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-medium text-foreground mb-2">Upload Complete!</h3>
-              <p className="text-muted-foreground">Successfully imported {successCount} products.</p>
+              <p className="text-muted-foreground">Successfully imported {successCount} products into medicine catalog.</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -163,9 +194,9 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                   <p className="font-semibold mb-1">Instructions:</p>
                   <ul className="list-disc pl-4 space-y-1">
                     <li>Download the template CSV below.</li>
-                    <li>Fill in your product details. Ensure required fields (name, category_name, manufacturer_name, unit_of_measure) are populated.</li>
-                    <li>If a category or manufacturer does not exist, the system will automatically create it.</li>
-                    <li>Save the file as CSV and upload it here.</li>
+                    <li>If using Excel, save your file as <strong>CSV (Comma delimited) (.csv)</strong>.</li>
+                    <li>Required fields: <code>name</code>, <code>category_name</code>, <code>manufacturer_name</code>, <code>unit_of_measure</code>.</li>
+                    <li>Missing categories or manufacturers will be created automatically.</li>
                   </ul>
                 </div>
               </div>
@@ -181,7 +212,11 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
               </div>
 
               <div 
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                  isDragOver ? 'border-primary bg-primary/10' :
                   file ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-primary/30 hover:bg-secondary/50'
                 }`}
               >
@@ -200,9 +235,10 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                     </div>
                     <div>
                       <p className="font-medium text-foreground">Click to upload CSV</p>
-                      <p className="text-sm text-muted-foreground mt-1">or drag and drop your file here</p>
+                      <p className="text-sm text-muted-foreground mt-1">or drag and drop your CSV file here</p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
                     >
@@ -219,6 +255,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                       <p className="text-sm text-muted-foreground mt-1">{(file.size / 1024).toFixed(2)} KB</p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => { setFile(null); setErrors([]); }}
                       className="mt-4 text-sm text-red-600 hover:text-red-700 font-medium"
                     >
