@@ -223,21 +223,9 @@ export default function FastMovingReportPage() {
 
       {/* Loading Overlay Backdrop Screen */}
       {isLoading && (
-        <div className="absolute inset-0 top-20 bg-white/80 backdrop-blur-xs z-30 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
-          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4 flex flex-col items-center">
-            <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
-              <Loader2 className="w-8 h-8 animate-spin" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-900">Applying Filters & Ranking Sales Velocity</h4>
-              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                Analyzing unit sales, daily velocity, stockout risks, and fast-moving medicine categories...
-              </p>
-            </div>
-            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-amber-500 h-full w-2/3 animate-pulse rounded-full" />
-            </div>
-          </div>
+        <div className="absolute inset-0 z-30 flex items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+      
         </div>
       )}
 

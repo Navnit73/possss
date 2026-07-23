@@ -266,15 +266,7 @@ export default function SalesReportPage() {
             <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
-            <div>
-              <h4 className="text-base font-bold text-zinc-900">Applying Filters & Processing Sales Analytics</h4>
-              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
-                Calculating revenue, net profit, rush hours, and medicine category trends for your selected timeframe...
-              </p>
-            </div>
-            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
-              <div className="bg-amber-500 h-full w-2/3 animate-pulse rounded-full" />
-            </div>
+            
           </div>
         </div>
       )}
