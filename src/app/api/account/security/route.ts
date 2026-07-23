@@ -4,6 +4,8 @@ import client from "@/lib/mongodb";
 import bcrypt from "bcryptjs";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { logAuditDirectly } from "@/lib/auditLogger";
+import { headers } from "next/headers";
 
 export async function PUT(req: Request) {
   try {
@@ -14,7 +16,11 @@ export async function PUT(req: Request) {
     const { currentPassword, newPassword } = await req.json();
 
     if (!currentPassword || !newPassword || newPassword.length < 8) {
-      return NextResponse.json({ error: "Invalid password data" }, { status: 400 });
+      return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 });
+    }
+
+    if (currentPassword === newPassword) {
+      return NextResponse.json({ error: "New password must be different from current password" }, { status: 400 });
     }
 
     const db = client.db("pos");
@@ -36,8 +42,26 @@ export async function PUT(req: Request) {
       { $set: { password: hashedPassword, updated_at: new Date() } }
     );
 
+    // Record Security Audit Log
+    const tenantId = user.tenant_id || (session.user as any)?.tenant_id;
+    if (tenantId) {
+      const headersList = await headers();
+      const ip = headersList.get("x-forwarded-for") || req.headers.get("x-forwarded-for") || "Unknown IP";
+      const browser = headersList.get("user-agent") || req.headers.get("user-agent") || "Unknown Browser";
+
+      await logAuditDirectly({
+        tenantId,
+        userId,
+        action: "PASSWORD_CHANGED",
+        module: "SECURITY",
+        ip,
+        browser,
+      });
+    }
+
     return NextResponse.json({ message: "Password updated successfully" });
   } catch (error: any) {
     return await handleApiError(error, "PUT /api/account/security");
   }
 }
+
