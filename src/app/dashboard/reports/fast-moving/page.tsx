@@ -9,8 +9,10 @@ import {
 } from 'recharts';
 import { Filter, Calendar, Loader2 } from "lucide-react";
 import Papa from "papaparse";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function FastMovingReportPage() {
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -383,8 +385,8 @@ export default function FastMovingReportPage() {
                         {visibleColumns.product_name && <td className="px-6 py-4 font-medium text-zinc-900">{row.product_name}</td>}
                         {visibleColumns.category && <td className="px-6 py-4 text-zinc-500 font-mono">{row.category}</td>}
                         {visibleColumns.qty_sold && <td className="px-6 py-4 text-right font-mono font-bold text-amber-600">{row.qty_sold}</td>}
-                        {visibleColumns.revenue_generated && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.revenue_generated.toFixed(2)}</td>}
-                        {visibleColumns.profit_generated && <td className="px-6 py-4 text-right text-emerald-600 font-mono font-bold">+${row.profit_generated.toFixed(2)}</td>}
+                        {visibleColumns.revenue_generated && <td className="px-6 py-4 text-right font-mono text-zinc-900">{formatCurrency(row.revenue_generated)}</td>}
+                        {visibleColumns.profit_generated && <td className="px-6 py-4 text-right text-emerald-600 font-mono font-bold">+{formatCurrency(row.profit_generated)}</td>}
                         {visibleColumns.avg_daily_sales && <td className="px-6 py-4 text-right font-mono text-zinc-900">{row.avg_daily_sales.toFixed(1)}/day</td>}
                         {visibleColumns.current_stock && <td className="px-6 py-4 text-right font-mono text-zinc-900">{row.current_stock}</td>}
                         {visibleColumns.estimated_stock_days && (

@@ -5,8 +5,10 @@ import axios from "axios";
 import { Plus, Search, Edit, Trash2, ChevronRight, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function CustomersPage() {
+  const { formatCurrency } = useCurrency();
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,7 +113,7 @@ export default function CustomersPage() {
                       <div className="text-xs text-muted-foreground">{customer.email || "-"}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-foreground font-medium">${customer.lifetime_spending?.toFixed(2) || "0.00"}</div>
+                      <div className="text-foreground font-medium">{formatCurrency(customer.lifetime_spending)}</div>
                       <div className="text-[10px] text-muted-foreground">
                         Last Visit: {customer.last_visit ? format(new Date(customer.last_visit), 'MMM d, yyyy') : 'Never'}
                       </div>

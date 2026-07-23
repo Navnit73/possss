@@ -6,8 +6,10 @@ import Link from "next/link";
 import { Plus, ChevronDown, ChevronRight, Package, AlertCircle } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function StockListPage() {
+  const { formatCurrency } = useCurrency();
   const [batches, setBatches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -185,8 +187,8 @@ export default function StockListPage() {
                             <div className="col-span-2 text-slate-500 font-medium truncate flex items-center">{batch.supplier || "-"}</div>
                             <div className="col-span-2 text-slate-600 flex items-center">{batch.expiry_date || "-"}</div>
                             <div className="col-span-2 text-slate-600 flex items-center">{group.product?.rack_number || "-"}</div>
-                            <div className="col-span-1 text-right font-medium flex items-center justify-end text-slate-500">${batch.cost_price.toFixed(2)}</div>
-                            <div className="col-span-1 text-right font-medium flex items-center justify-end text-emerald-600">${batch.selling_price.toFixed(2)}</div>
+                            <div className="col-span-1 text-right font-medium flex items-center justify-end text-slate-500">{formatCurrency(batch.cost_price)}</div>
+                            <div className="col-span-1 text-right font-medium flex items-center justify-end text-emerald-600">{formatCurrency(batch.selling_price)}</div>
                             <div className="col-span-1 text-right font-black flex items-center justify-end">{batch.qty_available}</div>
                           </div>
                         );

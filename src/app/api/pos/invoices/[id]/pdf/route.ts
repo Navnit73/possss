@@ -62,6 +62,16 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       };
     });
 
+    const CURRENCY_SYMBOLS: Record<string, string> = {
+      USD: "$",
+      INR: "₹",
+      EUR: "€",
+      GBP: "£",
+      CAD: "CA$",
+      AUD: "A$",
+    };
+    const currencySymbol = CURRENCY_SYMBOLS[(tenant?.currency || "USD").toUpperCase()] || tenant?.currency || "$";
+
     const storeName = tenant?.business_name || "PHARMACY STORE";
     const storeAddress = tenant?.address || "";
     const storePhone = tenant?.phone || "";
@@ -104,64 +114,40 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         };
 
         // 1. Header
-        doc.fontSize(11).font("Helvetica-Bold").fillColor("#000000").text(storeName.toUpperCase(), startX, doc.y, { align: "center", width });
-        doc.moveDown(0.2);
+        doc.font("Helvetica-Bold").fontSize(10).fillColor("#000000").text(storeName.toUpperCase(), startX, 10, { align: "center", width });
+        doc.font("Helvetica").fontSize(7).fillColor("#444444");
+        if (storeAddress) doc.text(storeAddress, startX, doc.y, { align: "center", width });
+        if (storePhone) doc.text(`Ph: ${storePhone}`, startX, doc.y, { align: "center", width });
+        
+        doc.moveDown(0.3);
+        drawSolidLine(doc.y, 1);
+        doc.moveDown(0.4);
 
-        if (storeAddress) {
-          doc.fontSize(7).font("Helvetica").fillColor("#444444").text(storeAddress, startX, doc.y, { align: "center", width });
-        }
-        if (storePhone) {
-          doc.fontSize(7).font("Helvetica").fillColor("#444444").text(`Tel: ${storePhone}`, startX, doc.y, { align: "center", width });
+        // 2. Invoice & Date Meta
+        doc.fontSize(7).fillColor("#000000");
+        doc.text(`INV #: ${sale.invoice_no || sale._id.toString().substring(0, 8)}`, startX, doc.y);
+        doc.text(`DATE : ${new Date(sale.created_at || Date.now()).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}`, startX, doc.y);
+        if (customer) {
+          doc.text(`CUST : ${customer.name}${customer.phone ? ` (${customer.phone})` : ''}`, startX, doc.y);
         }
 
         doc.moveDown(0.3);
-        doc.fontSize(8).font("Helvetica-Bold").fillColor("#000000").text("OFFICIAL TAX INVOICE", startX, doc.y, { align: "center", width });
-        doc.moveDown(0.4);
-
-        drawDashedLine(doc.y);
-        doc.moveDown(0.4);
-
-        // 2. Invoice Metadata
-        doc.fontSize(7).font("Helvetica").fillColor("#000000");
-        let metaY = doc.y;
-
-        doc.text("Invoice #:", startX, metaY);
-        doc.font("Helvetica-Bold").text(sale.invoice_no, startX + 45, metaY);
-
-        const createdDate = new Date(sale.created_at);
-        doc.font("Helvetica").text("Date:", startX + 110, metaY);
-        doc.text(createdDate.toLocaleDateString(), startX + 135, metaY);
-
-        metaY += 10;
-        doc.text("Time:", startX + 110, metaY);
-        doc.text(createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startX + 135, metaY);
-
-        if (customer) {
-          doc.text("Customer:", startX, metaY);
-          doc.font("Helvetica-Bold").text(customer.name.substring(0, 18), startX + 45, metaY);
-          metaY += 10;
-        } else {
-          metaY += 10;
-        }
-
-        doc.y = metaY + 2;
         drawDashedLine(doc.y);
         doc.moveDown(0.4);
 
         // 3. Table Header
         let tableY = doc.y;
-        doc.fontSize(7).font("Helvetica-Bold").fillColor("#000000");
-        doc.text("Item / Batch", startX, tableY);
-        doc.text("Qty", startX + 110, tableY, { width: 22, align: "center" });
-        doc.text("Price", startX + 134, tableY, { width: 32, align: "right" });
-        doc.text("Total", startX + 168, tableY, { width: 42, align: "right" });
+        doc.font("Helvetica-Bold").fontSize(7).fillColor("#000000");
+        doc.text("ITEM", startX, tableY, { width: 108 });
+        doc.text("QTY", startX + 110, tableY, { width: 22, align: "center" });
+        doc.text("PRICE", startX + 134, tableY, { width: 32, align: "right" });
+        doc.text("TOTAL", startX + 168, tableY, { width: 42, align: "right" });
 
-        tableY += 11;
-        drawSolidLine(tableY, 0.5, "#888888");
+        tableY += 10;
+        drawSolidLine(tableY, 0.5);
         tableY += 4;
 
-        // 4. Items List
-        doc.font("Helvetica").fontSize(7);
+        // 4. Table Items
         for (const item of items) {
           const price = Number(item.price || 0);
           const qty = Number(item.qty || 0);
@@ -173,8 +159,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           
           doc.font("Helvetica");
           doc.text(qty.toString(), startX + 110, tableY, { width: 22, align: "center" });
-          doc.text(`$${price.toFixed(2)}`, startX + 134, tableY, { width: 32, align: "right" });
-          doc.text(`$${lineTotal.toFixed(2)}`, startX + 168, tableY, { width: 42, align: "right" });
+          doc.text(`${currencySymbol}${price.toFixed(2)}`, startX + 134, tableY, { width: 32, align: "right" });
+          doc.text(`${currencySymbol}${lineTotal.toFixed(2)}`, startX + 168, tableY, { width: 42, align: "right" });
 
           tableY += 10;
           if (item.batch_number) {
@@ -194,17 +180,17 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         let sumY = doc.y;
         doc.text("Subtotal:", startX + 90, sumY, { width: 55 });
-        doc.text(`$${Number(sale.subtotal || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
+        doc.text(`${currencySymbol}${Number(sale.subtotal || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
 
         if (sale.discount > 0) {
           sumY += 10;
           doc.text("Discount:", startX + 90, sumY, { width: 55 });
-          doc.text(`-$${Number(sale.discount || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
+          doc.text(`-${currencySymbol}${Number(sale.discount || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
         }
 
         sumY += 10;
         doc.text("Tax:", startX + 90, sumY, { width: 55 });
-        doc.text(`$${Number(sale.tax || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
+        doc.text(`${currencySymbol}${Number(sale.tax || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
 
         sumY += 12;
         drawSolidLine(sumY, 1, "#000000");
@@ -212,7 +198,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
         doc.fontSize(9).font("Helvetica-Bold").fillColor("#000000");
         doc.text("NET TOTAL:", startX + 80, sumY, { width: 65 });
-        doc.text(`$${Number(sale.total || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
+        doc.text(`${currencySymbol}${Number(sale.total || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
 
         sumY += 13;
         drawSolidLine(sumY, 0.5, "#000000");

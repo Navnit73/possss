@@ -22,8 +22,10 @@ import {
 import Link from "next/link";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { InvoiceReceiptModal } from "@/components/pos/InvoiceReceiptModal";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function PosInvoicesPage() {
+  const { formatCurrency } = useCurrency();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -145,7 +147,7 @@ export default function PosInvoicesPage() {
           <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Page Total Volume</p>
-              <h3 className="text-2xl font-black text-emerald-600 mt-1">${pageRevenue.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-emerald-600 mt-1">{formatCurrency(pageRevenue)}</h3>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Sum of {invoices.length} items</p>
             </div>
             <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -156,7 +158,7 @@ export default function PosInvoicesPage() {
           <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Average Sale Value</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">${avgSale.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{formatCurrency(avgSale)}</h3>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Average transaction value</p>
             </div>
             <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
@@ -316,7 +318,7 @@ export default function PosInvoicesPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3.5 font-bold text-slate-900 text-sm">
-                            ${inv.total?.toFixed(2)}
+                            {formatCurrency(inv.total)}
                           </td>
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-2">

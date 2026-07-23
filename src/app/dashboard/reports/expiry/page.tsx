@@ -4,8 +4,10 @@ import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Papa from "papaparse";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function ExpiryReportPage() {
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -146,7 +148,7 @@ export default function ExpiryReportPage() {
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Expired (Loss)</p>
               <h3 className="text-3xl font-mono text-rose-600 font-bold">
-                {data.metrics.expired_count} <span className="text-sm font-medium text-rose-400">(${data.metrics.expired_value.toFixed(2)})</span>
+                {data.metrics.expired_count} <span className="text-sm font-medium text-rose-400">({formatCurrency(data.metrics.expired_value)})</span>
               </h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
@@ -220,8 +222,8 @@ export default function ExpiryReportPage() {
                         {visibleColumns.batch_number && <td className="px-6 py-4 font-mono text-xs text-zinc-500">{row.batch_number}</td>}
                         {visibleColumns.supplier_name && <td className="px-6 py-4 text-zinc-600 truncate max-w-[150px] font-mono">{row.supplier_name}</td>}
                         {visibleColumns.qty_available && <td className="px-6 py-4 text-right font-mono font-bold text-zinc-900">{row.qty_available}</td>}
-                        {visibleColumns.cost_price && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.cost_price.toFixed(2)}</td>}
-                        {visibleColumns.purchase_value_loss && <td className="px-6 py-4 text-right font-mono font-bold text-rose-600">${row.purchase_value_loss.toFixed(2)}</td>}
+                        {visibleColumns.cost_price && <td className="px-6 py-4 text-right font-mono text-zinc-900">{formatCurrency(row.cost_price)}</td>}
+                        {visibleColumns.purchase_value_loss && <td className="px-6 py-4 text-right font-mono font-bold text-rose-600">{formatCurrency(row.purchase_value_loss)}</td>}
                         {visibleColumns.expiry_date && <td className="px-6 py-4 font-mono text-zinc-600">{new Date(row.expiry_date).toLocaleDateString()}</td>}
                         {visibleColumns.status && (
                           <td className="px-6 py-4 text-center">

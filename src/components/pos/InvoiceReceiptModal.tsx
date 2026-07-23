@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Printer, FileText, ExternalLink, CheckCircle2, RefreshCw } from "lucide-react";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface InvoiceReceiptModalProps {
   saleId: string;
@@ -10,6 +11,7 @@ interface InvoiceReceiptModalProps {
 }
 
 export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProps) {
+  const { formatCurrency } = useCurrency();
   const pdfUrl = `/api/pos/invoices/${saleId}/pdf`;
   const jsonUrl = `/api/pos/invoices/${saleId}`;
 
@@ -183,6 +185,7 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
 
 {/* High-Precision 80mm Thermal Receipt Component with NaN Protection */}
 function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
+  const { formatCurrency } = useCurrency();
   if (!sale) return null;
 
   const subtotal = Number(sale.subtotal ?? (Number(sale.total || 0) - Number(sale.tax || 0) + Number(sale.discount || 0)));
@@ -233,8 +236,8 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
             <div key={idx} className="space-y-0.5">
               <div className="flex justify-between font-bold text-slate-900">
                 <span className="truncate max-w-[120px]">{item.name}</span>
-                <span className="text-slate-500 font-normal">{itemQty} x ${itemPrice.toFixed(2)}</span>
-                <span className="font-bold text-right">${lineTotal.toFixed(2)}</span>
+                <span className="text-slate-500 font-normal">{itemQty} x {formatCurrency(itemPrice)}</span>
+                <span className="font-bold text-right">{formatCurrency(lineTotal)}</span>
               </div>
               {item.batch_number && (
                 <div className="text-[9px] text-slate-400">
@@ -250,21 +253,21 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
       <div className="py-2.5 space-y-1 text-[11px]">
         <div className="flex justify-between text-slate-600">
           <span>Subtotal:</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span>{formatCurrency(subtotal)}</span>
         </div>
         {discount > 0 && (
           <div className="flex justify-between text-rose-600">
             <span>Discount:</span>
-            <span>-${discount.toFixed(2)}</span>
+            <span>-{formatCurrency(discount)}</span>
           </div>
         )}
         <div className="flex justify-between text-slate-600">
           <span>Tax:</span>
-          <span>${tax.toFixed(2)}</span>
+          <span>{formatCurrency(tax)}</span>
         </div>
         <div className="flex justify-between text-sm font-black text-slate-900 pt-1.5 border-t border-slate-300">
           <span>NET TOTAL:</span>
-          <span>${total.toFixed(2)}</span>
+          <span>{formatCurrency(total)}</span>
         </div>
       </div>
 

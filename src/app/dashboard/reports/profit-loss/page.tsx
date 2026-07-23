@@ -9,8 +9,10 @@ import {
 } from 'recharts';
 import { Filter, Calendar, Loader2 } from "lucide-react";
 import Papa from "papaparse";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function ProfitLossReportPage() {
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -234,16 +236,16 @@ export default function ProfitLossReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Gross Revenue</p>
-              <h3 className="text-3xl font-mono text-zinc-900 font-bold">${data.metrics.gross_revenue.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{formatCurrency(data.metrics.gross_revenue)}</h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Product Cost (COGS)</p>
-              <h3 className="text-3xl font-mono text-zinc-900 font-bold">${data.metrics.product_cost.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{formatCurrency(data.metrics.product_cost)}</h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Gross Profit</p>
               <h3 className={`text-3xl font-mono font-bold ${data.metrics.gross_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                ${data.metrics.gross_profit.toFixed(2)}
+                {formatCurrency(data.metrics.gross_profit)}
               </h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
@@ -252,7 +254,7 @@ export default function ProfitLossReportPage() {
             </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Total Discounts</p>
-              <h3 className="text-3xl font-mono text-rose-600 font-bold">${data.metrics.discounts_given.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-rose-600 font-bold">{formatCurrency(data.metrics.discounts_given)}</h3>
             </div>
           </div>
 
@@ -284,8 +286,8 @@ export default function ProfitLossReportPage() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="date" tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#f59e0b" fillOpacity={1} fill="url(#colorRevPL)" strokeWidth={2} />
                     <Line type="monotone" dataKey="cogs" name="COGS Cost" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={false} />
                     <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProfPL)" strokeWidth={2} />
@@ -314,7 +316,7 @@ export default function ProfitLossReportPage() {
                         <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <RechartsTooltip formatter={(val: any) => formatCurrency(val)} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
                     <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -333,9 +335,9 @@ export default function ProfitLossReportPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.charts.topProfitableProducts} layout="vertical" margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" />
-                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
                     <YAxis dataKey="name" type="category" width={90} tick={{fontSize: 10, fill: '#3f3f46', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Bar dataKey="profit" name="Net Profit" fill="#10b981" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -350,8 +352,8 @@ export default function ProfitLossReportPage() {
                   <BarChart data={data.charts.waterfall} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="category" tick={{fontSize: 9, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Bar dataKey="amount" name="Amount" radius={[4, 4, 0, 0]}>
                       {data.charts.waterfall.map((entry: any, index: number) => (
                         <Cell key={`waterfall-${index}`} fill={entry.fill} />
@@ -364,14 +366,14 @@ export default function ProfitLossReportPage() {
 
             {/* Chart 5: Discount Leakage & Margin Loss */}
             <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
-              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">5. Discount Leakage & Margin Loss ($)</h3>
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">5. Discount Leakage & Margin Loss ({currencySymbol})</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.charts.discountBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="name" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Bar dataKey="amount" name="Discount Total" fill="#f97316" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -436,11 +438,11 @@ export default function ProfitLossReportPage() {
                         {visibleColumns.product_name && <td className="px-6 py-4 font-medium text-zinc-900">{row.product_name}</td>}
                         {visibleColumns.category && <td className="px-6 py-4 text-zinc-500 font-mono">{row.category}</td>}
                         {visibleColumns.qty_sold && <td className="px-6 py-4 text-right font-mono text-zinc-900">{row.qty_sold}</td>}
-                        {visibleColumns.total_cost && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.total_cost.toFixed(2)}</td>}
-                        {visibleColumns.total_revenue && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.total_revenue.toFixed(2)}</td>}
+                        {visibleColumns.total_cost && <td className="px-6 py-4 text-right font-mono text-zinc-900">{formatCurrency(row.total_cost)}</td>}
+                        {visibleColumns.total_revenue && <td className="px-6 py-4 text-right font-mono text-zinc-900">{formatCurrency(row.total_revenue)}</td>}
                         {visibleColumns.profit && (
                           <td className={`px-6 py-4 text-right font-mono font-bold ${row.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {row.profit >= 0 ? '+' : ''}${row.profit.toFixed(2)}
+                            {row.profit >= 0 ? '+' : ''}{formatCurrency(row.profit)}
                           </td>
                         )}
                         {visibleColumns.margin_pct && (

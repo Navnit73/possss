@@ -9,8 +9,10 @@ import {
 } from 'recharts';
 import { Filter, Calendar, Loader2 } from "lucide-react";
 import Papa from "papaparse";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function SalesReportPage() {
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -278,7 +280,7 @@ export default function SalesReportPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Total Revenue</p>
-              <h3 className="text-3xl font-mono text-amber-600 font-bold">${data.metrics.totalRevenue.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-amber-600 font-bold">{formatCurrency(data.metrics.totalRevenue)}</h3>
             </div>
             <div className="p-6 border-b md:border-b-0 md:border-r border-zinc-200">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Total Orders</p>
@@ -290,7 +292,7 @@ export default function SalesReportPage() {
             </div>
             <div className="p-6">
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Avg Order Value</p>
-              <h3 className="text-3xl font-mono text-zinc-900 font-bold">${data.metrics.avgOrderValue.toFixed(2)}</h3>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">{formatCurrency(data.metrics.avgOrderValue)}</h3>
             </div>
           </div>
 
@@ -314,8 +316,8 @@ export default function SalesReportPage() {
                   <LineChart data={data.charts.dailyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="date" tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip cursor={{stroke: '#f59e0b', strokeWidth: 1}} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip cursor={{stroke: '#f59e0b', strokeWidth: 1}} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     
                     <Line type="monotone" dataKey="revenue" name="Total Revenue" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
                     <Line type="monotone" dataKey="card" name="Card Payments" stroke="#0284c7" strokeWidth={2} strokeDasharray="4 4" dot={{ r: 2 }} />
@@ -346,7 +348,7 @@ export default function SalesReportPage() {
                         <Cell key={entry.method} fill={PAYMENT_COLORS[entry.method] || '#f59e0b'} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <RechartsTooltip formatter={(val: any) => formatCurrency(val)} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
                     <Legend iconType="circle" wrapperStyle={{fontSize: '12px', fontFamily: 'monospace'}} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -361,7 +363,7 @@ export default function SalesReportPage() {
             {/* Chart 3: Revenue vs Profit Area Chart */}
             <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">3. Sales Revenue vs Net Profit ($)</h3>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">3. Sales Revenue vs Net Profit ({currencySymbol})</h3>
                 <div className="flex items-center gap-4 text-xs font-mono">
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" /> Revenue</span>
                   <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> Profit</span>
@@ -382,8 +384,8 @@ export default function SalesReportPage() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="date" tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#f59e0b" fillOpacity={1} fill="url(#colorRev)" strokeWidth={2} />
                     <Area type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" fillOpacity={1} fill="url(#colorProf)" strokeWidth={2} />
                   </AreaChart>
@@ -399,8 +401,8 @@ export default function SalesReportPage() {
                   <BarChart data={data.charts.hourlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                     <XAxis dataKey="hour" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Bar dataKey="revenue" name="Hourly Revenue" fill="#d97706" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -419,9 +421,9 @@ export default function SalesReportPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data.charts.topProducts} layout="vertical" margin={{ top: 0, right: 10, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e4e4e7" />
-                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <XAxis type="number" tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `${currencySymbol}${val}`} />
                     <YAxis dataKey="name" type="category" width={90} tick={{fontSize: 10, fill: '#3f3f46', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
-                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => formatCurrency(val)} />
                     <Bar dataKey="revenue" name="Revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -448,7 +450,7 @@ export default function SalesReportPage() {
                         <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <RechartsTooltip formatter={(val: any) => formatCurrency(val)} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
                     <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -475,7 +477,7 @@ export default function SalesReportPage() {
                         <Cell key={entry.name} fill={CUSTOMER_COLORS[index % CUSTOMER_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <RechartsTooltip formatter={(val: any) => formatCurrency(val)} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
                     <Legend iconType="square" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -543,8 +545,8 @@ export default function SalesReportPage() {
                         {visibleColumns.product_name && <td className="px-6 py-4 font-medium text-zinc-900">{row.product_name}</td>}
                         {visibleColumns.batch_number && <td className="px-6 py-4 text-zinc-500 font-mono">{row.batch_number}</td>}
                         {visibleColumns.qty && <td className="px-6 py-4 text-right font-mono text-zinc-900">{row.qty}</td>}
-                        {visibleColumns.price && <td className="px-6 py-4 text-right font-mono text-zinc-900">${row.price.toFixed(2)}</td>}
-                        {visibleColumns.profit && <td className="px-6 py-4 text-right font-mono text-emerald-600 font-bold">+${row.profit?.toFixed(2) || '0.00'}</td>}
+                        {visibleColumns.price && <td className="px-6 py-4 text-right font-mono text-zinc-900">{formatCurrency(row.price)}</td>}
+                        {visibleColumns.profit && <td className="px-6 py-4 text-right font-mono text-emerald-600 font-bold">+{formatCurrency(row.profit || 0)}</td>}
                         {visibleColumns.payment_method && (
                           <td className="px-6 py-4 text-center">
                             <span 

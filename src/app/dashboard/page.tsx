@@ -33,8 +33,10 @@ import {
 } from "recharts";
 import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function DashboardPage() {
+  const { formatCurrency, currencySymbol } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -210,7 +212,7 @@ export default function DashboardPage() {
                 Today's Sales
               </p>
               <h3 className="text-3xl font-mono text-amber-600 font-bold">
-                ${data.metrics.todaySales.toFixed(2)}
+                {formatCurrency(data.metrics.todaySales)}
               </h3>
             </Link>
             <Link
@@ -221,7 +223,7 @@ export default function DashboardPage() {
                 Monthly Profit
               </p>
               <h3 className="text-3xl font-mono text-emerald-600 font-bold">
-                ${data.metrics.monthlyProfit.toFixed(2)}
+                {formatCurrency(data.metrics.monthlyProfit)}
               </h3>
             </Link>
             <Link
@@ -232,7 +234,7 @@ export default function DashboardPage() {
                 Inventory Value
               </p>
               <h3 className="text-3xl font-mono text-zinc-900 font-bold">
-                ${data.metrics.inventoryValue.toFixed(2)}
+                {formatCurrency(data.metrics.inventoryValue)}
               </h3>
             </Link>
             <Link
@@ -269,7 +271,7 @@ export default function DashboardPage() {
             <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                  1. Sales Revenue vs Net Profit ($)
+                  1. Sales Revenue vs Net Profit ({currencySymbol})
                 </h3>
                 <div className="flex items-center gap-4 text-xs font-mono">
                   <span className="flex items-center gap-1.5">
@@ -312,7 +314,7 @@ export default function DashboardPage() {
                       }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(val) => `$${val}`}
+                      tickFormatter={(val) => `${currencySymbol}${val}`}
                     />
                     <RechartsTooltip
                       contentStyle={{
@@ -321,7 +323,7 @@ export default function DashboardPage() {
                         fontFamily: "monospace",
                         fontSize: "12px",
                       }}
-                      formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                      formatter={(val: any) => formatCurrency(val)}
                     />
                     <Line
                       type="monotone"
@@ -372,7 +374,7 @@ export default function DashboardPage() {
                       ))}
                     </Pie>
                     <RechartsTooltip
-                      formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                      formatter={(val: any) => formatCurrency(val)}
                       contentStyle={{
                         borderRadius: "4px",
                         border: "1px solid #e4e4e7",
@@ -429,7 +431,7 @@ export default function DashboardPage() {
                       }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(val) => `$${val}`}
+                      tickFormatter={(val) => `${currencySymbol}${val}`}
                     />
                     <RechartsTooltip
                       contentStyle={{
@@ -438,7 +440,7 @@ export default function DashboardPage() {
                         fontFamily: "monospace",
                         fontSize: "12px",
                       }}
-                      formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                      formatter={(val: any) => formatCurrency(val)}
                     />
                     <Bar
                       dataKey="revenue"
@@ -481,7 +483,7 @@ export default function DashboardPage() {
                       )}
                     </Pie>
                     <RechartsTooltip
-                      formatter={(val: any) => `$${Number(val).toFixed(2)}`}
+                      formatter={(val: any) => formatCurrency(val)}
                       contentStyle={{
                         borderRadius: "4px",
                         border: "1px solid #e4e4e7",
@@ -536,7 +538,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right font-mono">
                           <span className="text-amber-600 font-bold">
-                            ${product.revenue.toFixed(2)}
+                            {formatCurrency(product.revenue)}
                           </span>
                           <span className="text-zinc-400 text-[10px] block">
                             {product.qty_sold} sold

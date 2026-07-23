@@ -6,6 +6,7 @@ import axios from "axios";
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, PackageOpen, Tag, UserCircle, X, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { InvoiceReceiptModal } from "@/components/pos/InvoiceReceiptModal";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface POSItem {
   id: string; // unique cart id
@@ -23,6 +24,7 @@ interface POSItem {
 
 export default function PosSellPage() {
   const router = useRouter();
+  const { formatCurrency } = useCurrency();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const discountInputRef = useRef<HTMLInputElement>(null);
   
@@ -359,7 +361,7 @@ export default function PosSellPage() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-sm font-extrabold text-slate-900">${batch.selling_price?.toFixed(2)}</span>
+                                  <span className="text-sm font-extrabold text-slate-900">{formatCurrency(batch.selling_price)}</span>
                                   <button
                                     onClick={() => addToCart(product, batch)}
                                     disabled={isAdded}
@@ -519,8 +521,8 @@ export default function PosSellPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-extrabold text-emerald-700">${(item.price * item.qty * (1 - item.discount / 100)).toFixed(2)}</div>
-                      <div className="text-[10px] text-slate-400 font-medium">${item.price.toFixed(2)} ea</div>
+                      <div className="text-sm font-extrabold text-emerald-700">{formatCurrency(item.price * item.qty * (1 - item.discount / 100))}</div>
+                      <div className="text-[10px] text-slate-400 font-medium">{formatCurrency(item.price)} ea</div>
                     </div>
                   </div>
                   
@@ -582,7 +584,7 @@ export default function PosSellPage() {
           <div className="flex flex-col gap-2 mb-3.5 text-xs font-medium text-slate-600">
             <div className="flex justify-between items-center">
               <span>Subtotal</span>
-              <span className="text-slate-900 font-bold">${subtotal.toFixed(2)}</span>
+              <span className="text-slate-900 font-bold">{formatCurrency(subtotal)}</span>
             </div>
             
             <div className="flex justify-between items-center">
@@ -606,19 +608,19 @@ export default function PosSellPage() {
                   />
                   <span className="text-amber-700 text-xs px-0.5 font-bold">%</span>
                 </div>
-                {overallDiscount > 0 && <span className="text-rose-600 font-bold text-xs">-${discountAmount.toFixed(2)}</span>}
+                {overallDiscount > 0 && <span className="text-rose-600 font-bold text-xs">-{formatCurrency(discountAmount)}</span>}
               </div>
             </div>
             
             <div className="flex justify-between items-center">
               <span>Tax ({(taxRate*100).toFixed(0)}%)</span>
-              <span className="text-slate-900 font-bold">${taxAmount.toFixed(2)}</span>
+              <span className="text-slate-900 font-bold">{formatCurrency(taxAmount)}</span>
             </div>
           </div>
           
           <div className="pt-3 border-t border-slate-100 flex justify-between items-baseline mb-4">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Payable Total</span>
-            <span className="text-3xl font-black tracking-tight text-emerald-600">${total.toFixed(2)}</span>
+            <span className="text-3xl font-black tracking-tight text-emerald-600">{formatCurrency(total)}</span>
           </div>
 
           <button
@@ -641,7 +643,7 @@ export default function PosSellPage() {
                 <h3 className="font-extrabold text-slate-900 text-base">Complete Payment</h3>
                 <p className="text-xs text-slate-500">Select customer payment method</p>
               </div>
-              <div className="text-2xl font-black text-emerald-600 tracking-tight">${total.toFixed(2)}</div>
+              <div className="text-2xl font-black text-emerald-600 tracking-tight">{formatCurrency(total)}</div>
             </div>
             
             <div className="p-5">

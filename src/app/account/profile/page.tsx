@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { User, Store, Mail, Phone, MapPin, Globe, CreditCard } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { z } from "zod";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const COUNTRIES = [
   { label: "United States", value: "United States" },
@@ -14,12 +15,12 @@ const COUNTRIES = [
 ];
 
 const CURRENCIES = [
-  { label: "USD - US Dollar", value: "USD" },
-  { label: "CAD - Canadian Dollar", value: "CAD" },
-  { label: "GBP - British Pound", value: "GBP" },
-  { label: "AUD - Australian Dollar", value: "AUD" },
-  { label: "INR - Indian Rupee", value: "INR" },
-  { label: "EUR - Euro", value: "EUR" },
+  { label: "USD - US Dollar ($)", value: "USD" },
+  { label: "CAD - Canadian Dollar ($)", value: "CAD" },
+  { label: "GBP - British Pound (£)", value: "GBP" },
+  { label: "AUD - Australian Dollar ($)", value: "AUD" },
+  { label: "INR - Indian Rupee (₹)", value: "INR" },
+  { label: "EUR - Euro (€)", value: "EUR" },
 ];
 
 const TIMEZONES = [
@@ -54,6 +55,7 @@ const tenantSchema = z.object({
 });
 
 export default function ProfilePage() {
+  const { setCurrency } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState("CASHIER");
@@ -103,6 +105,9 @@ export default function ProfilePage() {
           timezone: data.tenant.timezone || "",
           address: data.tenant.address || "",
         });
+        if (data.tenant.currency) {
+          setCurrency(data.tenant.currency);
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to load profile");
@@ -137,6 +142,10 @@ export default function ProfilePage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      if (tenantForm.currency) {
+        setCurrency(tenantForm.currency);
+      }
 
       setSuccess("Profile updated successfully");
     } catch (err: any) {
