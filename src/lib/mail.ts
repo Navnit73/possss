@@ -5,40 +5,41 @@ const fromEmail = "Pharmacy POS <onboarding@resend.dev>";
 
 const baseStyles = `
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  color: #111827;
+  color: #0F172A;
   line-height: 1.6;
   max-width: 600px;
   margin: 0 auto;
-  padding: 40px 20px;
-  background-color: #FAFAFA;
+  padding: 32px 16px;
+  background-color: #F8FAFC;
 `;
 
 const cardStyles = `
   background-color: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
-  padding: 40px;
+  padding: 36px 32px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 `;
 
 const headerStyles = `
-  color: #00668C;
-  font-size: 24px;
+  color: #0F172A;
+  font-size: 22px;
   font-weight: 700;
   margin-top: 0;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
 `;
 
 const buttonStyles = `
   display: inline-block;
-  padding: 14px 28px;
-  background-color: #00668C;
-  color: #FFFFFF;
+  padding: 12px 24px;
+  background-color: #0F172A;
+  color: #FFFFFF !important;
   text-decoration: none;
   font-weight: 600;
+  font-size: 14px;
   border-radius: 6px;
-  margin-top: 24px;
-  margin-bottom: 24px;
+  margin-top: 20px;
+  margin-bottom: 20px;
 `;
 
 export async function sendWelcomeEmail(email: string, name: string) {
@@ -53,8 +54,8 @@ export async function sendWelcomeEmail(email: string, name: string) {
             <h2 style="${headerStyles}">Welcome, ${name}!</h2>
             <p>We are thrilled to have you onboard.</p>
             <p>Pharmacy POS is designed to bring clinical precision and retail efficiency to your workflow. Your next step is to set up your pharmacy details and start managing your inventory.</p>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/auth/login" style="${buttonStyles}">Go to Terminal</a>
-            <p style="color: #6B7280; font-size: 14px; margin-top: 32px; border-top: 1px solid #E5E7EB; padding-top: 24px;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/login" style="${buttonStyles}">Go to Terminal</a>
+            <p style="color: #64748B; font-size: 13px; margin-top: 32px; border-top: 1px solid #E2E8F0; padding-top: 20px;">
               Best regards,<br/>The Pharmacy POS Team
             </p>
           </div>
@@ -67,7 +68,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
 }
 
 export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`;
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
 
   try {
     await resend.emails.send({
@@ -79,10 +80,10 @@ export async function sendPasswordResetEmail(email: string, token: string) {
           <div style="${cardStyles}">
             <h2 style="${headerStyles}">Password Reset Request</h2>
             <p>We received a request to reset your password for your Pharmacy POS account.</p>
-            <p>Click the secure link below to set a new password. This link will expire in exactly 1 hour.</p>
+            <p>Click the secure link below to set a new password. This link will expire in 1 hour.</p>
             <a href="${resetLink}" style="${buttonStyles}">Reset My Password</a>
-            <p>If you did not request this change, you can safely ignore this email. Your account remains secure.</p>
-            <p style="color: #6B7280; font-size: 14px; margin-top: 32px; border-top: 1px solid #E5E7EB; padding-top: 24px;">
+            <p style="font-size: 13px; color: #64748B;">If you did not request this change, you can safely ignore this email.</p>
+            <p style="color: #64748B; font-size: 13px; margin-top: 32px; border-top: 1px solid #E2E8F0; padding-top: 20px;">
               Best regards,<br/>The Pharmacy POS Team
             </p>
           </div>
@@ -97,10 +98,20 @@ export async function sendPasswordResetEmail(email: string, token: string) {
 export async function sendDailyReportEmail(
   recipients: string[], 
   pdfBuffer: Buffer, 
-  data: { date: Date, revenue: number, transactions: number, profit: number },
+  data: { 
+    date: Date; 
+    revenue: number; 
+    transactions: number; 
+    profit: number; 
+    tenantName?: string; 
+    currencySymbol?: string;
+  },
   timezone: string
 ) {
   try {
+    const sym = data.currencySymbol || "$";
+    const storeName = data.tenantName || "Pharmacy POS";
+
     const formattedDate = new Intl.DateTimeFormat('en-US', { 
       timeZone: timezone,
       weekday: 'long', 
@@ -112,33 +123,49 @@ export async function sendDailyReportEmail(
     await resend.emails.send({
       from: fromEmail,
       to: recipients,
-      subject: `Daily Sales Report: ${formattedDate}`,
+      subject: `${storeName}: Daily Sales Report (${formattedDate})`,
       html: `
         <div style="${baseStyles}">
           <div style="${cardStyles}">
-            <h2 style="${headerStyles}">Daily Sales Report</h2>
-            <p>Your automated daily sales report for <strong>${formattedDate}</strong> is ready.</p>
-            
-            <div style="margin: 24px 0; padding: 16px; background-color: #F3F4F6; border-radius: 8px;">
-              <h3 style="margin-top: 0; color: #374151;">Executive Summary</h3>
-              <ul style="list-style-type: none; padding: 0; margin: 0; color: #4B5563;">
-                <li style="margin-bottom: 8px;"><strong>Total Revenue:</strong> $${data.revenue.toFixed(2)}</li>
-                <li style="margin-bottom: 8px;"><strong>Total Profit:</strong> $${data.profit.toFixed(2)}</li>
-                <li style="margin-bottom: 0;"><strong>Transactions:</strong> ${data.transactions}</li>
-              </ul>
+            <div style="border-bottom: 1px solid #E2E8F0; padding-bottom: 16px; margin-bottom: 20px;">
+              <span style="font-size: 11px; font-weight: 700; color: #059669; letter-spacing: 1px; text-transform: uppercase;">Automated Daily Report</span>
+              <h2 style="${headerStyles}">${storeName}</h2>
+              <p style="margin: 0; color: #64748B; font-size: 14px;">Sales Digest for ${formattedDate}</p>
             </div>
             
-            <p>A detailed breakdown including your top-performing products and low inventory alerts is attached as a PDF to this email.</p>
-            
-            <p style="color: #6B7280; font-size: 14px; margin-top: 32px; border-top: 1px solid #E5E7EB; padding-top: 24px;">
-              Generated automatically by Pharmacy POS
+            <!-- KPI Grid -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0; border-collapse: separate; border-spacing: 8px;">
+              <tr>
+                <td width="33%" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; text-align: center;">
+                  <span style="display: block; font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: 0.5px; text-transform: uppercase;">Total Revenue</span>
+                  <span style="display: block; font-size: 16px; font-weight: 700; color: #0F172A; margin-top: 4px;">${sym}${data.revenue.toFixed(2)}</span>
+                </td>
+                <td width="33%" style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 14px; text-align: center;">
+                  <span style="display: block; font-size: 10px; font-weight: 700; color: #047857; letter-spacing: 0.5px; text-transform: uppercase;">Gross Profit</span>
+                  <span style="display: block; font-size: 16px; font-weight: 700; color: #059669; margin-top: 4px;">${sym}${data.profit.toFixed(2)}</span>
+                </td>
+                <td width="33%" style="background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 14px; text-align: center;">
+                  <span style="display: block; font-size: 10px; font-weight: 700; color: #1D4ED8; letter-spacing: 0.5px; text-transform: uppercase;">Orders</span>
+                  <span style="display: block; font-size: 16px; font-weight: 700; color: #2563EB; margin-top: 4px;">${data.transactions}</span>
+                </td>
+              </tr>
+            </table>
+
+            <p style="font-size: 14px; color: #334155;">
+              A comprehensive PDF statement containing your top selling items and inventory reorder alerts is attached to this email.
+            </p>
+
+            <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard" style="${buttonStyles}">Open Live Dashboard</a>
+
+            <p style="color: #94A3B8; font-size: 12px; margin-top: 28px; border-top: 1px solid #E2E8F0; padding-top: 20px; text-align: center;">
+              Generated automatically by ${storeName} • Confidential
             </p>
           </div>
         </div>
       `,
       attachments: [
         {
-          filename: `Daily_Report_${data.date.toISOString().split('T')[0]}.pdf`,
+          filename: `${storeName.replace(/[^a-zA-Z0-9]/g, '_')}_Daily_Report_${data.date.toISOString().split('T')[0]}.pdf`,
           content: pdfBuffer,
         }
       ]

@@ -14,8 +14,8 @@ export async function GET(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get("page") || "1");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "20")));
     const skip = (page - 1) * limit;
 
     const userFilter = url.searchParams.get("user");
@@ -26,13 +26,18 @@ export async function GET(req: Request) {
     const matchQuery: any = { tenant_id: tenantId };
     
     if (userFilter) matchQuery.user_id = userFilter;
-    if (actionFilter) matchQuery.action = actionFilter;
-    if (moduleFilter) matchQuery.module = moduleFilter;
+    if (actionFilter && actionFilter !== "ALL") {
+      matchQuery.action = { $regex: actionFilter, $options: "i" };
+    }
+    if (moduleFilter && moduleFilter !== "ALL") {
+      matchQuery.module = moduleFilter;
+    }
 
     const db = client.db("pos");
 
-    if (searchFilter) {
-      const searchRegex = { $regex: searchFilter, $options: "i" };
+    if (searchFilter && searchFilter.trim().length > 0) {
+      const escapedSearch = searchFilter.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = { $regex: escapedSearch, $options: "i" };
       
       // Subquery: find user IDs matching the search term to filter audit logs BEFORE lookup
       const matchingUsers = await db.collection("users").find({
@@ -46,14 +51,17 @@ export async function GET(req: Request) {
       const matchedUserIds = matchingUsers.map(u => u._id.toString());
       
       // Inject search constraints directly into initial match query
-      matchQuery.$or = [
+      const orConditions: any[] = [
         { action: searchRegex },
-        { module: searchRegex }
+        { module: searchRegex },
+        { ip: searchRegex },
+        { browser: searchRegex }
       ];
       
       if (matchedUserIds.length > 0) {
-        matchQuery.$or.push({ user_id: { $in: matchedUserIds } });
+        orConditions.push({ user_id: { $in: matchedUserIds } });
       }
+      matchQuery.$or = orConditions;
     }
 
     const pipeline: any[] = [
@@ -74,30 +82,29 @@ export async function GET(req: Request) {
       },
       {
         $unwind: { path: "$user_info", preserveNullAndEmptyArrays: true }
+      },
+      {
+        $facet: {
+          metadata: [ { $count: "total" } ],
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                user_obj_id: 0,
+                "user_info.password": 0,
+                "user_info.tenant_id": 0
+              }
+            }
+          ]
+        }
       }
     ];
 
-    pipeline.push({
-      $facet: {
-        metadata: [ { $count: "total" } ],
-        data: [
-          { $skip: skip },
-          { $limit: limit },
-          {
-            $project: {
-              user_obj_id: 0,
-              "user_info.password": 0,
-              "user_info.tenant_id": 0
-            }
-          }
-        ]
-      }
-    });
-
     const result = await db.collection("audit_logs").aggregate(pipeline).toArray();
     
-    const total = result[0].metadata[0] ? result[0].metadata[0].total : 0;
-    const logs = result[0].data;
+    const total = result[0]?.metadata[0]?.total || 0;
+    const logs = result[0]?.data || [];
 
     return NextResponse.json({
       logs,

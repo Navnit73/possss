@@ -6,6 +6,8 @@ import { sendDailyReportEmail } from "@/lib/mail";
 import { handleApiError } from "@/lib/errorHandler";
 import { getReportSettings } from "@/lib/settings";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
@@ -17,7 +19,9 @@ export async function POST(req: Request) {
     }
 
     const { email } = await req.json();
-    if (!email) throw new Error("Email is required for testing");
+    if (!email || typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
+      return NextResponse.json({ error: "Please provide a valid recipient email address" }, { status: 400 });
+    }
 
     const now = new Date();
     const settings = await getReportSettings(tenantId);
@@ -26,9 +30,9 @@ export async function POST(req: Request) {
     const data = await fetchDailyReportData(tenantId, now, timezone);
     const pdfBuffer = await generateDailyReportPdf(data);
     
-    await sendDailyReportEmail([email], pdfBuffer, data, timezone);
+    await sendDailyReportEmail([email.trim()], pdfBuffer, data, timezone);
 
-    return NextResponse.json({ success: true, message: "Test email sent successfully" });
+    return NextResponse.json({ success: true, message: `Test report email dispatched to ${email.trim()}` });
   } catch (error: any) {
     return handleApiError(error, "POST /api/settings/reports/test");
   }
