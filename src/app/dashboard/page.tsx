@@ -1,13 +1,15 @@
 "use client";
 
+import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { 
   Calendar, Package, AlertTriangle, TrendingUp, DollarSign, 
-  Activity, ArrowUpRight, BarChart3, ShoppingCart, Clock
+  Activity, ArrowUpRight, ShoppingCart, Clock, Filter, Loader2 
 } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, BarChart, Bar, Cell
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip as RechartsTooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
 } from "recharts";
 import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
@@ -15,257 +17,326 @@ import Link from "next/link";
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Draft Filters state
   const [dateRange, setDateRange] = useState("today");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  // Active Filters state
+  const [activeFilters, setActiveFilters] = useState({
+    dateRange: "today",
+    startDate: "",
+    endDate: ""
+  });
+
+  const fetchDashboard = async () => {
+    setIsLoading(true);
+    try {
+      const res = await axios.get("/api/dashboard", { 
+        params: { 
+          dateRange: activeFilters.dateRange,
+          startDate: activeFilters.startDate,
+          endDate: activeFilters.endDate
+        } 
+      });
+      setData(res.data);
+    } catch (err) {
+      console.error("Failed to load dashboard data", err);
+      Swal.fire('Error', 'Failed to load dashboard metrics', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      setIsLoading(true);
-      try {
-        const res = await axios.get("/api/dashboard", { params: { dateRange } });
-        setData(res.data);
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDashboard();
-  }, [dateRange]);
+  }, [activeFilters]);
 
-  if (isLoading && !data) {
-    return (
-      <div className="p-8 max-w-7xl mx-auto h-[80vh] flex flex-col items-center justify-center">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-slate-500 font-medium animate-pulse">Loading dashboard metrics...</p>
-      </div>
-    );
-  }
+  const handleApplyFilter = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
 
-  if (!data) {
-    return (
-      <div className="p-8 max-w-7xl mx-auto">
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5" />
-          <p className="font-medium">Failed to load dashboard data. Please try again later.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { metrics, chartData, topProducts } = data;
-
-  const kpiCards = [
-    {
-      title: "Today's Sales",
-      value: `$${metrics.todaySales.toFixed(2)}`,
-      icon: DollarSign,
-      iconWrapper: "bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-600 border border-emerald-100/50",
-      circleColor: "bg-emerald-500",
-      link: "/dashboard/reports/sales"
-    },
-    {
-      title: "Monthly Profit",
-      value: `$${metrics.monthlyProfit.toFixed(2)}`,
-      icon: TrendingUp,
-      iconWrapper: "bg-gradient-to-br from-indigo-100 to-indigo-50 text-indigo-600 border border-indigo-100/50",
-      circleColor: "bg-indigo-500",
-      link: "/dashboard/reports/profit-loss"
-    },
-    {
-      title: "Inventory Value",
-      value: `$${metrics.inventoryValue.toFixed(2)}`,
-      icon: Package,
-      iconWrapper: "bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600 border border-blue-100/50",
-      circleColor: "bg-blue-500",
-      link: "/dashboard/reports/inventory-value"
-    },
-    {
-      title: "Low Stock Items",
-      value: metrics.lowStockCount,
-      icon: Activity,
-      iconWrapper: "bg-gradient-to-br from-rose-100 to-rose-50 text-rose-600 border border-rose-100/50",
-      circleColor: "bg-rose-500",
-      link: "/dashboard/inventory/alerts"
-    },
-    {
-      title: "Expiring Soon (30d)",
-      value: metrics.expiringSoonCount,
-      icon: Clock,
-      iconWrapper: "bg-gradient-to-br from-amber-100 to-amber-50 text-amber-600 border border-amber-100/50",
-      circleColor: "bg-amber-500",
-      link: "/dashboard/reports/expiry"
+    if (dateRange === "custom" && (!startDate || !endDate)) {
+      Swal.fire('Warning', 'Please select both start date and end date for custom date range.', 'warning');
+      return;
     }
-  ];
 
-  const formatTooltipDate = (dateStr: any) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    setActiveFilters({
+      dateRange,
+      startDate,
+      endDate
+    });
   };
 
-  const formatXAxisDate = (dateStr: any) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const PAYMENT_COLORS: { [key: string]: string } = {
+    CASH: '#10b981',   // Emerald
+    CARD: '#0284c7',   // Sky Blue
+    UPI: '#0f172a',    // Dark Slate
+    OTHER: '#f59e0b'   // Amber
   };
+
+  const CATEGORY_COLORS = ['#f59e0b', '#0284c7', '#10b981', '#0f172a', '#ef4444', '#f97316'];
 
   return (
-    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-10 font-sans">
+    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8 font-sans relative min-h-[600px]">
       
-      {/* Header & Global Filters */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
-        <PageHeader 
-          title="Overview"
-          description="Welcome back! Here's what's happening with your store today."
-        />
-        <div className="relative group">
-          <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-          <select 
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="pl-10 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white text-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm appearance-none cursor-pointer hover:bg-slate-50 transition-all min-w-[160px]"
-          >
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="7days">Last 7 Days</option>
-            <option value="30days">Last 30 Days</option>
-            <option value="thisMonth">This Month</option>
-            <option value="lastMonth">Last Month</option>
-          </select>
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+      {/* Header & Global Filter Bar */}
+      <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-4 sticky top-0 z-20">
+        <form onSubmit={handleApplyFilter} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-zinc-900 tracking-tight">Pharmacy Executive Overview</h1>
+            <p className="text-xs text-zinc-500">Real-time store sales, inventory valuation, and cash flow analysis.</p>
           </div>
-        </div>
-      </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
-        {kpiCards.map((card, idx) => (
-          <Link key={idx} href={card.link} className="group block">
-            <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 p-6 rounded-2xl shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-300 relative overflow-hidden flex flex-col h-full hover:-translate-y-1">
-              <div className="flex justify-between items-start mb-6 relative z-10">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${card.iconWrapper}`}>
-                  <card.icon className="w-6 h-6" />
-                </div>
-                <div className="bg-slate-50/80 p-2 rounded-full group-hover:bg-slate-100 transition-colors border border-slate-100">
-                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
-                </div>
-              </div>
-              <div className="mt-auto relative z-10">
-                <p className="text-sm font-medium text-slate-500 mb-1">{card.title}</p>
-                <h3 className="text-3xl font-black text-slate-900 tracking-tight">{card.value}</h3>
-              </div>
-              {/* Decorative background element */}
-              <div className={`absolute -right-8 -bottom-8 w-40 h-40 rounded-full opacity-[0.04] transition-transform group-hover:scale-125 duration-700 ease-out ${card.circleColor}`} />
-              <div className="absolute inset-0 bg-gradient-to-br from-white/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date Range Selector */}
+            <div className="relative">
+              <select 
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                disabled={isLoading}
+                className="pl-3 pr-8 py-2 border border-zinc-200 text-sm font-medium bg-zinc-50 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 rounded disabled:opacity-60"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="lastMonth">Last Month</option>
+                <option value="custom">Custom Range</option>
+              </select>
             </div>
-          </Link>
-        ))}
+
+            {/* Custom Date Pickers */}
+            {dateRange === "custom" && (
+              <div className="flex items-center gap-2 bg-amber-50 p-1.5 rounded border border-amber-200">
+                <Calendar className="w-4 h-4 text-amber-600 ml-1" />
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  disabled={isLoading}
+                  className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                />
+                <span className="text-xs text-zinc-500">to</span>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  disabled={isLoading}
+                  className="px-2 py-1 text-xs border border-zinc-300 rounded bg-white focus:outline-none focus:border-amber-600 font-mono disabled:opacity-60"
+                />
+              </div>
+            )}
+
+            {/* Apply Filter Button */}
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 disabled:bg-amber-400 transition-colors rounded shadow-xs cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Applying Filters...
+                </>
+              ) : (
+                <>
+                  <Filter className="w-4 h-4" />
+                  Apply Filter
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Main Chart */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
-          <div className="p-6 border-b border-slate-100/80 flex items-center justify-between bg-slate-50/30">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <BarChart3 className="w-4 h-4" />
-              </div>
-              Revenue vs Profit Trend
-            </h2>
-          </div>
-          <div className="p-6 flex-1 min-h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={formatXAxisDate} 
-                  stroke="#94a3b8" 
-                  fontSize={12} 
-                  tickMargin={12}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis 
-                  tickFormatter={(val) => `$${val}`} 
-                  stroke="#94a3b8" 
-                  fontSize={12} 
-                  tickMargin={12}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <RechartsTooltip 
-                  labelFormatter={formatTooltipDate}
-                  formatter={(value: any, name: any) => {
-                    const safeName = String(name || "");
-                    return [`$${Number(value).toFixed(2)}`, safeName.charAt(0).toUpperCase() + safeName.slice(1)]
-                  }}
-                  contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" activeDot={{ r: 6, strokeWidth: 0, fill: '#6366f1' }} />
-                <Area type="monotone" dataKey="profit" name="Profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }} />
-              </AreaChart>
-            </ResponsiveContainer>
+      {/* Loading Overlay Backdrop Screen */}
+      {isLoading && (
+        <div className="absolute inset-0 top-20 bg-white/80 backdrop-blur-xs z-30 flex flex-col items-center justify-center p-8 transition-opacity duration-300">
+          <div className="bg-white border border-amber-200 rounded-2xl shadow-xl p-8 max-w-md w-full text-center space-y-4 flex flex-col items-center">
+            <div className="w-14 h-14 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+            <div>
+              <h4 className="text-base font-bold text-zinc-900">Loading Dashboard Metrics</h4>
+              <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                Aggregating real-time store sales, inventory alerts, and rush hour trends...
+              </p>
+            </div>
+            <div className="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-amber-500 h-full w-2/3 animate-pulse rounded-full" />
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Top Products */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col overflow-hidden">
-          <div className="p-6 border-b border-slate-100/80 flex items-center justify-between bg-slate-50/30">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <ShoppingCart className="w-4 h-4" />
-              </div>
-              Top Selling Products
-            </h2>
-            <Link href="/dashboard/reports/fast-moving" className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors">
-              View All
+      {/* Dashboard Main Content */}
+      {data && (
+        <>
+          {/* KPI Ledger Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-5 border border-zinc-200 bg-white rounded-lg shadow-sm overflow-hidden divide-y md:divide-y-0 md:divide-x divide-zinc-200">
+            <Link href="/dashboard/reports/sales" className="p-6 hover:bg-zinc-50 transition-colors block">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Today's Sales</p>
+              <h3 className="text-3xl font-mono text-amber-600 font-bold">${data.metrics.todaySales.toFixed(2)}</h3>
+            </Link>
+            <Link href="/dashboard/reports/profit-loss" className="p-6 hover:bg-zinc-50 transition-colors block">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Monthly Profit</p>
+              <h3 className="text-3xl font-mono text-emerald-600 font-bold">${data.metrics.monthlyProfit.toFixed(2)}</h3>
+            </Link>
+            <Link href="/dashboard/reports/inventory-value" className="p-6 hover:bg-zinc-50 transition-colors block">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Inventory Value</p>
+              <h3 className="text-3xl font-mono text-zinc-900 font-bold">${data.metrics.inventoryValue.toFixed(2)}</h3>
+            </Link>
+            <Link href="/dashboard/inventory/alerts" className="p-6 hover:bg-zinc-50 transition-colors block">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Low Stock Alerts</p>
+              <h3 className={`text-3xl font-mono font-bold ${data.metrics.lowStockCount > 0 ? 'text-rose-600' : 'text-zinc-900'}`}>
+                {data.metrics.lowStockCount}
+              </h3>
+            </Link>
+            <Link href="/dashboard/reports/expiry" className="p-6 hover:bg-zinc-50 transition-colors block">
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">Expiring Soon (30d)</p>
+              <h3 className={`text-3xl font-mono font-bold ${data.metrics.expiringSoonCount > 0 ? 'text-amber-600' : 'text-zinc-900'}`}>
+                {data.metrics.expiringSoonCount}
+              </h3>
             </Link>
           </div>
-          <div className="p-0 flex-1 flex flex-col">
-            {topProducts.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 text-center min-h-[300px]">
-                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                  <ShoppingCart className="w-8 h-8 text-slate-300" />
-                </div>
-                <p className="text-sm font-medium text-slate-500">No sales data for this period.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-slate-100/80">
-                {topProducts.map((product: any, idx: number) => (
-                  <li key={product._id} className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors flex items-center gap-4 group">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors shadow-sm">
-                      #{idx + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-bold text-slate-900 truncate mb-0.5">{product.name}</p>
-                      <p className="text-sm text-slate-500 flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5" />
-                        {product.qty_sold} units sold
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[15px] font-black text-slate-900">${product.revenue.toFixed(2)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
 
-      </div>
+          {/* Row 1 Charts: Sales Revenue & Profit Trend + Payment Method Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Chart 1: Revenue vs Profit Trend (Dual Line Chart - Solid Colors) */}
+            <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">1. Sales Revenue vs Net Profit ($)</h3>
+                <div className="flex items-center gap-4 text-xs font-mono">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> Revenue</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> Net Profit</span>
+                </div>
+              </div>
+
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                    <XAxis dataKey="date" tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 11, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <Line type="monotone" dataKey="revenue" name="Revenue" stroke="#f59e0b" strokeWidth={3} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#10b981" strokeWidth={3} dot={{ r: 3, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 2: Revenue by Payment Method (Donut Chart) */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">2. Revenue by Payment Method</h3>
+              <div className="h-72 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.paymentMethods}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="revenue"
+                      nameKey="method"
+                    >
+                      {data.paymentMethods.map((entry: any) => (
+                        <Cell key={entry.method} fill={PAYMENT_COLORS[entry.method] || '#f59e0b'} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Row 2 Charts: Peak Hourly Rush + Category Sales + Top Selling Medicines */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* Chart 3: Peak Hourly Rush Hours Bar Chart */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">3. Peak Pharmacy Rush Hours</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.hourlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
+                    <XAxis dataKey="hour" tick={{fontSize: 9, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} />
+                    <YAxis tick={{fontSize: 10, fill: '#71717a', fontFamily: 'monospace'}} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                    <RechartsTooltip contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} formatter={(val: any) => `$${Number(val).toFixed(2)}`} />
+                    <Bar dataKey="revenue" name="Hourly Revenue" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Chart 4: Sales by Medicine Category Donut */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">4. Sales by Medicine Category</h3>
+              <div className="h-64 flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.categoryBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="revenue"
+                      nameKey="name"
+                    >
+                      {data.categoryBreakdown.map((entry: any, index: number) => (
+                        <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val: any) => `$${Number(val).toFixed(2)}`} contentStyle={{borderRadius: '4px', border: '1px solid #e4e4e7', fontFamily: 'monospace', fontSize: '12px'}} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '11px', fontFamily: 'monospace'}} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Leaderboard: Top Selling Products */}
+            <div className="bg-white border border-zinc-200 rounded-lg shadow-sm p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">5. Top Selling Medicines</h3>
+                  <Link href="/dashboard/reports/fast-moving" className="text-xs font-bold text-amber-600 hover:text-amber-700">
+                    View Ranking ➔
+                  </Link>
+                </div>
+                {data.topProducts.length === 0 ? (
+                  <p className="text-xs text-zinc-400 font-mono py-8 text-center">No sales recorded for this period.</p>
+                ) : (
+                  <ul className="divide-y divide-zinc-100 text-xs">
+                    {data.topProducts.map((product: any, idx: number) => (
+                      <li key={product._id} className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-zinc-400 font-bold w-4">#{idx + 1}</span>
+                          <span className="font-medium text-zinc-900 truncate">{product.name}</span>
+                        </div>
+                        <div className="text-right font-mono">
+                          <span className="text-amber-600 font-bold">${product.revenue.toFixed(2)}</span>
+                          <span className="text-zinc-400 text-[10px] block">{product.qty_sold} sold</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </>
+      )}
     </div>
   );
 }
