@@ -10,6 +10,9 @@ import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!ObjectId.isValid(id)) {
+    return NextResponse.json({ error: "Invalid Product ID" }, { status: 400 });
+  }
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "VIEW");
@@ -24,8 +27,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       { $match: { _id: new ObjectId(id), tenant_id: tenantId } },
       {
         $addFields: {
-          category_obj_id: { $toObjectId: "$category_id" },
-          manufacturer_obj_id: { $toObjectId: "$manufacturer_id" }
+          category_obj_id: { 
+            $convert: { input: "$category_id", to: "objectId", onError: null, onNull: null } 
+          },
+          manufacturer_obj_id: { 
+            $convert: { input: "$manufacturer_id", to: "objectId", onError: null, onNull: null } 
+          }
         }
       },
       {
@@ -61,6 +68,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export const PUT = withAuditLog("EDIT_PRODUCT", "PRODUCTS", async (req: Request, { params }: { params: Promise<{ id: string }> }, audit: AuditContext) => {
   const { id } = await params;
+  if (!ObjectId.isValid(id)) {
+    return NextResponse.json({ error: "Invalid Product ID" }, { status: 400 });
+  }
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "UPDATE");

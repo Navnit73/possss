@@ -6,6 +6,57 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
+async function generateInvoiceNo(db: any, tenantId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const counterId = `invoice_${tenantId}_${year}`;
+  
+  // 1. Try atomic increment for existing counter
+  let counter = await db.collection("counters").findOneAndUpdate(
+    { _id: counterId },
+    { $inc: { seq: 1 } },
+    { returnDocument: 'after' }
+  );
+
+  // 2. If counter doc does not exist yet, find max invoice_no sequence from existing sales
+  if (!counter) {
+    const lastSales = await db.collection("sales").find({ 
+      tenant_id: tenantId,
+      invoice_no: { $regex: `^INV-${year}-` }
+    }).sort({ created_at: -1 }).limit(50).toArray();
+
+    let maxSeq = 0;
+    for (const sale of lastSales) {
+      if (sale.invoice_no) {
+        const parts = sale.invoice_no.split('-');
+        const num = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    }
+
+    const nextSeq = maxSeq + 1;
+
+    try {
+      await db.collection("counters").insertOne({
+        _id: counterId,
+        seq: nextSeq
+      });
+      counter = { seq: nextSeq };
+    } catch (e: any) {
+      // Handle concurrent first creation gracefully
+      counter = await db.collection("counters").findOneAndUpdate(
+        { _id: counterId },
+        { $inc: { seq: 1 } },
+        { returnDocument: 'after' }
+      );
+    }
+  }
+
+  const seq = counter?.seq || 1;
+  return `INV-${year}-${seq.toString().padStart(4, '0')}`;
+}
+
 export const POST = withAuditLog("SALE", "POS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
@@ -17,142 +68,137 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
     const validatedData = saleSchema.parse(body);
 
     const db = client.db("pos");
-    const sessionClient = client.startSession();
-
     let insertedSaleId: string = "";
 
-    try {
-      await sessionClient.withTransaction(async () => {
-        // Generate Invoice Number: INV-YYYY-XXXX
-        const year = new Date().getFullYear();
-        // find highest invoice number for this year
-        const lastSale = await db.collection("sales").find({ 
-          tenant_id: tenantId,
-          invoice_no: { $regex: `^INV-${year}-` }
-        }).sort({ created_at: -1 }).limit(1).toArray();
+    const executeSale = async (sessionOpts: { session?: any } = {}) => {
+      const invoiceNo = await generateInvoiceNo(db, tenantId);
 
-        let seq = 1;
-        if (lastSale.length > 0) {
-          const parts = lastSale[0].invoice_no.split('-');
-          seq = parseInt(parts[2]) + 1;
-        }
-        
-        const invoiceNo = `INV-${year}-${seq.toString().padStart(4, '0')}`;
+      const saleItems = [];
+      const stockMovements = [];
+      let serverSubtotal = 0;
 
-        // Prepare Sale Items and Inventory updates FIRST to calculate true server totals
-        const saleItems = [];
-        const stockMovements = [];
-        let serverSubtotal = 0;
-
-        for (const item of validatedData.items) {
-          // Atomic deduction: find and update in one operation to prevent race conditions
-          const batch = await db.collection("batches").findOneAndUpdate(
-            { 
-              _id: new ObjectId(item.batch_id), 
-              tenant_id: tenantId,
-              qty_available: { $gte: item.qty }
-            },
-            { $inc: { qty_available: -item.qty } },
-            { session: sessionClient, returnDocument: 'before' }
-          );
-
-          if (!batch) {
-            throw new Error(`Insufficient stock or batch not found for product ${item.product_id}`);
-          }
-
-          // CRITICAL FIX: The server is the absolute source of truth for pricing
-          const actualPrice = batch.selling_price;
-          const actualCost = batch.cost_price;
-
-          const lineTotal = actualPrice * item.qty;
-          const lineDiscountAmt = lineTotal * (item.discount / 100);
-          const finalLinePrice = lineTotal - lineDiscountAmt;
-          
-          serverSubtotal += finalLinePrice;
-          const profit = finalLinePrice - (actualCost * item.qty);
-
-          saleItems.push({
-            product_id: item.product_id,
-            batch_id: item.batch_id,
-            qty: item.qty,
-            price: actualPrice,
-            cost_price: actualCost,
-            discount: item.discount,
-            profit: profit
-          });
-
-          // Record Stock Movement
-          stockMovements.push({
+      for (const item of validatedData.items) {
+        const batch = await db.collection("batches").findOneAndUpdate(
+          { 
+            _id: new ObjectId(item.batch_id), 
             tenant_id: tenantId,
-            product_id: item.product_id,
-            batch_id: item.batch_id,
-            movement_type: "SALE",
-            quantity: -item.qty,
-            before_qty: batch.qty_available,
-            after_qty: batch.qty_available - item.qty,
-            notes: `Sold on invoice ${invoiceNo}`,
-            created_by: userId,
-            created_at: new Date()
-          });
+            qty_available: { $gte: item.qty }
+          },
+          { $inc: { qty_available: -item.qty } },
+          { ...sessionOpts, returnDocument: 'before' }
+        );
+
+        if (!batch) {
+          throw new Error(`Insufficient stock or batch not found for product ${item.product_id}`);
         }
 
-        // Calculate final server total
-        const serverDiscountTotal = validatedData.discount;
-        if (serverDiscountTotal > serverSubtotal) {
-          throw new Error(`Discount (${serverDiscountTotal}) cannot exceed subtotal (${serverSubtotal})`);
-        }
-        const serverTotalAfterDiscount = serverSubtotal - serverDiscountTotal;
-        const serverTaxAmount = validatedData.tax;
-        const serverGrandTotal = serverTotalAfterDiscount + serverTaxAmount;
+        const actualPrice = batch.selling_price;
+        const actualCost = batch.cost_price;
 
-        // Tolerance check for floating point maths (allow 2 cents difference)
-        if (Math.abs(serverGrandTotal - validatedData.total) > 0.02) {
-          throw new Error(`PRICE_MISMATCH: Server calculated ${serverGrandTotal.toFixed(2)}, but client requested ${validatedData.total.toFixed(2)}. This attempt has been blocked.`);
-        }
+        const lineTotal = actualPrice * item.qty;
+        const lineDiscountAmt = lineTotal * (item.discount / 100);
+        const finalLinePrice = lineTotal - lineDiscountAmt;
+        
+        serverSubtotal += finalLinePrice;
+        const profit = finalLinePrice - (actualCost * item.qty);
 
-        // Create Sale using verified server totals
-        const sale: any = {
+        saleItems.push({
+          product_id: item.product_id,
+          batch_id: item.batch_id,
+          qty: item.qty,
+          price: actualPrice,
+          cost_price: actualCost,
+          discount: item.discount,
+          profit: profit
+        });
+
+        stockMovements.push({
           tenant_id: tenantId,
-          invoice_no: invoiceNo,
-          subtotal: serverSubtotal,
-          tax: validatedData.tax,
-          discount: validatedData.discount,
-          total: serverGrandTotal,
-          payment_method: validatedData.payment_method,
+          product_id: item.product_id,
+          batch_id: item.batch_id,
+          movement_type: "SALE",
+          quantity: -item.qty,
+          before_qty: batch.qty_available,
+          after_qty: batch.qty_available - item.qty,
+          notes: `Sold on invoice ${invoiceNo}`,
           created_by: userId,
           created_at: new Date()
-        };
+        });
+      }
 
-        if (validatedData.customer_id) {
-          sale.customer_id = validatedData.customer_id;
+      const serverDiscountTotal = validatedData.discount;
+      if (serverDiscountTotal > serverSubtotal) {
+        throw new Error(`Discount (${serverDiscountTotal}) cannot exceed subtotal (${serverSubtotal})`);
+      }
+      const serverTotalAfterDiscount = serverSubtotal - serverDiscountTotal;
+      const serverTaxAmount = validatedData.tax;
+      const serverGrandTotal = serverTotalAfterDiscount + serverTaxAmount;
+
+      if (Math.abs(serverGrandTotal - validatedData.total) > 0.02) {
+        throw new Error(`PRICE_MISMATCH: Server calculated ${serverGrandTotal.toFixed(2)}, but client requested ${validatedData.total.toFixed(2)}. This attempt has been blocked.`);
+      }
+
+      const sale: any = {
+        tenant_id: tenantId,
+        invoice_no: invoiceNo,
+        subtotal: serverSubtotal,
+        tax: validatedData.tax,
+        discount: validatedData.discount,
+        total: serverGrandTotal,
+        payment_method: validatedData.payment_method,
+        created_by: userId,
+        created_at: new Date()
+      };
+
+      if (validatedData.customer_id) {
+        sale.customer_id = validatedData.customer_id;
+      }
+
+      const saleResult = await db.collection("sales").insertOne(sale, sessionOpts);
+      insertedSaleId = saleResult.insertedId.toString();
+
+      const finalSaleItems = saleItems.map(si => ({ ...si, sale_id: insertedSaleId }));
+
+      await db.collection("sale_items").insertMany(finalSaleItems, sessionOpts);
+      await db.collection("stock_movements").insertMany(stockMovements, sessionOpts);
+
+      if (validatedData.customer_id) {
+        await db.collection("customers").updateOne(
+          { _id: new ObjectId(validatedData.customer_id), tenant_id: tenantId },
+          { 
+            $inc: { lifetime_spending: serverGrandTotal },
+            $set: { last_visit: new Date() }
+          },
+          sessionOpts
+        );
+      }
+    };
+
+    try {
+      const sessionClient = client.startSession();
+      try {
+        await sessionClient.withTransaction(async () => {
+          await executeSale({ session: sessionClient });
+        });
+      } catch (txErr: any) {
+        if (txErr.message && (txErr.message.includes("Transaction numbers are only allowed") || txErr.message.includes("replica set"))) {
+          await executeSale({});
+        } else {
+          throw txErr;
         }
-
-        const saleResult = await db.collection("sales").insertOne(sale, { session: sessionClient });
-        insertedSaleId = saleResult.insertedId.toString();
-
-        // Update saleItems with insertedSaleId
-        const finalSaleItems = saleItems.map(si => ({ ...si, sale_id: insertedSaleId }));
-
-        // Insert all sale items
-        await db.collection("sale_items").insertMany(finalSaleItems, { session: sessionClient });
-        
-        // Insert all stock movements
-        await db.collection("stock_movements").insertMany(stockMovements, { session: sessionClient });
-        
-        // Update customer stats if applicable
-        if (validatedData.customer_id) {
-          await db.collection("customers").updateOne(
-            { _id: new ObjectId(validatedData.customer_id), tenant_id: tenantId },
-            { 
-              $inc: { lifetime_spending: serverGrandTotal },
-              $set: { last_visit: new Date() }
-            },
-            { session: sessionClient }
-          );
-        }
-      });
-    } finally {
-      await sessionClient.endSession();
+      } finally {
+        await sessionClient.endSession();
+      }
+    } catch (err: any) {
+      if (err.message && (
+        err.message.includes("Insufficient stock") || 
+        err.message.includes("Batch not found") ||
+        err.message.includes("PRICE_MISMATCH") ||
+        err.message.includes("cannot exceed subtotal")
+      )) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
 
     audit.setAfter({ sale_id: insertedSaleId, total: validatedData.total, items_count: validatedData.items.length });

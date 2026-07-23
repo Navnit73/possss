@@ -66,12 +66,16 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const storeAddress = tenant?.address || "";
     const storePhone = tenant?.phone || "";
 
+    // Dynamic height calculation based on item count
+    const itemLinesHeight = items.reduce((acc: number, item: any) => acc + (item.batch_number ? 20 : 12), 0);
+    const pdfHeight = Math.max(320, 160 + itemLinesHeight + (customer ? 15 : 0) + (sale.discount > 0 ? 12 : 0));
+
     // Generate 80mm Thermal Receipt PDF (width: 226pt / 80mm)
     const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       try {
         const doc = new PDFDocument({ 
-          size: [226, 600], 
-          margin: 10 
+          size: [226, pdfHeight], 
+          margin: 8 
         });
 
         const chunks: Buffer[] = [];
@@ -79,98 +83,150 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         doc.on("end", () => resolve(Buffer.concat(chunks)));
         doc.on("error", err => reject(err));
 
-        const startX = 10;
-        const width = 206;
+        const startX = 8;
+        const width = 210;
 
-        // Pharmacy Header
-        doc.fontSize(12).font("Helvetica-Bold").text(storeName.toUpperCase(), startX, doc.y, { align: "center", width });
+        const drawDashedLine = (yPos: number) => {
+          doc.save()
+             .moveTo(startX, yPos)
+             .lineTo(startX + width, yPos)
+             .dash(3, { space: 2 })
+             .lineWidth(0.5)
+             .stroke("#555555")
+             .restore();
+        };
+
+        const drawSolidLine = (yPos: number, weight = 0.5, color = "#000000") => {
+          doc.moveTo(startX, yPos)
+             .lineTo(startX + width, yPos)
+             .lineWidth(weight)
+             .stroke(color);
+        };
+
+        // 1. Header
+        doc.fontSize(11).font("Helvetica-Bold").fillColor("#000000").text(storeName.toUpperCase(), startX, doc.y, { align: "center", width });
+        doc.moveDown(0.2);
+
         if (storeAddress) {
-          doc.fontSize(7).font("Helvetica").text(storeAddress, startX, doc.y, { align: "center", width });
+          doc.fontSize(7).font("Helvetica").fillColor("#444444").text(storeAddress, startX, doc.y, { align: "center", width });
         }
         if (storePhone) {
-          doc.fontSize(7).font("Helvetica").text(`Tel: ${storePhone}`, startX, doc.y, { align: "center", width });
+          doc.fontSize(7).font("Helvetica").fillColor("#444444").text(`Tel: ${storePhone}`, startX, doc.y, { align: "center", width });
         }
-        doc.fontSize(8).font("Helvetica-Bold").text("RETAIL TAX INVOICE", startX, doc.y + 4, { align: "center", width });
-        doc.moveDown(0.5);
 
-        // Divider
-        doc.moveTo(startX, doc.y).lineTo(startX + width, doc.y).lineWidth(0.5).stroke("#000000");
-        doc.moveDown(0.5);
+        doc.moveDown(0.3);
+        doc.fontSize(8).font("Helvetica-Bold").fillColor("#000000").text("OFFICIAL TAX INVOICE", startX, doc.y, { align: "center", width });
+        doc.moveDown(0.4);
 
-        // Invoice Meta Info
-        doc.fontSize(7).font("Helvetica");
-        doc.text(`Invoice No: ${sale.invoice_no}`);
-        doc.text(`Date: ${new Date(sale.created_at).toLocaleString()}`);
-        doc.text(`Payment Method: ${sale.payment_method}`);
+        drawDashedLine(doc.y);
+        doc.moveDown(0.4);
+
+        // 2. Invoice Metadata
+        doc.fontSize(7).font("Helvetica").fillColor("#000000");
+        let metaY = doc.y;
+
+        doc.text("Invoice #:", startX, metaY);
+        doc.font("Helvetica-Bold").text(sale.invoice_no, startX + 45, metaY);
+
+        const createdDate = new Date(sale.created_at);
+        doc.font("Helvetica").text("Date:", startX + 110, metaY);
+        doc.text(createdDate.toLocaleDateString(), startX + 135, metaY);
+
+        metaY += 10;
+        doc.text("Time:", startX + 110, metaY);
+        doc.text(createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), startX + 135, metaY);
+
         if (customer) {
-          doc.text(`Customer: ${customer.name}`);
+          doc.text("Customer:", startX, metaY);
+          doc.font("Helvetica-Bold").text(customer.name.substring(0, 18), startX + 45, metaY);
+          metaY += 10;
+        } else {
+          metaY += 10;
         }
-        doc.moveDown(0.5);
 
-        // Divider
-        doc.moveTo(startX, doc.y).lineTo(startX + width, doc.y).lineWidth(0.5).stroke("#000000");
-        doc.moveDown(0.5);
+        doc.y = metaY + 2;
+        drawDashedLine(doc.y);
+        doc.moveDown(0.4);
 
-        // Table Header
-        let y = doc.y;
-        doc.fontSize(7).font("Helvetica-Bold");
-        doc.text("Item", startX, y);
-        doc.text("Qty", startX + 115, y, { width: 25, align: "center" });
-        doc.text("Price", startX + 140, y, { width: 30, align: "right" });
-        doc.text("Total", startX + 170, y, { width: 36, align: "right" });
+        // 3. Table Header
+        let tableY = doc.y;
+        doc.fontSize(7).font("Helvetica-Bold").fillColor("#000000");
+        doc.text("Item / Batch", startX, tableY);
+        doc.text("Qty", startX + 110, tableY, { width: 22, align: "center" });
+        doc.text("Price", startX + 134, tableY, { width: 32, align: "right" });
+        doc.text("Total", startX + 168, tableY, { width: 42, align: "right" });
 
-        y += 12;
-        doc.moveTo(startX, y - 3).lineTo(startX + width, y - 3).lineWidth(0.5).stroke("#cccccc");
+        tableY += 11;
+        drawSolidLine(tableY, 0.5, "#888888");
+        tableY += 4;
 
-        // Items List
+        // 4. Items List
         doc.font("Helvetica").fontSize(7);
         for (const item of items) {
           const price = Number(item.price || 0);
           const qty = Number(item.qty || 0);
           const discount = Number(item.discount || 0);
           const lineTotal = (price * qty) * (1 - discount / 100);
+
+          doc.fillColor("#000000").font("Helvetica-Bold");
+          doc.text(String(item.name).substring(0, 22), startX, tableY, { width: 108 });
           
-          doc.text(String(item.name).substring(0, 24), startX, y, { width: 110 });
-          doc.text(qty.toString(), startX + 115, y, { width: 25, align: "center" });
-          doc.text(`$${price.toFixed(2)}`, startX + 140, y, { width: 30, align: "right" });
-          doc.text(`$${lineTotal.toFixed(2)}`, startX + 170, y, { width: 36, align: "right" });
-          
-          y += 14;
+          doc.font("Helvetica");
+          doc.text(qty.toString(), startX + 110, tableY, { width: 22, align: "center" });
+          doc.text(`$${price.toFixed(2)}`, startX + 134, tableY, { width: 32, align: "right" });
+          doc.text(`$${lineTotal.toFixed(2)}`, startX + 168, tableY, { width: 42, align: "right" });
+
+          tableY += 10;
           if (item.batch_number) {
-            doc.fontSize(6).fillColor("#666666").text(`Batch: #${item.batch_number}`, startX + 5, y - 4);
-            doc.fillColor("#000000").fontSize(7);
-            y += 8;
+            doc.fontSize(6).fillColor("#555555").text(`Batch: #${item.batch_number}${discount > 0 ? ` (${discount}% off)` : ''}`, startX + 4, tableY);
+            tableY += 8;
+            doc.fontSize(7);
           }
         }
 
-        doc.y = y + 2;
-        // Divider
-        doc.moveTo(startX, doc.y).lineTo(startX + width, doc.y).lineWidth(0.5).stroke("#000000");
-        doc.moveDown(0.5);
+        doc.y = tableY + 2;
+        drawDashedLine(doc.y);
+        doc.moveDown(0.4);
 
-        // Totals
+        // 5. Summary & Totals
         const rightAlignOpts = { width: 60, align: "right" as const };
-        
-        doc.fontSize(7).font("Helvetica");
-        doc.text("Subtotal:", startX + 100, doc.y, { width: 45 });
-        doc.text(`$${Number(sale.subtotal || 0).toFixed(2)}`, startX + 145, doc.y - 8, rightAlignOpts);
+        doc.fontSize(7).font("Helvetica").fillColor("#000000");
+
+        let sumY = doc.y;
+        doc.text("Subtotal:", startX + 90, sumY, { width: 55 });
+        doc.text(`$${Number(sale.subtotal || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
 
         if (sale.discount > 0) {
-          doc.text("Discount:", startX + 100, doc.y, { width: 45 });
-          doc.text(`-$${Number(sale.discount || 0).toFixed(2)}`, startX + 145, doc.y - 8, rightAlignOpts);
+          sumY += 10;
+          doc.text("Discount:", startX + 90, sumY, { width: 55 });
+          doc.text(`-$${Number(sale.discount || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
         }
 
-        doc.text("Tax:", startX + 100, doc.y, { width: 45 });
-        doc.text(`$${Number(sale.tax || 0).toFixed(2)}`, startX + 145, doc.y - 8, rightAlignOpts);
+        sumY += 10;
+        doc.text("Tax:", startX + 90, sumY, { width: 55 });
+        doc.text(`$${Number(sale.tax || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
 
-        doc.moveDown(0.3);
-        doc.fontSize(9).font("Helvetica-Bold");
-        doc.text("TOTAL:", startX + 100, doc.y, { width: 45 });
-        doc.text(`$${Number(sale.total || 0).toFixed(2)}`, startX + 145, doc.y - 10, rightAlignOpts);
+        sumY += 12;
+        drawSolidLine(sumY, 1, "#000000");
+        sumY += 4;
 
+        doc.fontSize(9).font("Helvetica-Bold").fillColor("#000000");
+        doc.text("NET TOTAL:", startX + 80, sumY, { width: 65 });
+        doc.text(`$${Number(sale.total || 0).toFixed(2)}`, startX + 148, sumY, rightAlignOpts);
+
+        sumY += 13;
+        drawSolidLine(sumY, 0.5, "#000000");
+        sumY += 4;
+
+        // 6. Payment Badge
+        doc.fontSize(7).font("Helvetica-Bold").fillColor("#000000");
+        doc.text(`PAID VIA ${sale.payment_method}`, startX, sumY, { align: "center", width });
+
+        // 7. Footer
         doc.moveDown(1.5);
-        doc.fontSize(7).font("Helvetica").text("Thank you for your visit!", startX, doc.y, { align: "center", width });
-        doc.fontSize(6).fillColor("#666666").text("Powered by Pharmacy POS", startX, doc.y + 2, { align: "center", width });
+        doc.fontSize(7).font("Helvetica").fillColor("#333333").text("Thank you for shopping with us!", startX, doc.y, { align: "center", width });
+        doc.fontSize(6).fillColor("#777777").text("Please keep receipt for any returns or exchanges.", startX, doc.y + 2, { align: "center", width });
+        doc.fontSize(5).fillColor("#aaaaaa").text("Powered by Pharmacy POS", startX, doc.y + 3, { align: "center", width });
 
         doc.end();
       } catch (err) {
@@ -181,7 +237,9 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     return new NextResponse(pdfBuffer as any, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="receipt_${sale.invoice_no}.pdf"`
+        "Content-Disposition": `inline; filename="receipt_${sale.invoice_no}.pdf"`,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Access-Control-Allow-Origin": "*"
       }
     });
 

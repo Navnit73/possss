@@ -3,12 +3,17 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { customerSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkPermission } from "@/lib/rbac";
+import { checkPermissionAny } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    const permError = checkPermission(session, "CUSTOMERS", "VIEW");
+    const permError = checkPermissionAny(session, [
+      { module: "CUSTOMERS", action: "VIEW" },
+      { module: "POS", action: "VIEW" },
+      { module: "SALES", action: "VIEW" },
+      { module: "SALES", action: "CREATE" }
+    ]);
     if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
@@ -58,7 +63,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
-    const permError = checkPermission(session, "CUSTOMERS", "CREATE");
+    const permError = checkPermissionAny(session, [
+      { module: "CUSTOMERS", action: "CREATE" },
+      { module: "POS", action: "CREATE" },
+      { module: "POS", action: "VIEW" },
+      { module: "SALES", action: "CREATE" }
+    ]);
     if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;

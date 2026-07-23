@@ -34,7 +34,7 @@ export function rateLimit(ip: string, limit: number, windowMs: number): boolean 
 }
 
 // Clean up stale entries every 10 minutes to prevent memory leaks
-setInterval(() => {
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   store.forEach((record, ip) => {
     if (now > record.resetAt) {
@@ -42,3 +42,7 @@ setInterval(() => {
     }
   });
 }, 10 * 60 * 1000);
+
+if (cleanupInterval.unref) {
+  cleanupInterval.unref();
+}

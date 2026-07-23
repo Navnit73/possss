@@ -40,6 +40,33 @@ export function checkPermission(session: Session | null, module: string, action:
   return null;
 }
 
+export function checkPermissionAny(
+  session: Session | null,
+  requiredPermissions: Array<{ module: string; action: string }>
+): NextResponse | null {
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userRole = (session.user as any).role as Role;
+
+  // OWNER overrides all permission checks
+  if (userRole === "OWNER") return null;
+
+  const permissions = (session.user as any).permissions as Permission[] || [];
+
+  const hasAny = requiredPermissions.some(req => 
+    permissions.some(p => p.module === req.module && p.action === req.action)
+  );
+
+  if (!hasAny) {
+    const permString = requiredPermissions.map(r => `${r.module}:${r.action}`).join(" or ");
+    return NextResponse.json({ error: `Forbidden: Missing permission (${permString})` }, { status: 403 });
+  }
+
+  return null;
+}
+
 export function hasPermissionSync(session: Session | null, module: string, action: string): boolean {
   if (!session || !session.user) return false;
   

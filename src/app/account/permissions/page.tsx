@@ -6,6 +6,8 @@ import { Plus, Edit2, Trash2, Shield, Check, X } from "lucide-react";
 import clsx from "clsx";
 
 const AVAILABLE_MODULES = [
+  "POS",
+  "CUSTOMERS",
   "PRODUCTS",
   "INVENTORY",
   "SALES",

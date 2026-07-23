@@ -101,6 +101,13 @@ export async function GET(req: NextRequest) {
             pipeline: [{ $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }],
             as: "items"
           }
+        },
+        { $unwind: { path: "$items", preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: null,
+            totalProfit: { $sum: { $ifNull: ["$items.profit", 0] } }
+          }
         }
       ]).toArray(),
 
@@ -264,16 +271,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     const todaySales = todaySalesData[0]?.total || 0;
-    
-    let monthlyProfit = 0;
-    monthlySalesData.forEach(sale => {
-      const revenue = (sale.subtotal || 0) - (sale.discount || 0);
-      let cost = 0;
-      (sale.items || []).forEach((item: any) => {
-        cost += (item.cost_price || 0) * (item.qty || 0);
-      });
-      monthlyProfit += (revenue - cost);
-    });
+    const monthlyProfit = monthlySalesData[0]?.totalProfit || 0;
 
     const lowStockCount = lowStockData[0]?.count || 0;
     const expiringSoonCount = expiringSoonData[0]?.count || 0;

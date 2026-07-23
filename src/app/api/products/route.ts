@@ -24,8 +24,12 @@ export async function GET(req: Request) {
       { $match: { tenant_id: tenantId } },
       {
         $addFields: {
-          category_obj_id: { $toObjectId: "$category_id" },
-          manufacturer_obj_id: { $toObjectId: "$manufacturer_id" }
+          category_obj_id: { 
+            $convert: { input: "$category_id", to: "objectId", onError: null, onNull: null } 
+          },
+          manufacturer_obj_id: { 
+            $convert: { input: "$manufacturer_id", to: "objectId", onError: null, onNull: null } 
+          }
         }
       },
       {

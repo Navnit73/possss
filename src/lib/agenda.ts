@@ -50,19 +50,12 @@ export async function startAgenda() {
 
       const { time, timezone, recipients } = store.reports;
       
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone || 'UTC',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      
-      const currentTimeInTZ = formatter.format(now);
+      const currentTimeInTZ = formatInTimeZone(now, timezone || 'UTC', 'HH:mm');
       
       const [targetHour, targetMin] = time.split(':').map(Number);
-      const currentParts = currentTimeInTZ.split(':').map(Number);
+      const [currentHour, currentMin] = currentTimeInTZ.split(':').map(Number);
       
-      const isTimePassed = (currentParts[0] > targetHour) || (currentParts[0] === targetHour && currentParts[1] >= targetMin);
+      const isTimePassed = (currentHour > targetHour) || (currentHour === targetHour && currentMin >= targetMin);
       
       if (isTimePassed) {
         const dateStr = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
