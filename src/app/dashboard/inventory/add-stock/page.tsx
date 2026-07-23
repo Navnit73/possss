@@ -7,7 +7,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { batchSchema } from "@/lib/validations";
 import Link from "next/link";
-import { ArrowLeft, Plus, Search, Calendar, ChevronDown, Check } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import * as z from "zod";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -39,14 +39,21 @@ export default function AddStockPage() {
           axios.get("/api/products"),
           axios.get("/api/suppliers")
         ]);
-        setProducts(prodRes.data);
-        setSuppliers(suppRes.data);
+        const prodData = Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.products || [];
+        const suppData = Array.isArray(suppRes.data) ? suppRes.data : suppRes.data?.suppliers || [];
+        setProducts(prodData);
+        setSuppliers(suppData);
         
         // Auto-select product if passed in URL
         const params = new URLSearchParams(window.location.search);
         const pid = params.get("product_id");
         if (pid) {
           setValue("product_id", pid);
+          const found = prodData.find((p: any) => p._id === pid);
+          if (found) {
+            if (found.cost_price !== undefined) setValue("cost_price", Number(found.cost_price));
+            if (found.selling_price !== undefined) setValue("selling_price", Number(found.selling_price));
+          }
         }
       } catch (err) {
         console.error("Failed to load data", err);
@@ -57,11 +64,30 @@ export default function AddStockPage() {
     fetchData();
   }, [setValue]);
 
+  // Auto populate prices when product changes
+  const handleProductChange = (val: string, onChange: (v: string) => void) => {
+    onChange(val);
+    const found = products.find((p: any) => p._id === val);
+    if (found) {
+      if (found.cost_price !== undefined && found.cost_price !== null) {
+        setValue("cost_price", Number(found.cost_price));
+      }
+      if (found.selling_price !== undefined && found.selling_price !== null) {
+        setValue("selling_price", Number(found.selling_price));
+      }
+    }
+  };
+
   const onSubmit = async (data: BatchFormType) => {
     setIsSubmitting(true);
     setError("");
     try {
-      await axios.post("/api/inventory/batches", data);
+      await axios.post("/api/inventory/batches", {
+        ...data,
+        qty_available: Number(data.qty_available),
+        cost_price: Number(data.cost_price || 0),
+        selling_price: Number(data.selling_price || 0)
+      });
       router.push("/dashboard/inventory/stock-list");
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to add stock");
@@ -92,7 +118,7 @@ export default function AddStockPage() {
                   <SearchableSelect
                     options={products.map((p: any) => ({ label: `${p.name} ${p.strength ? `(${p.strength})` : ""}`, value: p._id }))}
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(val) => handleProductChange(val, field.onChange)}
                     placeholder="Search and select product..."
                     disabled={isLoading}
                   />
@@ -182,7 +208,7 @@ export default function AddStockPage() {
           <button 
             type="submit"
             disabled={isSubmitting || isLoading}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {isSubmitting ? "Saving..." : "Add Stock"}

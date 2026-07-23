@@ -3,6 +3,15 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkRole } from "@/lib/rbac";
+import { ObjectId } from "mongodb";
+
+function getTenantIdQueries(tenantId: string) {
+  if (!tenantId) return [tenantId];
+  if (ObjectId.isValid(tenantId)) {
+    return [tenantId, new ObjectId(tenantId)];
+  }
+  return [tenantId];
+}
 
 export async function GET(req: Request) {
   try {
@@ -23,28 +32,72 @@ export async function GET(req: Request) {
     const endDateStr = url.searchParams.get("endDate");
     
     // Pagination
-    const page = parseInt(url.searchParams.get("page") || "1");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "20")));
     const skip = (page - 1) * limit;
     const isExport = url.searchParams.get("export") === "true";
 
-    const matchStage: any = { tenant_id: tenantId };
+    const tenantIds = getTenantIdQueries(tenantId);
+    const matchStage: any = { tenant_id: { $in: tenantIds } };
 
     if (type && type !== "All") {
-      matchStage.movement_type = type;
+      matchStage.movement_type = { $regex: new RegExp(`^${type}$`, "i") };
     }
 
-    if (startDateStr && endDateStr) {
-      // Set to start of day and end of day
-      const start = new Date(startDateStr);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDateStr);
-      end.setHours(23, 59, 59, 999);
-      matchStage.created_at = { $gte: start, $lte: end };
+    if (startDateStr || endDateStr) {
+      const dateQuery: any = {};
+      if (startDateStr) {
+        const start = new Date(startDateStr);
+        start.setHours(0, 0, 0, 0);
+        if (!isNaN(start.getTime())) dateQuery.$gte = start;
+      }
+      if (endDateStr) {
+        const end = new Date(endDateStr);
+        end.setHours(23, 59, 59, 999);
+        if (!isNaN(end.getTime())) dateQuery.$lte = end;
+      }
+      if (Object.keys(dateQuery).length > 0) {
+        matchStage.created_at = dateQuery;
+      }
     }
 
-    const basePipeline: any[] = [
-      { $match: matchStage },
+    // High Performance Search Subquery
+    if (search.trim()) {
+      const escapedSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const searchRegex = { $regex: escapedSearch, $options: "i" };
+
+      // Subquery matching product IDs
+      const matchingProducts = await db.collection("products").find(
+        { tenant_id: { $in: tenantIds }, name: searchRegex },
+        { projection: { _id: 1 } }
+      ).toArray();
+
+      // Subquery matching batch IDs
+      const matchingBatches = await db.collection("batches").find(
+        { tenant_id: { $in: tenantIds }, batch_number: searchRegex },
+        { projection: { _id: 1, product_id: 1 } }
+      ).toArray();
+
+      const matchedProdStringIds = matchingProducts.map(p => p._id.toString());
+      const matchedBatchStringIds = matchingBatches.map(b => b._id.toString());
+
+      const orConditions: any[] = [
+        { batch_id: searchRegex },
+        { notes: searchRegex }
+      ];
+
+      if (matchedProdStringIds.length > 0) {
+        orConditions.push({ product_id: { $in: matchedProdStringIds } });
+      }
+      if (matchedBatchStringIds.length > 0) {
+        orConditions.push({ batch_id: { $in: matchedBatchStringIds } });
+      }
+
+      matchStage.$or = orConditions;
+    }
+
+    // Shared Lookup Pipeline Stages
+    const lookupStages = [
       {
         $addFields: {
           product_obj_id: { $convert: { input: "$product_id", to: "objectId", onError: null, onNull: null } },
@@ -78,47 +131,42 @@ export async function GET(req: Request) {
       },
       { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
       { $unwind: { path: "$batch", preserveNullAndEmptyArrays: true } },
-      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } }
-    ];
-
-    if (search) {
-      basePipeline.push({
-        $match: {
-          $or: [
-            { "product.name": { $regex: new RegExp(search, "i") } },
-            { "batch.batch_number": { $regex: new RegExp(search, "i") } },
-            { batch_id: { $regex: new RegExp(search, "i") } }, // Fallback to batch_id text
-            { notes: { $regex: new RegExp(search, "i") } }
-          ]
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          product_obj_id: 0,
+          batch_obj_id: 0,
+          user_obj_id: 0,
+          "user.password": 0
         }
-      });
-    }
-
-    basePipeline.push({ $sort: { created_at: -1 } });
+      }
+    ];
 
     let items = [];
     let totalItemsCount = 0;
 
     if (isExport) {
-      items = await db.collection("stock_movements").aggregate(basePipeline).toArray();
+      const exportPipeline = [
+        { $match: matchStage },
+        { $sort: { created_at: -1 } },
+        ...lookupStages
+      ];
+      items = await db.collection("stock_movements").aggregate(exportPipeline).toArray();
       totalItemsCount = items.length;
     } else {
+      // Perform Count and Early Slicing BEFORE heavy joins for max query speed
+      const totalItemsCountResult = await db.collection("stock_movements").countDocuments(matchStage);
+      totalItemsCount = totalItemsCountResult;
+
       const paginatedPipeline = [
-        ...basePipeline,
+        { $match: matchStage },
+        { $sort: { created_at: -1 } },
         { $skip: skip },
-        { $limit: limit }
-      ];
-      const countPipeline = [
-        ...basePipeline,
-        { $count: "total" }
+        { $limit: limit },
+        ...lookupStages
       ];
 
-      const [itemsData, countData] = await Promise.all([
-        db.collection("stock_movements").aggregate(paginatedPipeline).toArray(),
-        db.collection("stock_movements").aggregate(countPipeline).toArray()
-      ]);
-      items = itemsData;
-      totalItemsCount = countData[0]?.total || 0;
+      items = await db.collection("stock_movements").aggregate(paginatedPipeline).toArray();
     }
 
     return NextResponse.json({

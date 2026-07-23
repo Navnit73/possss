@@ -10,6 +10,14 @@ function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function getTenantIdQueries(tenantId: string) {
+  if (!tenantId) return [tenantId];
+  if (ObjectId.isValid(tenantId)) {
+    return [tenantId, new ObjectId(tenantId)];
+  }
+  return [tenantId];
+}
+
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -20,11 +28,11 @@ export async function GET(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = client.db("pos");
+    const tenantIds = getTenantIdQueries(tenantId);
     
     const batches = await db.collection("batches").aggregate([
-      { $match: { tenant_id: tenantId } },
+      { $match: { tenant_id: { $in: tenantIds } } },
       { $sort: { created_at: -1 } },
-      { $limit: 100 },
       {
         $addFields: {
           product_obj_id: { 
@@ -82,31 +90,37 @@ export async function POST(req: Request) {
     const validatedData = batchSchema.parse(body);
 
     const db = client.db("pos");
+    const tenantIds = getTenantIdQueries(tenantId);
     
     // Validate product belongs to tenant
-    const product = await db.collection("products").findOne({
-      _id: new ObjectId(validatedData.product_id),
-      tenant_id: tenantId
-    });
+    const productQuery: any = { tenant_id: { $in: tenantIds } };
+    if (ObjectId.isValid(validatedData.product_id)) {
+      productQuery._id = new ObjectId(validatedData.product_id);
+    } else {
+      productQuery._id = validatedData.product_id;
+    }
+
+    const product = await db.collection("products").findOne(productQuery);
     if (!product) {
       return NextResponse.json({ error: "Invalid product selected" }, { status: 400 });
     }
 
     // Validate supplier belongs to tenant if provided
+    let supplierName = validatedData.supplier || "";
     if (validatedData.supplier && ObjectId.isValid(validatedData.supplier)) {
-      const supplier = await db.collection("suppliers").findOne({
+      const supplierDoc = await db.collection("suppliers").findOne({
         _id: new ObjectId(validatedData.supplier),
-        tenant_id: tenantId
+        tenant_id: { $in: tenantIds }
       });
-      if (!supplier) {
-        return NextResponse.json({ error: "Invalid supplier selected" }, { status: 400 });
+      if (supplierDoc) {
+        supplierName = supplierDoc.name;
       }
     }
 
     // Check batch number uniqueness for the specific product (safely escaped)
-    const escapedBatchNo = escapeRegExp(validatedData.batch_number);
+    const escapedBatchNo = escapeRegExp(validatedData.batch_number.trim());
     const existing = await db.collection("batches").findOne({
-      tenant_id: tenantId,
+      tenant_id: { $in: tenantIds },
       product_id: validatedData.product_id,
       batch_number: { $regex: new RegExp(`^${escapedBatchNo}$`, "i") }
     });
@@ -117,6 +131,7 @@ export async function POST(req: Request) {
 
     const newBatch = {
       ...validatedData,
+      supplier: supplierName,
       tenant_id: tenantId,
       created_at: new Date(),
     };
@@ -132,8 +147,8 @@ export async function POST(req: Request) {
       quantity: validatedData.qty_available,
       before_qty: 0,
       after_qty: validatedData.qty_available,
-      notes: "Initial batch receiving",
-      created_by: session?.user?.id,
+      notes: supplierName ? `Initial batch receiving from ${supplierName}` : "Initial batch receiving",
+      created_by: (session?.user as any)?.id || "System",
       created_at: new Date()
     };
 
