@@ -51,7 +51,7 @@ export function SearchableSelect({
   );
 
   return (
-    <div className={cn("relative w-full", className)} ref={containerRef}>
+    <div className={cn("relative w-full", isOpen && "z-30", className)} ref={containerRef}>
       <button
         type="button"
         disabled={disabled}

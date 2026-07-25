@@ -227,8 +227,8 @@ export default function ProfilePage() {
 
       <form onSubmit={handleSave} className="grid gap-8">
         {/* Personal Information */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-2xs">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-2">
+        <div className="bg-card border border-border rounded-xl shadow-2xs">
+          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-2 rounded-t-xl">
             <User className="w-5 h-5 text-primary" />
             <h2 className="font-semibold text-foreground">Personal Information</h2>
           </div>
@@ -281,8 +281,8 @@ export default function ProfilePage() {
 
         {/* Business Information (Owner Only) */}
         {userRole === "OWNER" && (
-          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-2xs">
-            <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
+          <div className="bg-card border border-border rounded-xl shadow-2xs">
+            <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between rounded-t-xl">
               <div className="flex items-center gap-2">
                 <Store className="w-5 h-5 text-primary" />
                 <h2 className="font-semibold text-foreground">Pharmacy & Store Settings</h2>
