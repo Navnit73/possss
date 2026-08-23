@@ -8,22 +8,21 @@ import { Button } from "@/components/ui/Button";
 import { z } from "zod";
 import { useCurrency } from "@/context/CurrencyContext";
 
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+
 const COUNTRIES = [
   { label: "United States", value: "United States" },
   { label: "India", value: "India" },
+  { label: "Ethiopia", value: "Ethiopia" },
   { label: "United Kingdom", value: "United Kingdom" },
   { label: "Canada", value: "Canada" },
   { label: "Australia", value: "Australia" },
 ];
 
-const CURRENCIES = [
-  { label: "USD - US Dollar ($)", value: "USD" },
-  { label: "CAD - Canadian Dollar ($)", value: "CAD" },
-  { label: "GBP - British Pound (£)", value: "GBP" },
-  { label: "AUD - Australian Dollar ($)", value: "AUD" },
-  { label: "INR - Indian Rupee (₹)", value: "INR" },
-  { label: "EUR - Euro (€)", value: "EUR" },
-];
+const CURRENCIES = SUPPORTED_CURRENCIES.map((c) => ({
+  label: `${c.code} - ${c.name} (${c.symbol})`,
+  value: c.code,
+}));
 
 const TIMEZONES = [
   { label: "US - Eastern Time", value: "America/New_York" },
@@ -36,6 +35,7 @@ const TIMEZONES = [
   { label: "Australia - Sydney", value: "Australia/Sydney" },
   { label: "Australia - Melbourne", value: "Australia/Melbourne" },
   { label: "Australia - Perth", value: "Australia/Perth" },
+  { label: "Ethiopia - Addis Ababa (EAT)", value: "Africa/Addis_Ababa" },
   { label: "India - IST", value: "Asia/Kolkata" },
   { label: "UTC", value: "UTC" },
 ];

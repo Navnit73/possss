@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, MonitorPlay, FileText, Undo2 } from "lucide-react";
+import { CurrencyDropdown } from "@/components/ui/CurrencyDropdown";
 
 import { auth, signOut } from "@/auth";
 import { LogOut } from "lucide-react";
@@ -29,7 +30,7 @@ export default async function PosLayout({
             Pharmacy POS
           </span>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <nav className="flex items-center gap-1.5 bg-slate-800/60 p-1 rounded-lg border border-slate-800">
             <Link
               href="/pos/sell"
@@ -53,6 +54,10 @@ export default async function PosLayout({
             </Link>
           </nav>
           
+          <div className="h-5 w-px bg-slate-800"></div>
+
+          <CurrencyDropdown variant="dark" />
+
           <div className="h-5 w-px bg-slate-800"></div>
 
           <div className="flex items-center gap-3">

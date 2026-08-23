@@ -1,5 +1,7 @@
 import { auth, signOut } from "@/auth";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
+import { CurrencyDropdown } from "@/components/ui/CurrencyDropdown";
 
 export async function Header() {
   const session = await auth();
@@ -9,20 +11,25 @@ export async function Header() {
       {/* Title space if needed, otherwise empty to push profile to the right */}
       <div></div>
       
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-5">
+        <CurrencyDropdown variant="light" />
+
+        <div className="h-5 w-px bg-border"></div>
+
         <div className="text-sm text-right">
           <p className="font-medium text-foreground">{session?.user?.name}</p>
           <p className="text-muted-foreground capitalize">{(session?.user as any)?.role?.toLowerCase()}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <a href="/account/profile" className="text-muted-foreground hover:text-foreground transition-colors" title="Account Settings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-          </a>
+        
+        <div className="flex items-center gap-3">
+          <Link href="/account/profile" className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted" title="Account Settings">
+            <Settings className="w-5 h-5" />
+          </Link>
           <form action={async () => {
             "use server";
             await signOut();
           }}>
-            <button type="submit" className="text-muted-foreground hover:text-red-500 transition-colors" title="Logout">
+            <button type="submit" className="text-muted-foreground hover:text-rose-500 transition-colors p-1.5 rounded-lg hover:bg-muted cursor-pointer" title="Logout">
               <LogOut className="w-5 h-5" />
             </button>
           </form>
@@ -31,3 +38,4 @@ export async function Header() {
     </header>
   );
 }
+
