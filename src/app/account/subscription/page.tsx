@@ -25,9 +25,7 @@ const PLANS = [
 export default function SubscriptionPage() {
   const [currentSub, setCurrentSub] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     fetchSubscription();
@@ -46,31 +44,6 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleUpgrade = async (planName: string, amount: number) => {
-    try {
-      setProcessing(true);
-      setError("");
-      setSuccess("");
-      
-      // Call mock upgrade API
-      const res = await fetch("/api/account/subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_name: planName, amount })
-      });
-      
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      
-      setSuccess(`Successfully upgraded to ${planName} plan!`);
-      fetchSubscription();
-    } catch (err: any) {
-      setError(err.message || "Failed to upgrade");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   if (loading) return <div className="p-8">Loading subscription...</div>;
 
   return (
@@ -84,13 +57,6 @@ export default function SubscriptionPage() {
         <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-sm flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-sm flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5" />
-          {success}
         </div>
       )}
 
@@ -147,17 +113,14 @@ export default function SubscriptionPage() {
                 ))}
               </ul>
               <button
-                onClick={() => handleUpgrade(plan.name, plan.price)}
-                disabled={isCurrent || processing}
+                disabled
                 className={`w-full py-2.5 rounded-sm font-medium transition-colors ${
                   isCurrent 
                     ? "bg-muted text-muted-foreground cursor-not-allowed border border-border" 
-                    : plan.popular
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                    : "bg-secondary text-secondary-foreground cursor-not-allowed opacity-70"
                 }`}
               >
-                {isCurrent ? "Current Plan" : processing ? "Processing..." : "Upgrade"}
+                {isCurrent ? "Current Plan" : "Contact support to upgrade"}
               </button>
             </div>
           );

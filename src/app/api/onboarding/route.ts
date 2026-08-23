@@ -15,6 +15,14 @@ export async function POST(req: Request) {
     const { business_name } = createStoreSchema.parse(body);
 
     const db = client.db("pos");
+    const user = await db.collection("users").findOne({ _id: new ObjectId(session.user.id) });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (user.role !== "OWNER") {
+      return NextResponse.json({ error: "Only account owners can create a store" }, { status: 403 });
+    }
+    if (user.tenant_id) {
+      return NextResponse.json({ error: "This account already belongs to a store" }, { status: 409 });
+    }
     
     // Create new tenant
     const newTenant = {
@@ -57,6 +65,9 @@ export async function PUT(req: Request) {
 
     if (!user || !user.tenant_id) {
       return NextResponse.json({ error: "No active store found" }, { status: 404 });
+    }
+    if (user.role !== "OWNER") {
+      return NextResponse.json({ error: "Only account owners can complete onboarding" }, { status: 403 });
     }
 
     let updateData = {};

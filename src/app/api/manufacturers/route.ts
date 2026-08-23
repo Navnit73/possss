@@ -38,9 +38,10 @@ export async function POST(req: Request) {
     const db = client.db("pos");
     
     // Check uniqueness
+    const escapedName = validatedData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existing = await db.collection("manufacturers").findOne({
       tenant_id: tenantId,
-      name: { $regex: new RegExp(`^${validatedData.name}$`, "i") } // Case-insensitive check
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") } // Case-insensitive check
     });
     
     if (existing) {

@@ -38,17 +38,21 @@ async function setupIndexes() {
 
     // 5. Products collection
     await db.collection("products").createIndex({ tenant_id: 1 });
+    await db.collection("products").createIndex({ tenant_id: 1, status: 1 });
     await db.collection("products").createIndex({ tenant_id: 1, barcode: 1 }, { unique: true, partialFilterExpression: { barcode: { $type: "string" } } });
     
     // Drop existing text index if it has different definition before creating new one (safeguard)
     try {
         await db.collection("products").dropIndex("name_text_generic_name_text_barcode_text_sku_text");
-    } catch (e) { /* ignore if not exists */ }
+    } catch { /* ignore if not exists */ }
 
     // 6. Batches collection
     await db.collection("batches").createIndex({ tenant_id: 1 });
     await db.collection("batches").createIndex({ tenant_id: 1, product_id: 1 });
     await db.collection("batches").createIndex({ tenant_id: 1, expiry_date: 1 });
+    await db.collection("batches").createIndex({ tenant_id: 1, qty_available: 1, expiry_date: 1 });
+    await db.collection("batches").createIndex({ tenant_id: 1, product_id: 1, qty_available: 1, expiry_date: 1 });
+    await db.collection("batches").createIndex({ tenant_id: 1, product_id: 1, batch_number: 1 }, { unique: true });
 
     // 7. Suppliers collection
     await db.collection("suppliers").createIndex({ tenant_id: 1 });
@@ -62,13 +66,20 @@ async function setupIndexes() {
     // 9. Sale Items collection
     await db.collection("sale_items").createIndex({ sale_id: 1 });
     await db.collection("sale_items").createIndex({ product_id: 1 });
+    await db.collection("sale_items").createIndex({ tenant_id: 1, sale_id: 1 });
 
     // 10. Stock Movements collection
     await db.collection("stock_movements").createIndex({ tenant_id: 1 });
     await db.collection("stock_movements").createIndex({ tenant_id: 1, product_id: 1 });
     await db.collection("stock_movements").createIndex({ tenant_id: 1, created_at: -1 });
 
-    // 11. Audit Logs collection
+    // 11. Customers and distributed rate limiting
+    await db.collection("customers").createIndex({ tenant_id: 1, created_at: -1 });
+    await db.collection("customers").createIndex({ tenant_id: 1, phone: 1 });
+    await db.collection("customers").createIndex({ tenant_id: 1, status: 1 });
+    await db.collection("rate_limits").createIndex({ resetAt: 1 }, { expireAfterSeconds: 0 });
+
+    // 12. Audit Logs collection
     await db.collection("audit_logs").createIndex({ tenant_id: 1, timestamp: -1 });
     await db.collection("audit_logs").createIndex({ tenant_id: 1, action: 1, timestamp: -1 });
     await db.collection("audit_logs").createIndex({ tenant_id: 1, module: 1, timestamp: -1 });

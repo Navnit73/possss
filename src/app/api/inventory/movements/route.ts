@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkRole } from "@/lib/rbac";
+import { checkPermission } from "@/lib/rbac";
 import { ObjectId } from "mongodb";
 
 function getTenantIdQueries(tenantId: string) {
@@ -16,8 +16,8 @@ function getTenantIdQueries(tenantId: string) {
 export async function GET(req: Request) {
   try {
     const session = await auth();
-    const roleError = checkRole(session, ["OWNER", "MANAGER"]);
-    if (roleError) return roleError;
+    const permError = checkPermission(session, "INVENTORY", "VIEW");
+    if (permError) return permError;
 
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

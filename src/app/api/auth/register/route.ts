@@ -5,23 +5,24 @@ import { registerSchema } from "@/lib/validations";
 import { sendWelcomeEmail } from "@/lib/mail";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
-import { rateLimit } from "@/lib/rateLimit";
+import { getClientIp, rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
     // Rate limit: 5 requests per minute per IP
-    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    if (!rateLimit(ip, 5, 60 * 1000)) {
+    const ip = getClientIp(req);
+    if (!(await rateLimit(`register-${ip}`, 5, 60 * 1000))) {
       return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
     }
 
     const body = await req.json();
     const validatedData = registerSchema.parse(body);
+    const email = validatedData.email.trim().toLowerCase();
 
     const db = client.db("pos");
     
     // Check if user exists
-    const existingUser = await db.collection("users").findOne({ email: validatedData.email });
+    const existingUser = await db.collection("users").findOne({ email });
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 });
     }
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     // Create user
     const newUser = {
       name: validatedData.name,
-      email: validatedData.email,
+      email,
       password: hashedPassword,
       role: "OWNER",
       created_at: new Date(),

@@ -47,8 +47,8 @@ export async function fetchDailyReportData(tenantId: string, date: Date, timezon
   }).toArray();
 
   let revenue = 0;
-  let transactions = sales.length;
-  let refunds = 0; 
+  const transactions = sales.length;
+  const refunds = 0; 
   let profit = 0;
 
   const saleIds = sales.map(s => s._id.toString());

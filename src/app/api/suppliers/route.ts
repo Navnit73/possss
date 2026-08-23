@@ -40,9 +40,10 @@ export async function POST(req: Request) {
 
     const db = client.db("pos");
     
+    const escapedName = validatedData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existing = await db.collection("suppliers").findOne({
       tenant_id: tenantId,
-      name: { $regex: new RegExp(`^${validatedData.name}$`, "i") }
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") }
     });
     
     if (existing) {

@@ -28,9 +28,10 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     const db = client.db("pos");
     
     // Check uniqueness, excluding the current manufacturer
+    const escapedName = validatedData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existing = await db.collection("manufacturers").findOne({
       tenant_id: tenantId,
-      name: { $regex: new RegExp(`^${validatedData.name}$`, "i") },
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") },
       _id: { $ne: new ObjectId(id) }
     });
     

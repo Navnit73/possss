@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const fromEmail = "Pharmacy POS <onboarding@resend.dev>"; 
 
 const baseStyles = `
@@ -43,6 +44,10 @@ const buttonStyles = `
 `;
 
 export async function sendWelcomeEmail(email: string, name: string) {
+  if (!resend) {
+    console.warn("⚠️ RESEND_API_KEY is not configured. Skipping welcome email to:", email);
+    return;
+  }
   try {
     await resend.emails.send({
       from: fromEmail,
@@ -69,6 +74,11 @@ export async function sendWelcomeEmail(email: string, name: string) {
 
 export async function sendPasswordResetEmail(email: string, token: string) {
   const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+
+  if (!resend) {
+    console.warn("⚠️ RESEND_API_KEY is not configured. Reset link for", email, "is:", resetLink);
+    return;
+  }
 
   try {
     await resend.emails.send({
@@ -108,6 +118,10 @@ export async function sendDailyReportEmail(
   },
   timezone: string
 ) {
+  if (!resend) {
+    console.warn("⚠️ RESEND_API_KEY is not configured. Skipping daily report email to:", recipients);
+    return;
+  }
   try {
     const sym = data.currencySymbol || "$";
     const storeName = data.tenantName || "Pharmacy POS";

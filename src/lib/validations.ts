@@ -292,22 +292,17 @@ export interface Supplier {
 // --- POS / Sales Validations ---
 
 export const saleItemSchema = z.object({
-  product_id: z.string(),
-  batch_id: z.string(),
-  qty: z.number().positive(),
-  price: z.number().min(0), // selling price at time of sale
-  discount: z.number().min(0).max(100).default(0), // item level discount %
-  cost_price: z.number().min(0), // cost price to calculate profit
+  product_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid product ID"),
+  batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid batch ID"),
+  qty: z.number().finite().positive(),
+  discount: z.number().finite().min(0).max(100).default(0), // item level discount %
 });
 
 export const saleSchema = z.object({
-  customer_id: z.string().optional(),
-  subtotal: z.number().min(0),
-  tax: z.number().min(0),
-  discount: z.number().min(0),
-  total: z.number().min(0),
+  customer_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid customer ID").optional(),
+  discount: z.number().finite().min(0),
   payment_method: z.enum(["CASH", "CARD", "UPI", "OTHER"]),
-  items: z.array(saleItemSchema).min(1, "Cart cannot be empty"),
+  items: z.array(saleItemSchema).min(1, "Cart cannot be empty").max(100),
 });
 
 export interface SaleItem {
@@ -362,4 +357,3 @@ export interface CustomRole {
   created_at: Date;
   updated_at?: Date;
 }
-

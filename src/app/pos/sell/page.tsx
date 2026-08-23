@@ -89,7 +89,7 @@ export default function PosSellPage() {
   // Calculations
   const subtotal = cart.reduce((sum, item) => sum + ((item.price * item.qty) * (1 - item.discount / 100)), 0);
   const discountAmount = subtotal * (overallDiscount / 100);
-  const taxAmount = (subtotal - discountAmount) * taxRate;
+  const taxAmount = Number(((subtotal - discountAmount) * taxRate).toFixed(2));
   const total = subtotal - discountAmount + taxAmount;
 
   // Global Keyboard Shortcuts
@@ -142,25 +142,30 @@ export default function PosSellPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [cart.length, showPaymentModal, completedSaleId, isProcessing, flatSearchResults, selectedIndex]);
 
-  // Fast Product Search API Call (80ms debounce for high-speed responsiveness)
+  // Avoid issuing a database query for every keystroke and discard stale results.
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
-      if (!searchQuery.trim()) {
+      if (searchQuery.trim().length < 2) {
         setSearchResults([]);
         return;
       }
       setIsSearching(true);
       try {
-        const res = await axios.get('/api/pos/search', { params: { q: searchQuery } });
+        const res = await axios.get('/api/pos/search', { params: { q: searchQuery }, signal: controller.signal });
         setSearchResults(res.data);
       } catch (err) {
+        if (axios.isCancel(err)) return;
         console.error("Search failed", err);
       } finally {
         setIsSearching(false);
         setSelectedIndex(0);
       }
-    }, 80); 
-    return () => clearTimeout(timer);
+    }, 250);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [searchQuery]);
 
   useEffect(() => {
@@ -247,18 +252,13 @@ export default function PosSellPage() {
     try {
       const payload = {
         customer_id: selectedCustomer?._id || undefined,
-        subtotal,
-        tax: taxAmount,
         discount: discountAmount,
-        total,
         payment_method: paymentMethod,
         items: cart.map(item => ({
           product_id: item.product_id,
           batch_id: item.batch_id,
           qty: item.qty,
-          price: item.price,
           discount: item.discount,
-          cost_price: item.cost_price
         }))
       };
 

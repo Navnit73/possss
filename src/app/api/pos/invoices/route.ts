@@ -3,10 +3,18 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkPermissionAny } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
+    const permError = checkPermissionAny(session, [
+      { module: "POS", action: "CREATE" },
+      { module: "POS", action: "VIEW" },
+      { module: "SALES", action: "CREATE" },
+      { module: "SALES", action: "VIEW" },
+    ]);
+    if (permError) return permError;
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -14,8 +22,8 @@ export async function GET(req: Request) {
     const q = searchParams.get("q")?.trim() || "";
     const startDate = searchParams.get("startDate")?.trim() || "";
     const endDate = searchParams.get("endDate")?.trim() || "";
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.max(1, parseInt(searchParams.get("limit") || "100"));
+    const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get("limit") || "50", 10) || 50));
     const skip = (page - 1) * limit;
 
     const db = client.db("pos");
@@ -55,7 +63,7 @@ export async function GET(req: Request) {
       .filter(Boolean) as ObjectId[];
 
     const customers = customerIds.length > 0
-      ? await db.collection("customers").find({ _id: { $in: customerIds } }).toArray()
+      ? await db.collection("customers").find({ _id: { $in: customerIds }, tenant_id: tenantId }).toArray()
       : [];
 
     const customerMap = new Map(customers.map(c => [c._id.toString(), c.name]));

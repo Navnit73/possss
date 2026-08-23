@@ -433,32 +433,46 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
       </form>
       
       {isEdit && editLogs.length > 0 && (
-        <div className="bg-surface border border-border rounded-sm p-6  mt-8">
+        <div className="bg-surface border border-border rounded-sm p-6 mt-8">
           <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Edit History</h2>
           <div className="space-y-4">
-            {editLogs.map((log, index) => (
-              <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-background border border-border/50">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm text-foreground">Updated by {log.userName}</span>
-                    <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <p className="font-medium mb-1">Changes:</p>
-                    <ul className="list-disc pl-5 space-y-1">
-                      {Object.entries(log.details.changes || {}).map(([field, vals]: [string, any]) => (
-                        <li key={field}>
-                          <span className="capitalize">{field.replace(/_/g, " ")}</span>: 
-                          <span className="line-through mx-1 text-red-400">{String(vals.old || "None")}</span> 
-                          <span>&rarr;</span> 
-                          <span className="ml-1 text-green-600 font-medium">{String(vals.new || "None")}</span>
-                        </li>
-                      ))}
-                    </ul>
+            {editLogs.map((log, index) => {
+              const changes = log.details?.changes || {};
+              const hasChanges = Object.keys(changes).length > 0;
+              const actionLabel = log.action ? log.action.replace(/_/g, " ") : "Product Edited";
+
+              return (
+                <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-background border border-border/50">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm text-foreground">
+                        {actionLabel} by {log.userName || "Staff"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</span>
+                    </div>
+                    {hasChanges ? (
+                      <div className="text-sm text-muted-foreground">
+                        <p className="font-medium mb-1">Changes:</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {Object.entries(changes).map(([field, vals]: [string, any]) => (
+                            <li key={field}>
+                              <span className="capitalize">{field.replace(/_/g, " ")}</span>: 
+                              <span className="line-through mx-1 text-red-400">{String(vals?.old ?? "None")}</span> 
+                              <span>&rarr;</span> 
+                              <span className="ml-1 text-green-600 font-medium">{String(vals?.new ?? "None")}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : log.after?.name ? (
+                      <p className="text-xs text-muted-foreground">
+                        Updated product details ({log.after.name})
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

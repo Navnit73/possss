@@ -59,9 +59,10 @@ export const PUT = withAuditLog("SUPPLIER_UPDATE", "SUPPLIERS", async (
 
     const db = client.db("pos");
     
+    const escapedName = validatedData.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const existing = await db.collection("suppliers").findOne({
       tenant_id: tenantId,
-      name: { $regex: new RegExp(`^${validatedData.name}$`, "i") },
+      name: { $regex: new RegExp(`^${escapedName}$`, "i") },
       _id: { $ne: new ObjectId(id) }
     });
     
@@ -112,20 +113,24 @@ export const DELETE = withAuditLog("SUPPLIER_DELETE", "SUPPLIERS", async (
     const { id } = resolvedParams;
 
     const db = client.db("pos");
-    
-    // Check if supplier is used in batches
-    const inUse = await db.collection("batches").findOne({
-      tenant_id: tenantId,
-      supplier_id: id // Assuming we store supplier_id, if we store name then we might need to check differently.
-    });
-
-    if (inUse) {
-       return NextResponse.json({ error: "Cannot delete supplier as it is linked to inventory batches." }, { status: 400 });
-    }
 
     const currentSupplier = await db.collection("suppliers").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
     if (!currentSupplier) {
       return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+    }
+    
+    // Check if supplier is used in batches (by id or by name)
+    const inUse = await db.collection("batches").findOne({
+      tenant_id: tenantId,
+      $or: [
+        { supplier_id: id },
+        { supplier_id: new ObjectId(id) },
+        { supplier: currentSupplier.name }
+      ]
+    });
+
+    if (inUse) {
+       return NextResponse.json({ error: "Cannot delete supplier as it is linked to inventory batches." }, { status: 400 });
     }
     
     audit.setBefore(currentSupplier);

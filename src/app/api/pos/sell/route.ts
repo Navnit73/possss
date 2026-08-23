@@ -5,6 +5,9 @@ import { saleSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
+import { checkPermissionAny } from "@/lib/rbac";
+
+const POS_TAX_RATE = 0.05;
 
 async function generateInvoiceNo(db: any, tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -60,6 +63,11 @@ async function generateInvoiceNo(db: any, tenantId: string): Promise<string> {
 export const POST = withAuditLog("SALE", "POS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
+    const permError = checkPermissionAny(session, [
+      { module: "POS", action: "CREATE" },
+      { module: "SALES", action: "CREATE" },
+    ]);
+    if (permError) return permError;
     const tenantId = (session?.user as any)?.tenant_id;
     const userId = session?.user?.id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,6 +77,14 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
 
     const db = client.db("pos");
     let insertedSaleId: string = "";
+
+    if (validatedData.customer_id) {
+      const customer = await db.collection("customers").findOne({
+        _id: new ObjectId(validatedData.customer_id),
+        tenant_id: tenantId,
+      }, { projection: { _id: 1 } });
+      if (!customer) return NextResponse.json({ error: "Customer not found" }, { status: 400 });
+    }
 
     const executeSale = async (sessionOpts: { session?: any } = {}) => {
       const invoiceNo = await generateInvoiceNo(db, tenantId);
@@ -90,6 +106,9 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
 
         if (!batch) {
           throw new Error(`Insufficient stock or batch not found for product ${item.product_id}`);
+        }
+        if (batch.product_id !== item.product_id) {
+          throw new Error("Selected batch does not belong to the selected product");
         }
 
         const actualPrice = batch.selling_price;
@@ -131,18 +150,14 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
         throw new Error(`Discount (${serverDiscountTotal}) cannot exceed subtotal (${serverSubtotal})`);
       }
       const serverTotalAfterDiscount = serverSubtotal - serverDiscountTotal;
-      const serverTaxAmount = validatedData.tax;
+      const serverTaxAmount = Number((serverTotalAfterDiscount * POS_TAX_RATE).toFixed(2));
       const serverGrandTotal = serverTotalAfterDiscount + serverTaxAmount;
-
-      if (Math.abs(serverGrandTotal - validatedData.total) > 0.02) {
-        throw new Error(`PRICE_MISMATCH: Server calculated ${serverGrandTotal.toFixed(2)}, but client requested ${validatedData.total.toFixed(2)}. This attempt has been blocked.`);
-      }
 
       const sale: any = {
         tenant_id: tenantId,
         invoice_no: invoiceNo,
         subtotal: serverSubtotal,
-        tax: validatedData.tax,
+        tax: serverTaxAmount,
         discount: validatedData.discount,
         total: serverGrandTotal,
         payment_method: validatedData.payment_method,
@@ -182,7 +197,7 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
         });
       } catch (txErr: any) {
         if (txErr.message && (txErr.message.includes("Transaction numbers are only allowed") || txErr.message.includes("replica set"))) {
-          await executeSale({});
+          throw new Error("TRANSACTIONS_REQUIRED");
         } else {
           throw txErr;
         }
@@ -190,26 +205,29 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
         await sessionClient.endSession();
       }
     } catch (err: any) {
+      if (err.message === "TRANSACTIONS_REQUIRED") {
+        return NextResponse.json({ error: "Sales are temporarily unavailable because the database does not support transactions." }, { status: 503 });
+      }
       if (err.message && (
         err.message.includes("Insufficient stock") || 
         err.message.includes("Batch not found") ||
-        err.message.includes("PRICE_MISMATCH") ||
-        err.message.includes("cannot exceed subtotal")
+        err.message.includes("cannot exceed subtotal") ||
+        err.message.includes("does not belong")
       )) {
         return NextResponse.json({ error: err.message }, { status: 400 });
       }
       throw err;
     }
 
-    audit.setAfter({ sale_id: insertedSaleId, total: validatedData.total, items_count: validatedData.items.length });
+    audit.setAfter({ sale_id: insertedSaleId, items_count: validatedData.items.length });
 
     return NextResponse.json({ success: true, sale_id: insertedSaleId }, { status: 201 });
   } catch (error: any) {
     if (error.message && (
       error.message.includes("Insufficient stock") || 
       error.message.includes("Batch not found") ||
-      error.message.includes("PRICE_MISMATCH") ||
-      error.message.includes("cannot exceed subtotal")
+      error.message.includes("cannot exceed subtotal") ||
+      error.message.includes("does not belong")
     )) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

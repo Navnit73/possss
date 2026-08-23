@@ -5,18 +5,19 @@ import { forgotPasswordSchema } from "@/lib/validations";
 import { sendPasswordResetEmail } from "@/lib/mail";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
-import { rateLimit } from "@/lib/rateLimit";
+import { getClientIp, rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
   try {
     // Rate limit: 3 requests per hour per IP
-    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-    if (!rateLimit(`forgot-pw-${ip}`, 3, 60 * 60 * 1000)) {
+    const ip = getClientIp(req);
+    if (!(await rateLimit(`forgot-pw-${ip}`, 3, 60 * 60 * 1000))) {
       return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
     }
 
     const body = await req.json();
-    const { email } = forgotPasswordSchema.parse(body);
+    const { email: rawEmail } = forgotPasswordSchema.parse(body);
+    const email = rawEmail.trim().toLowerCase();
 
     const db = client.db("pos");
     const user = await db.collection("users").findOne({ email });
@@ -28,15 +29,16 @@ export async function POST(req: Request) {
 
     // Generate secure token
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetTokenExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes from now
 
-    // Save token to user document
+    // Save hashed token to user document
     await db.collection("users").updateOne(
       { _id: user._id },
-      { $set: { resetToken, resetTokenExpiry } }
+      { $set: { resetToken: hashedToken, resetTokenExpiry } }
     );
 
-    // Send email
+    // Send email with unhashed token
     await sendPasswordResetEmail(email, resetToken);
 
     await logAction({

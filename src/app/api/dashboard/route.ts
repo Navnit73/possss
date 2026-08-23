@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO, addDays, format } from "date-fns";
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO, addDays, format, differenceInCalendarDays, isValid } from "date-fns";
 import { checkRole } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
@@ -28,6 +28,9 @@ export async function GET(req: NextRequest) {
     if (dateRange === "custom" && startDateParam && endDateParam) {
       startDate = startOfDay(parseISO(startDateParam));
       endDate = endOfDay(parseISO(endDateParam));
+      if (!isValid(startDate) || !isValid(endDate) || startDate > endDate || differenceInCalendarDays(endDate, startDate) > 366) {
+        return NextResponse.json({ error: "Choose a valid date range of up to 366 days." }, { status: 400 });
+      }
     } else {
       switch (dateRange) {
         case "today":
@@ -168,6 +171,28 @@ export async function GET(req: NextRequest) {
             pipeline: [{ $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }],
             as: "items"
           }
+        },
+        {
+          $project: {
+            dateStr: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+            revenue: { $subtract: [{ $ifNull: ["$subtotal", "$total"] }, { $ifNull: ["$discount", 0] }] },
+            cost: {
+              $sum: {
+                $map: {
+                  input: "$items",
+                  as: "it",
+                  in: { $multiply: [{ $ifNull: ["$$it.cost_price", 0] }, { $ifNull: ["$$it.qty", 0] }] }
+                }
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: "$dateStr",
+            revenue: { $sum: "$revenue" },
+            cost: { $sum: "$cost" }
+          }
         }
       ]).toArray(),
 
@@ -279,18 +304,16 @@ export async function GET(req: NextRequest) {
 
     // Process Trend Data
     const groupedByDate: Record<string, { revenue: number; profit: number }> = {};
-    trendSalesData.forEach(sale => {
-      const dateStr = format(new Date(sale.created_at), "yyyy-MM-dd");
-      if (!groupedByDate[dateStr]) {
-        groupedByDate[dateStr] = { revenue: 0, profit: 0 };
+    trendSalesData.forEach((row: any) => {
+      const dateStr = row._id;
+      if (dateStr) {
+        const revenue = Number(row.revenue || 0);
+        const cost = Number(row.cost || 0);
+        groupedByDate[dateStr] = {
+          revenue,
+          profit: revenue - cost
+        };
       }
-      const revenue = (sale.subtotal || 0) - (sale.discount || 0);
-      let cost = 0;
-      (sale.items || []).forEach((item: any) => {
-        cost += (item.cost_price || 0) * (item.qty || 0);
-      });
-      groupedByDate[dateStr].revenue += revenue;
-      groupedByDate[dateStr].profit += (revenue - cost);
     });
 
     const chartData = [];
@@ -332,6 +355,8 @@ export async function GET(req: NextRequest) {
       categoryBreakdown: categoryData.map(c => ({ name: c._id, revenue: c.revenue })),
       hourlyTrend,
       topProducts: topProductsData
+    }, {
+      headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=30" }
     });
 
   } catch (error: any) {

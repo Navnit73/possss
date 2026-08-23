@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount } from "@/lib/currency";
+import { getCurrencySymbol, CURRENCY_SYMBOLS } from "@/lib/currency";
 
 export { getCurrencySymbol, CURRENCY_SYMBOLS };
 
@@ -26,7 +26,16 @@ const CurrencyContext = createContext<CurrencyContextType>({
 });
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currency, setCurrencyState] = useState<string>("USD");
+  const [currency, setCurrencyState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("pos_tenant_currency") || "USD";
+      } catch {
+        return "USD";
+      }
+    }
+    return "USD";
+  });
 
   const updateCurrency = useCallback((newCurr: string) => {
     if (!newCurr) return;
@@ -56,31 +65,34 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   }, [updateCurrency]);
 
   useEffect(() => {
-    // 1. Load cached currency from localStorage for quick initial render
-    if (typeof window !== "undefined") {
+    let isMounted = true;
+    
+    // 1. Sync with database
+    const sync = async () => {
       try {
-        const saved = localStorage.getItem("pos_tenant_currency");
-        if (saved) {
-          setCurrencyState(saved);
+        const res = await fetch("/api/account/profile");
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.tenant?.currency) {
+            updateCurrency(data.tenant.currency);
+          }
         }
       } catch {
-        // Ignore localStorage errors
+        // Ignore initial sync failure
       }
-    }
+    };
+    sync();
 
-    // 2. Sync with database
-    refreshCurrency();
-
-    // 3. Listen for currency updates across components/tabs
+    // 2. Listen for currency updates across components/tabs
     const handleCurrencyChange = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
+      if (customEvent.detail && isMounted) {
         setCurrencyState(customEvent.detail);
       }
     };
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "pos_tenant_currency" && e.newValue) {
+      if (e.key === "pos_tenant_currency" && e.newValue && isMounted) {
         setCurrencyState(e.newValue);
       }
     };
@@ -89,10 +101,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
+      isMounted = false;
       window.removeEventListener("pos_currency_changed", handleCurrencyChange);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [refreshCurrency]);
+  }, [updateCurrency]);
 
   const currencySymbol = getCurrencySymbol(currency);
 

@@ -3,11 +3,19 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
+import { checkPermissionAny } from "@/lib/rbac";
 
 export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
     const params = await props.params;
     const session = await auth();
+    const permError = checkPermissionAny(session, [
+      { module: "POS", action: "CREATE" },
+      { module: "POS", action: "VIEW" },
+      { module: "SALES", action: "CREATE" },
+      { module: "SALES", action: "VIEW" },
+    ]);
+    if (permError) return permError;
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -41,11 +49,11 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
       .filter(Boolean) as ObjectId[];
 
     const [products, batches, tenant, customer] = await Promise.all([
-      db.collection("products").find({ _id: { $in: productObjectIds } }).toArray(),
-      db.collection("batches").find({ _id: { $in: batchObjectIds } }).toArray(),
+      db.collection("products").find({ _id: { $in: productObjectIds }, tenant_id: tenantId }).toArray(),
+      db.collection("batches").find({ _id: { $in: batchObjectIds }, tenant_id: tenantId }).toArray(),
       db.collection("tenants").findOne({ _id: ObjectId.isValid(tenantId) ? new ObjectId(tenantId) : tenantId }),
       sale.customer_id && ObjectId.isValid(sale.customer_id) 
-        ? db.collection("customers").findOne({ _id: new ObjectId(sale.customer_id) })
+        ? db.collection("customers").findOne({ _id: new ObjectId(sale.customer_id), tenant_id: tenantId })
         : null
     ]);
 

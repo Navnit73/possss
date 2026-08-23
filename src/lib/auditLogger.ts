@@ -21,7 +21,7 @@ export function withAuditLog(
     let beforeState = null;
     let afterState = null;
     let action = defaultAction;
-    let module = defaultModule;
+    let auditModule = defaultModule;
     let customTenantId: string | null = null;
     let customUserId: string | null = null;
 
@@ -29,7 +29,7 @@ export function withAuditLog(
       setBefore: (data) => { beforeState = data; },
       setAfter: (data) => { afterState = data; },
       setAction: (a) => { action = a; },
-      setModule: (m) => { module = m; },
+      setModule: (m) => { auditModule = m; },
       setCustomTenantId: (t) => { customTenantId = t; },
       setCustomUserId: (u) => { customUserId = u; },
     };
@@ -47,14 +47,15 @@ export function withAuditLog(
         
         if (tenantId) {
           const headersList = await headers();
-          const ip = headersList.get("x-forwarded-for") || req.headers.get("x-forwarded-for") || "Unknown IP";
+          const rawIp = headersList.get("x-forwarded-for") || req.headers.get("x-forwarded-for") || "127.0.0.1";
+          const ip = rawIp.split(",")[0].trim();
           const browser = headersList.get("user-agent") || req.headers.get("user-agent") || "Unknown Browser";
           
           const logEntry = {
             user_id: userId,
             tenant_id: tenantId,
             action,
-            module,
+            module: auditModule,
             before: beforeState,
             after: afterState,
             ip,

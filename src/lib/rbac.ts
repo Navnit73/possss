@@ -19,6 +19,14 @@ export function checkRole(session: Session | null, allowedRoles: Role[]): NextRe
   return null; // All good
 }
 
+function getEquivalentActions(action: string): string[] {
+  const upper = action.toUpperCase();
+  if (upper === "UPDATE" || upper === "EDIT") return ["UPDATE", "EDIT"];
+  if (upper === "VIEW" || upper === "READ") return ["VIEW", "READ"];
+  if (upper === "CREATE" || upper === "ADD") return ["CREATE", "ADD"];
+  return [upper];
+}
+
 export function checkPermission(session: Session | null, module: string, action: string): NextResponse | null {
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,8 +38,8 @@ export function checkPermission(session: Session | null, module: string, action:
   if (userRole === "OWNER") return null;
 
   const permissions = (session.user as any).permissions as Permission[] || [];
-  
-  const hasPermission = permissions.some(p => p.module === module && p.action === action);
+  const acceptedActions = getEquivalentActions(action);
+  const hasPermission = permissions.some(p => p.module === module && acceptedActions.includes(p.action.toUpperCase()));
 
   if (!hasPermission) {
     return NextResponse.json({ error: `Forbidden: Missing ${action} permission for ${module}` }, { status: 403 });
@@ -55,9 +63,10 @@ export function checkPermissionAny(
 
   const permissions = (session.user as any).permissions as Permission[] || [];
 
-  const hasAny = requiredPermissions.some(req => 
-    permissions.some(p => p.module === req.module && p.action === req.action)
-  );
+  const hasAny = requiredPermissions.some(req => {
+    const acceptedActions = getEquivalentActions(req.action);
+    return permissions.some(p => p.module === req.module && acceptedActions.includes(p.action.toUpperCase()));
+  });
 
   if (!hasAny) {
     const permString = requiredPermissions.map(r => `${r.module}:${r.action}`).join(" or ");
@@ -74,5 +83,6 @@ export function hasPermissionSync(session: Session | null, module: string, actio
   if (userRole === "OWNER") return true;
 
   const permissions = (session.user as any).permissions as Permission[] || [];
-  return permissions.some(p => p.module === module && p.action === action);
+  const acceptedActions = getEquivalentActions(action);
+  return permissions.some(p => p.module === module && acceptedActions.includes(p.action.toUpperCase()));
 }

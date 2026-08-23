@@ -15,25 +15,43 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = client.db("pos");
-    const logs = await db.collection("logs")
-      .find({ action: "PRODUCT_UPDATED", "details.productId": id, tenantId })
+    const idMatches = [id];
+    if (ObjectId.isValid(id)) {
+      idMatches.push(new ObjectId(id) as any);
+    }
+
+    const logs = await db.collection("audit_logs")
+      .find({
+        tenant_id: tenantId,
+        $or: [
+          { "after._id": { $in: idMatches } },
+          { "before._id": { $in: idMatches } },
+          { "details.productId": id }
+        ]
+      })
       .sort({ timestamp: -1 })
       .limit(50)
       .toArray();
       
-    // Optionally fetch user details for each log if we want to show who edited
-    const userIds = [...new Set(logs.map(log => log.userId).filter(Boolean))];
-    const users = await db.collection("users").find({ _id: { $in: userIds.map(uid => new ObjectId(uid)) } }).toArray();
+    // Fetch user details for each log
+    const userIds = [...new Set(logs.map(log => log.user_id || log.userId).filter(Boolean))];
+    const validUserObjectIds = userIds.filter(uid => ObjectId.isValid(uid)).map(uid => new ObjectId(uid));
+    const users = validUserObjectIds.length > 0
+      ? await db.collection("users").find({ _id: { $in: validUserObjectIds } }).toArray()
+      : [];
     
     const userMap = users.reduce((acc, user) => {
       acc[user._id.toString()] = user.name || user.email;
       return acc;
     }, {} as Record<string, string>);
     
-    const populatedLogs = logs.map(log => ({
-      ...log,
-      userName: log.userId ? userMap[log.userId] || "Unknown User" : "System"
-    }));
+    const populatedLogs = logs.map(log => {
+      const uId = log.user_id || log.userId;
+      return {
+        ...log,
+        userName: uId ? userMap[uId] || "Staff Member" : "System"
+      };
+    });
 
     return NextResponse.json(populatedLogs);
   } catch (error: any) {

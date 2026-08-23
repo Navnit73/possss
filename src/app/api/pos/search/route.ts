@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkPermissionAny } from "@/lib/rbac";
 
 function escapeRegExp(string: string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -10,11 +11,18 @@ function escapeRegExp(string: string) {
 export async function GET(req: Request) {
   try {
     const session = await auth();
+    const permError = checkPermissionAny(session, [
+      { module: "POS", action: "CREATE" },
+      { module: "POS", action: "VIEW" },
+      { module: "SALES", action: "CREATE" },
+      { module: "SALES", action: "VIEW" },
+    ]);
+    if (permError) return permError;
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q")?.trim() || "";
+    const query = (searchParams.get("q")?.trim() || "").slice(0, 100);
 
     const db = client.db("pos");
 
@@ -64,7 +72,7 @@ export async function GET(req: Request) {
           as: "batches"
         }
       }
-    ]).toArray();
+    ], { maxTimeMS: 3_000 }).toArray();
     
     return NextResponse.json(products);
   } catch (error: any) {

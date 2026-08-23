@@ -3,10 +3,13 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkRole } from "@/lib/rbac";
 
 export async function GET(req: Request) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER"]);
+    if (roleError) return roleError;
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -35,34 +38,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await auth();
+    const roleError = checkRole(session, ["OWNER"]);
+    if (roleError) return roleError;
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
-    const { plan_name, amount } = body;
-
-    const db = client.db("pos");
-    
-    // MOCK RAZORPAY INTEGRATION
-    // 1. Update tenant plan
-    await db.collection("tenants").updateOne(
-      { _id: new ObjectId(tenantId) },
-      { $set: { subscription_plan: plan_name, status: "ACTIVE", updated_at: new Date() } }
+    // Payment-plan changes must be created from a verified provider webhook.
+    // Never trust a browser-supplied plan or amount as proof of payment.
+    return NextResponse.json(
+      { error: "Subscription changes require verified payment-provider integration." },
+      { status: 501 }
     );
-
-    // 2. Add mock payment to billing history
-    const mockPayment = {
-      tenant_id: tenantId,
-      razorpay_payment_id: "pay_mock_" + Math.random().toString(36).substring(7),
-      amount: amount,
-      currency: "USD",
-      status: "SUCCESS",
-      plan_name,
-      created_at: new Date()
-    };
-    await db.collection("payments").insertOne(mockPayment);
-
-    return NextResponse.json({ message: "Subscription upgraded successfully (Mocked)" });
   } catch (error: any) {
     return await handleApiError(error, "POST /api/account/subscription");
   }

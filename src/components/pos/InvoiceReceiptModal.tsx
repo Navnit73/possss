@@ -22,6 +22,7 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
 
   useEffect(() => {
     let isMounted = true;
+    let createdBlobUrl: string | null = null;
 
     const fetchData = async () => {
       setIsLoading(true);
@@ -35,8 +36,8 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
 
         if (isMounted) {
           const blob = new Blob([pdfRes.data], { type: "application/pdf" });
-          const url = URL.createObjectURL(blob);
-          setPdfBlobUrl(url);
+          createdBlobUrl = URL.createObjectURL(blob);
+          setPdfBlobUrl(createdBlobUrl);
           setInvoiceData(jsonRes.data);
         }
       } catch (err) {
@@ -51,8 +52,8 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
 
     return () => {
       isMounted = false;
-      if (pdfBlobUrl) {
-        URL.revokeObjectURL(pdfBlobUrl);
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
       }
     };
   }, [saleId, pdfUrl, jsonUrl]);

@@ -33,13 +33,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // Rate limit by email to prevent brute force (5 attempts per minute)
-        const identifier = `login-${credentials.email}`;
-        if (!rateLimit(identifier, 5, 60 * 1000)) {
+        const email = String(credentials.email).trim().toLowerCase();
+        const identifier = `login-${email}`;
+        if (!(await rateLimit(identifier, 5, 60 * 1000))) {
           throw new CustomAuthError("Too many login attempts. Please try again later.");
         }
 
         const db = client.db("pos");
-        const user = await db.collection("users").findOne({ email: credentials.email });
+        const user = await db.collection("users").findOne({ email });
 
         if (!user || !user.password) {
           throw new CustomAuthError("Invalid email or password");

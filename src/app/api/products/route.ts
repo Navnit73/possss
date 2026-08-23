@@ -62,19 +62,31 @@ export async function GET(req: Request) {
       {
         $lookup: {
           from: "batches",
-          localField: "id_string",
-          foreignField: "product_id",
-          as: "batches"
+          let: { productId: "$id_string" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$tenant_id", tenantId] },
+                    { $eq: ["$product_id", "$$productId"] }
+                  ]
+                }
+              }
+            },
+            { $group: { _id: null, total_stock: { $sum: "$qty_available" } } }
+          ],
+          as: "stock"
         }
       },
       {
         $addFields: {
-          total_stock: { $sum: "$batches.qty_available" }
+          total_stock: { $ifNull: [{ $arrayElemAt: ["$stock.total_stock", 0] }, 0] }
         }
       },
       {
         $project: {
-          batches: 0,
+          stock: 0,
           id_string: 0
         }
       }

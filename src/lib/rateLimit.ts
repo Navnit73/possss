@@ -1,48 +1,40 @@
-interface RateLimitInfo {
+import client from "./mongodb";
+
+interface RateLimitRecord {
+  _id: string;
   count: number;
-  resetAt: number;
+  resetAt: Date;
 }
 
-const store = new Map<string, RateLimitInfo>();
-
-export function rateLimit(ip: string, limit: number, windowMs: number): boolean {
+/**
+ * A fixed-window limiter backed by MongoDB so all server instances enforce the
+ * same limit. The counter is allowed to increment after the limit is reached;
+ * this preserves the window without a read-then-write race.
+ */
+export async function rateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
   const now = Date.now();
-  const record = store.get(ip);
+  const nowDate = new Date(now);
+  const resetAt = new Date(now + windowMs);
+  const expired = { $lte: [{ $ifNull: ["$resetAt", new Date(0)] }, nowDate] };
 
-  if (!record) {
-    store.set(ip, {
-      count: 1,
-      resetAt: now + windowMs,
-    });
-    return true; // allowed
-  }
+  const result = await client.db("pos").collection<RateLimitRecord>("rate_limits").findOneAndUpdate(
+    { _id: key },
+    [
+      {
+        $set: {
+          count: { $cond: [expired, 1, { $add: [{ $ifNull: ["$count", 0] }, 1] }] },
+          resetAt: { $cond: [expired, resetAt, "$resetAt"] },
+        },
+      },
+    ],
+    { upsert: true, returnDocument: "after" }
+  );
 
-  if (now > record.resetAt) {
-    store.set(ip, {
-      count: 1,
-      resetAt: now + windowMs,
-    });
-    return true; // allowed
-  }
-
-  if (record.count >= limit) {
-    return false; // rate limited
-  }
-
-  record.count++;
-  return true; // allowed
+  return (result?.count ?? limit + 1) <= limit;
 }
 
-// Clean up stale entries every 10 minutes to prevent memory leaks
-const cleanupInterval = setInterval(() => {
-  const now = Date.now();
-  store.forEach((record, ip) => {
-    if (now > record.resetAt) {
-      store.delete(ip);
-    }
-  });
-}, 10 * 60 * 1000);
-
-if (cleanupInterval.unref) {
-  cleanupInterval.unref();
+/** Only use this after a trusted proxy has normalized the forwarding header. */
+export function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
 }

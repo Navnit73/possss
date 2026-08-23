@@ -73,10 +73,10 @@ export async function GET(req: NextRequest) {
           pipeline: [
             { $match: { $expr: { $eq: ["$_id", "$$suppId"] } } }
           ],
-          as: "supplier"
+          as: "supplier_doc"
         }
       },
-      { $unwind: { path: "$supplier", preserveNullAndEmptyArrays: true } }
+      { $unwind: { path: "$supplier_doc", preserveNullAndEmptyArrays: true } }
     ];
 
     if (search) {
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest) {
           qty_available: 1,
           expiry_date: 1,
           cost_price: 1,
-          supplier_name: { $ifNull: ["$supplier.name", "-"] },
+          supplier_name: { $ifNull: ["$supplier_doc.name", { $ifNull: ["$supplier", "-"] }] },
           purchase_value_loss: { $multiply: ["$qty_available", "$cost_price"] },
           status: {
             $cond: [

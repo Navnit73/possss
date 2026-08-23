@@ -13,7 +13,7 @@ function getAgendaInstance() {
   if (agenda) return agenda;
 
   if (env.NODE_ENV === "development") {
-    let globalWithAgenda = global as typeof globalThis & {
+    const globalWithAgenda = global as typeof globalThis & {
       _agenda?: Agenda;
     };
 
