@@ -135,3 +135,40 @@ export async function PUT(req: Request) {
   }
 }
 
+export async function PATCH(req: Request) {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const userObjId = toObjectId(userId);
+    if (!userObjId) return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+
+    const body = await req.json();
+    const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : null;
+    if (!currency) {
+      return NextResponse.json({ error: "Currency code is required" }, { status: 400 });
+    }
+
+    const db = client.db("pos");
+    const userDb = await db.collection("users").findOne({ _id: userObjId });
+    if (!userDb) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+    const tenantObjId = toObjectId(userDb.tenant_id);
+    if (tenantObjId) {
+      await db.collection("tenants").updateOne(
+        { _id: tenantObjId },
+        { $set: { currency, updated_at: new Date() } }
+      );
+    }
+
+    await db.collection("users").updateOne(
+      { _id: userObjId },
+      { $set: { currency_preference: currency, updated_at: new Date() } }
+    );
+
+    return NextResponse.json({ message: "Currency updated successfully", currency }, { status: 200 });
+  } catch (error: any) {
+    return await handleApiError(error, "PATCH /api/account/profile");
+  }
+}

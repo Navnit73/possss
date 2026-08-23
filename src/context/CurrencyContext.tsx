@@ -1,9 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { getCurrencySymbol, CURRENCY_SYMBOLS } from "@/lib/currency";
+import { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount } from "@/lib/currency";
 
-export { getCurrencySymbol, CURRENCY_SYMBOLS };
+export { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount };
 
 interface CurrencyContextType {
   currency: string;
@@ -18,35 +18,44 @@ const CurrencyContext = createContext<CurrencyContextType>({
   currencySymbol: "$",
   setCurrency: () => {},
   refreshCurrency: async () => {},
-  formatCurrency: (amount) => {
-    const num = Number(amount);
-    const val = isNaN(num) ? 0 : num;
-    return `$${val.toFixed(2)}`;
-  },
+  formatCurrency: (amount) => formatCurrencyAmount(amount, "$"),
 });
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       try {
-        return localStorage.getItem("pos_tenant_currency") || "USD";
+        const saved = localStorage.getItem("pos_tenant_currency");
+        if (saved && saved.trim()) return saved.trim().toUpperCase();
       } catch {
-        return "USD";
+        // Handle localStorage error
       }
     }
     return "USD";
   });
 
-  const updateCurrency = useCallback((newCurr: string) => {
+  const updateCurrency = useCallback((newCurr: string, persistToDb = true) => {
     if (!newCurr) return;
-    setCurrencyState((prev) => (prev !== newCurr ? newCurr : prev));
+    const normalized = newCurr.trim().toUpperCase();
+    setCurrencyState(normalized);
+
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("pos_tenant_currency", newCurr);
-        window.dispatchEvent(new CustomEvent("pos_currency_changed", { detail: newCurr }));
+        localStorage.setItem("pos_tenant_currency", normalized);
+        window.dispatchEvent(new CustomEvent("pos_currency_changed", { detail: normalized }));
       } catch {
-        // Handle potential localStorage disabled/quota errors
+        // Handle localStorage quota or disabled error
       }
+    }
+
+    if (persistToDb) {
+      fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency: normalized }),
+      }).catch(() => {
+        // Quietly fail network persistence
+      });
     }
   }, []);
 
@@ -55,8 +64,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/account/profile");
       if (res.ok) {
         const data = await res.json();
-        if (data.tenant?.currency) {
-          updateCurrency(data.tenant.currency);
+        const serverCurr = data.tenant?.currency || data.user?.currency_preference;
+        if (serverCurr) {
+          updateCurrency(serverCurr, false);
         }
       }
     } catch {
@@ -66,15 +76,22 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    
-    // 1. Sync with database
+
+    // 1. Check server on initial mount
     const sync = async () => {
       try {
         const res = await fetch("/api/account/profile");
         if (res.ok && isMounted) {
           const data = await res.json();
-          if (data.tenant?.currency) {
-            updateCurrency(data.tenant.currency);
+          const serverCurr = data.tenant?.currency || data.user?.currency_preference;
+          if (serverCurr) {
+            const normalized = serverCurr.trim().toUpperCase();
+            setCurrencyState(normalized);
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.setItem("pos_tenant_currency", normalized);
+              } catch {}
+            }
           }
         }
       } catch {
@@ -87,13 +104,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const handleCurrencyChange = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail && isMounted) {
-        setCurrencyState(customEvent.detail);
+        setCurrencyState(customEvent.detail.toString().toUpperCase());
       }
     };
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "pos_tenant_currency" && e.newValue && isMounted) {
-        setCurrencyState(e.newValue);
+        setCurrencyState(e.newValue.toUpperCase());
       }
     };
 
@@ -105,15 +122,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("pos_currency_changed", handleCurrencyChange);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [updateCurrency]);
+  }, []);
 
   const currencySymbol = getCurrencySymbol(currency);
 
   const formatCurrency = useCallback(
     (amount: number | string | null | undefined): string => {
-      const num = Number(amount);
-      const val = isNaN(num) ? 0 : num;
-      return `${currencySymbol}${val.toFixed(2)}`;
+      return formatCurrencyAmount(amount, currencySymbol);
     },
     [currencySymbol]
   );
@@ -123,7 +138,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       value={{
         currency,
         currencySymbol,
-        setCurrency: updateCurrency,
+        setCurrency: (code: string) => updateCurrency(code, true),
         refreshCurrency,
         formatCurrency,
       }}

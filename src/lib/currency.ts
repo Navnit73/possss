@@ -70,5 +70,6 @@ export function getCurrencySymbol(currencyInput?: string | null): string {
 export function formatCurrencyAmount(amount: number | string | null | undefined, symbol = "$"): string {
   const num = Number(amount);
   const val = isNaN(num) ? 0 : num;
-  return `${symbol}${val.toFixed(2)}`;
+  const needsSpace = symbol.length > 1 && !symbol.includes("$");
+  return `${symbol}${needsSpace ? " " : ""}${val.toFixed(2)}`;
 }
