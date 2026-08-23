@@ -6,6 +6,38 @@ import { ObjectId } from "mongodb";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
 
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const db = client.db("pos");
+    const user = await db.collection("users").findOne({ _id: new ObjectId(session.user.id) });
+    if (!user || !user.tenant_id) {
+      return NextResponse.json({ tenant: null }, { status: 200 });
+    }
+
+    const tenant = await db.collection("tenants").findOne({ _id: new ObjectId(user.tenant_id) });
+    if (!tenant) {
+      return NextResponse.json({ tenant: null }, { status: 200 });
+    }
+
+    return NextResponse.json({
+      tenant: {
+        id: tenant._id.toString(),
+        business_name: tenant.business_name,
+        country: tenant.country,
+        currency: tenant.currency,
+        timezone: tenant.timezone,
+        subscription_plan: tenant.subscription_plan,
+        status: tenant.status,
+      }
+    }, { status: 200 });
+  } catch (error: any) {
+    return await handleApiError(error, "GET /api/onboarding");
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
