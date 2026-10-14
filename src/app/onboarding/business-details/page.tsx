@@ -6,12 +6,16 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { businessDetailsSchema } from "@/lib/validations";
-import { SplitLayout } from "@/components/auth/SplitLayout";
+import { OnboardingStep } from "../_components/OnboardingStep";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Label } from "@/components/ui/Label";
+import { Select } from "@/components/ui/Select";
+import { Spinner } from "@/components/ui/Spinner";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { useCurrency } from "@/context/CurrencyContext";
 import { COUNTRIES, TIMEZONES } from "@/lib/regions";
 import axios from "axios";
-import { Loader2 } from "lucide-react";
 
 type FormValues = z.infer<typeof businessDetailsSchema>;
 
@@ -81,84 +85,69 @@ export default function BusinessDetailsPage() {
   };
 
   return (
-    <SplitLayout title="Business details" subtitle="Step 2 of 3: Regional settings for your pharmacy.">
+    <OnboardingStep step={2} title="Business details" subtitle="Regional settings for your pharmacy.">
       {isFetchingInitial ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Spinner />
         </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
-          
-          <div className="space-y-1">
-            <label htmlFor="onboarding-country" className="text-sm font-medium text-foreground">Country</label>
-            <select 
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {error && <Alert variant="destructive">{error}</Alert>}
+
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-country">Country</Label>
+            <Select
               {...register("country")}
               id="onboarding-country"
               aria-invalid={!!errors.country}
               onChange={handleCountryChange}
-              className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
               {COUNTRIES.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>
               ))}
-            </select>
-            {errors.country && <p className="text-sm text-red-500">{errors.country.message}</p>}
+            </Select>
+            {errors.country && <p className="text-caption text-destructive">{errors.country.message}</p>}
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="onboarding-currency" className="text-sm font-medium text-foreground">Currency</label>
-            <select 
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-currency">Currency</Label>
+            <Select
               {...register("currency")}
               id="onboarding-currency"
               aria-invalid={!!errors.currency}
-              className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
               {SUPPORTED_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.flag} {c.code} ({c.symbol}) - {c.name}
                 </option>
               ))}
-            </select>
-            {errors.currency && <p className="text-sm text-red-500">{errors.currency.message}</p>}
+            </Select>
+            {errors.currency && <p className="text-caption text-destructive">{errors.currency.message}</p>}
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="onboarding-timezone" className="text-sm font-medium text-foreground">Timezone</label>
-            <select 
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-timezone">Timezone</Label>
+            <Select
               {...register("timezone")}
               id="onboarding-timezone"
               aria-invalid={!!errors.timezone}
-              className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
               {TIMEZONES.map((tz) => (
                 <option key={tz.value} value={tz.value}>
                   {tz.label}
                 </option>
               ))}
-            </select>
-            {errors.timezone && <p className="text-sm text-red-500">{errors.timezone.message}</p>}
+            </Select>
+            {errors.timezone && <p className="text-caption text-destructive">{errors.timezone.message}</p>}
           </div>
 
-          <button 
-            disabled={isLoading}
-            type="submit"
-            className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors mt-6 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Continue to Subscription"
-            )}
-          </button>
+          <Button disabled={isLoading} loading={isLoading} type="submit" className="w-full mt-3">
+            {isLoading ? "Saving..." : "Continue to Subscription"}
+          </Button>
         </form>
       )}
-    </SplitLayout>
+    </OnboardingStep>
   );
 }
-

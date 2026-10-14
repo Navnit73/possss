@@ -59,8 +59,8 @@ export default function ProfitLossReportPage() {
 
   const m = data?.metrics;
   const columns: ReportColumn<any, Col>[] = [
-    { key: "product_name", label: "Product", className: "font-medium text-foreground", render: (r) => r.product_name },
-    { key: "category", label: "Category", className: "text-muted-foreground", render: (r) => r.category },
+    { key: "product_name", label: "Product", className: "font-semibold text-ink", render: (r) => r.product_name },
+    { key: "category", label: "Category", className: "text-ink-48", render: (r) => r.category },
     { key: "qty_sold", label: "Qty Sold", align: "right", render: (r) => r.qty_sold },
     { key: "total_cost", label: "Cost", align: "right", render: (r) => formatCurrency(r.total_cost) },
     { key: "total_revenue", label: "Revenue", align: "right", render: (r) => formatCurrency(r.total_revenue) },
@@ -69,12 +69,12 @@ export default function ProfitLossReportPage() {
       key: "margin_pct",
       label: "Margin",
       align: "right",
-      render: (r) => <span className={(r.margin_pct ?? 0) < 0 ? "font-semibold text-rose-600" : "font-semibold"}>{Number(r.margin_pct ?? 0).toFixed(1)}%</span>,
+      render: (r) => <span className={(r.margin_pct ?? 0) < 0 ? "font-semibold text-destructive" : "font-semibold"}>{Number(r.margin_pct ?? 0).toFixed(1)}%</span>,
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ReportFilterBar onSubmit={apply} isLoading={isLoading} onExport={exportCsv} isExporting={isExporting}>
         <DateRangeFilter value={draft} onChange={(v) => setDraft({ ...draft, ...v })} disabled={isLoading} />
         <SearchInput

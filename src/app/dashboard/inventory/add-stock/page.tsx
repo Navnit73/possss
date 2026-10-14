@@ -9,6 +9,12 @@ import { batchSchema } from "@/lib/validations";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
+import { Card } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import * as z from "zod";
 import { format } from "date-fns";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -112,20 +118,21 @@ export default function AddStockPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <PageShell>
       <PageHeader 
         title="Receive New Stock"
         description="Add a new batch of product to inventory."
         backHref="/dashboard/inventory/stock-list"
       />
 
-      {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-surface border border-border rounded-lg p-6 ">
+      <Card className="p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="col-span-1 md:col-span-2">
-            <label className="text-sm font-medium text-foreground">Product *</label>
+            <Label>Product *</Label>
             <div className="mt-1.5">
               <Controller
                 name="product_id"
@@ -141,21 +148,21 @@ export default function AddStockPage() {
                 )}
               />
             </div>
-            {errors.product_id && <p className="text-sm text-red-500 mt-1">{errors.product_id.message}</p>}
+            {errors.product_id && <p className="text-caption text-destructive mt-1.5">{errors.product_id.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Batch Number *</label>
-            <input 
+            <Label>Batch Number *</Label>
+            <Input 
               {...register("batch_number")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
               placeholder="e.g. BATCH-001"
             />
-            {errors.batch_number && <p className="text-sm text-red-500 mt-1">{errors.batch_number.message}</p>}
+            {errors.batch_number && <p className="text-caption text-destructive mt-1.5">{errors.batch_number.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Supplier</label>
+            <Label>Supplier</Label>
             <div className="mt-1.5">
               <Controller
                 name="supplier"
@@ -174,72 +181,72 @@ export default function AddStockPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Quantity Received *</label>
-            <input 
+            <Label>Quantity Received *</Label>
+            <Input 
               type="number"
               step="any"
               {...register("qty_available")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
             />
-            {errors.qty_available && <p className="text-sm text-red-500 mt-1">{errors.qty_available.message}</p>}
+            {errors.qty_available && <p className="text-caption text-destructive mt-1.5">{errors.qty_available.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Expiry Date</label>
-            <input 
+            <Label>Expiry Date</Label>
+            <Input 
               type="date"
               min={todayStr}
               {...register("expiry_date")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
             />
-            {errors.expiry_date && <p className="text-sm text-red-500 mt-1">{errors.expiry_date.message}</p>}
+            {errors.expiry_date && <p className="text-caption text-destructive mt-1.5">{errors.expiry_date.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Cost Price</label>
-            <input 
+            <Label>Cost Price</Label>
+            <Input 
               type="number"
               step="0.01"
               min="0"
               {...register("cost_price")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
             />
-            {errors.cost_price && <p className="text-sm text-red-500 mt-1">{errors.cost_price.message}</p>}
+            {errors.cost_price && <p className="text-caption text-destructive mt-1.5">{errors.cost_price.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Selling Price *</label>
-            <input 
+            <Label>Selling Price *</Label>
+            <Input 
               type="number"
               step="0.01"
               min="0"
               {...register("selling_price")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
             />
-            {errors.selling_price && <p className="text-sm text-red-500 mt-1">{errors.selling_price.message}</p>}
+            {errors.selling_price && <p className="text-caption text-destructive mt-1.5">{errors.selling_price.message}</p>}
             {!errors.selling_price && sellingBelowCost && (
-              <p className="text-sm text-amber-600 mt-1">Selling price is below cost price — this batch will be sold at a loss.</p>
+              <p className="text-caption text-warning mt-1.5">Selling price is below cost price — this batch will be sold at a loss.</p>
             )}
           </div>
         </div>
 
-        <div className="flex justify-end gap-4 pt-4 border-t border-border/50">
+        <div className="flex justify-end gap-3 pt-6 border-t border-hairline">
           <Link 
             href="/dashboard/inventory/stock-list"
-            className="px-6 py-2.5 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors"
+            className={buttonClasses({ variant: "outline" })}
           >
             Cancel
           </Link>
-          <button 
+          <Button 
             type="submit"
             disabled={isSubmitting || isLoading}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus aria-hidden="true" />
             {isSubmitting ? "Saving..." : "Add Stock"}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

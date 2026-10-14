@@ -5,6 +5,8 @@ import axios from "axios";
 import { X, Printer, FileText, ExternalLink, CheckCircle2, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
 import { lineAmount } from "@/lib/posMath";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 
 interface InvoiceReceiptModalProps {
   saleId: string;
@@ -104,106 +106,92 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
   const customer = invoiceData?.customer;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Sale receipt" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto font-sans animate-in fade-in duration-200 print:p-0 print:bg-white print:static print:h-auto">
-      <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col h-[90vh] max-h-[850px] overflow-hidden print:border-0 print:shadow-none print:w-auto print:max-w-none print:h-auto print:rounded-none">
-        
+    <div role="dialog" aria-modal="true" aria-label="Sale receipt" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200 print:p-0 print:bg-canvas print:static print:h-auto">
+      <div className="bg-canvas w-full max-w-3xl rounded-lg flex flex-col h-[90vh] max-h-[850px] overflow-hidden print:w-auto print:max-w-none print:h-auto print:rounded-none">
+
         {/* Modal Header (Hidden on print) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0 print:hidden">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-2xs">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-900 leading-none">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-divider-soft shrink-0 print:hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <FileText className="size-5 text-ink-48 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-tagline text-ink">
                   {sale ? `Invoice ${sale.invoice_no}` : "Official Sales Receipt"}
                 </h2>
-                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <Badge variant="success">
+                  <CheckCircle2 aria-hidden="true" />
                   80mm Thermal
-                </span>
+                </Badge>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-1">Customer Print & Thermal Receipt Preview</p>
+              <p className="text-caption text-ink-48 mt-1">Customer print & thermal receipt preview</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
-              Print Receipt <kbd className="ml-1 text-[10px] opacity-80 font-mono">P</kbd>
-            </button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handlePrint}>
+              <Printer aria-hidden="true" />
+              Print Receipt <kbd className="text-fine-print opacity-80">P</kbd>
+            </Button>
             <a
               href={pdfUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors border border-slate-200"
+              className={buttonClasses({ variant: "outline" })}
             >
-              <ExternalLink className="w-4 h-4 text-slate-500" />
+              <ExternalLink aria-hidden="true" />
               Open PDF
             </a>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-xl transition-colors cursor-pointer"
               title="Close (Esc)"
               aria-label="Close receipt"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <X aria-hidden="true" />
+            </Button>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 bg-slate-100/70 p-4 sm:p-6 overflow-y-auto flex items-center justify-center relative print:p-0 print:bg-white print:overflow-visible">
+        <div className="flex-1 bg-parchment p-4 sm:p-6 overflow-y-auto flex items-center justify-center relative print:p-0 print:bg-canvas print:overflow-visible">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3" role="status">
-              <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
-              <span className="text-xs font-bold text-slate-600">Loading receipt...</span>
+            <div className="flex flex-col items-center justify-center p-12 gap-3" role="status">
+              <RefreshCw className="size-8 text-ink-48 animate-spin" aria-hidden="true" />
+              <span className="text-caption text-ink-48">Loading receipt...</span>
             </div>
           ) : hasError ? (
-            <div className="flex flex-col items-center justify-center p-12 gap-3 text-center" role="alert">
-              <p className="text-sm font-bold text-rose-600">The sale was saved, but the receipt couldn&apos;t be loaded.</p>
-              <button
-                onClick={() => { setIsLoading(true); setAttempt((n) => n + 1); }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl cursor-pointer"
-              >
+            <div className="flex flex-col items-center justify-center p-12 gap-4 text-center" role="alert">
+              <p className="text-caption font-semibold text-destructive">The sale was saved, but the receipt couldn&apos;t be loaded.</p>
+              <Button onClick={() => { setIsLoading(true); setAttempt((n) => n + 1); }}>
                 Try again
-              </button>
+              </Button>
             </div>
           ) : (
-            <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-md p-2 overflow-y-auto print:hidden">
+            <div className="w-full max-w-sm bg-canvas rounded-lg border border-hairline p-2 overflow-y-auto print:hidden">
               <HTMLReceiptFallback sale={sale} items={items} tenant={tenant} customer={customer} />
             </div>
           )}
 
           {/* Printable HTML Element for Direct Window Printing */}
-          <div className="hidden print:block w-full max-w-[80mm] mx-auto bg-white text-slate-900 font-mono text-xs">
+          <div className="hidden print:block w-full max-w-[80mm] mx-auto bg-canvas text-ink text-fine-print">
             <HTMLReceiptFallback sale={sale} items={items} tenant={tenant} customer={customer} />
           </div>
         </div>
 
         {/* Modal Footer (Hidden on print) */}
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center bg-white shrink-0 print:hidden">
-          <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            Press <kbd className="font-mono font-bold">P</kbd> to print, <kbd className="font-mono font-bold">Esc</kbd> for the next sale.
+        <div className="px-6 py-4 border-t border-divider-soft flex flex-wrap gap-3 justify-between items-center shrink-0 print:hidden">
+          <p className="text-caption text-ink-48">
+            Press <kbd className="font-semibold text-ink">P</kbd> to print, <kbd className="font-semibold text-ink">Esc</kbd> for the next sale.
           </p>
-          <div className="flex gap-2.5">
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-slate-200"
-            >
-              Close <kbd className="ml-1 text-[10px] text-slate-400 font-mono">Esc</kbd>
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
-            >
-              <Printer className="w-4 h-4" />
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Close <kbd className="text-fine-print opacity-60">Esc</kbd>
+            </Button>
+            <Button onClick={handlePrint}>
+              <Printer aria-hidden="true" />
               Print Receipt
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -222,34 +210,34 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
   const total = Number(sale.total || 0);
 
   return (
-    <div className="font-mono text-slate-900 text-xs leading-tight p-4 bg-white select-none">
-      <div className="text-center pb-3 border-b border-dashed border-slate-300">
-        <h2 className="font-black text-sm uppercase tracking-wider text-slate-900">{tenant?.business_name || "PHARMACY STORE"}</h2>
-        {tenant?.address && <p className="text-[10px] text-slate-500 mt-0.5">{tenant.address}</p>}
-        {tenant?.phone && <p className="text-[10px] text-slate-500">Tel: {tenant.phone}</p>}
-        <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mt-1">OFFICIAL CASH RECEIPT</p>
+    <div className="text-ink text-fine-print tabular p-4 bg-canvas select-none">
+      <div className="text-center pb-3 border-b border-dashed border-hairline">
+        <h2 className="text-caption font-semibold text-ink">{tenant?.business_name || "PHARMACY STORE"}</h2>
+        {tenant?.address && <p className="text-fine-print text-ink-48 mt-1">{tenant.address}</p>}
+        {tenant?.phone && <p className="text-fine-print text-ink-48">Tel: {tenant.phone}</p>}
+        <p className="text-fine-print font-semibold text-ink-80 mt-1.5">Official cash receipt</p>
       </div>
 
-      <div className="py-2.5 border-b border-dashed border-slate-300 space-y-1 text-[11px]">
+      <div className="py-2.5 border-b border-dashed border-hairline space-y-1">
         <div className="flex justify-between">
-          <span className="text-slate-500">Invoice:</span>
-          <span className="font-bold">{sale.invoice_no}</span>
+          <span className="text-ink-48">Invoice:</span>
+          <span className="font-mono font-semibold">{sale.invoice_no}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-500">Date:</span>
+          <span className="text-ink-48">Date:</span>
           <span>{sale.created_at ? new Date(sale.created_at).toLocaleDateString() : ""} {sale.created_at ? new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</span>
         </div>
         {customer && (
           <div className="flex justify-between">
-            <span className="text-slate-500">Customer:</span>
-            <span className="font-bold">{customer.name}</span>
+            <span className="text-ink-48">Customer:</span>
+            <span className="font-semibold">{customer.name}</span>
           </div>
         )}
       </div>
 
       {/* Line Items Table */}
-      <div className="py-2.5 border-b border-dashed border-slate-300 space-y-2">
-        <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500 pb-1 border-b border-slate-200">
+      <div className="py-2.5 border-b border-dashed border-hairline space-y-2">
+        <div className="flex justify-between font-semibold text-ink-48 pb-1 border-b border-divider-soft">
           <span>Item / Batch</span>
           <span>Qty x Price</span>
           <span className="text-right">Total</span>
@@ -262,14 +250,14 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
 
           return (
             <div key={idx} className="space-y-0.5">
-              <div className="flex justify-between font-bold text-slate-900">
+              <div className="flex justify-between gap-2 font-semibold text-ink">
                 <span className="truncate max-w-[120px]">{item.name}</span>
-                <span className="text-slate-500 font-normal">{itemQty} x {formatCurrency(itemPrice)}</span>
-                <span className="font-bold text-right">{formatCurrency(lineTotal)}</span>
+                <span className="text-ink-48 font-normal">{itemQty} x {formatCurrency(itemPrice)}</span>
+                <span className="text-right">{formatCurrency(lineTotal)}</span>
               </div>
               {item.batch_number && (
-                <div className="text-[9px] text-slate-400">
-                  Batch #{item.batch_number} {itemDiscount > 0 && `(Disc ${itemDiscount}%)`}
+                <div className="text-micro-legal text-ink-48">
+                  Batch #<span className="font-mono">{item.batch_number}</span> {itemDiscount > 0 && `(Disc ${itemDiscount}%)`}
                 </div>
               )}
             </div>
@@ -278,33 +266,33 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
       </div>
 
       {/* Totals */}
-      <div className="py-2.5 space-y-1 text-[11px]">
-        <div className="flex justify-between text-slate-600">
+      <div className="py-2.5 space-y-1">
+        <div className="flex justify-between text-ink-80">
           <span>Subtotal:</span>
           <span>{formatCurrency(subtotal)}</span>
         </div>
         {discount > 0 && (
-          <div className="flex justify-between text-rose-600">
+          <div className="flex justify-between text-ink-80">
             <span>Discount:</span>
             <span>-{formatCurrency(discount)}</span>
           </div>
         )}
-        <div className="flex justify-between text-slate-600">
+        <div className="flex justify-between text-ink-80">
           <span>Tax:</span>
           <span>{formatCurrency(tax)}</span>
         </div>
-        <div className="flex justify-between text-sm font-black text-slate-900 pt-1.5 border-t border-slate-300">
-          <span>NET TOTAL:</span>
+        <div className="flex justify-between text-caption font-semibold text-ink pt-1.5 border-t border-hairline">
+          <span>Net total:</span>
           <span>{formatCurrency(total)}</span>
         </div>
       </div>
 
-      <div className="pt-3 border-t border-dashed border-slate-300 text-center space-y-1">
-        <div className="inline-block bg-slate-100 text-slate-800 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-slate-200">
-          PAID VIA {sale.payment_method}
+      <div className="pt-3 border-t border-dashed border-hairline text-center space-y-1">
+        <div className="inline-block text-fine-print font-semibold text-ink-80 px-2.5 py-1 rounded-full border border-hairline">
+          Paid via {sale.payment_method}
         </div>
-        <p className="text-[10px] text-slate-500 mt-2">Thank you for shopping with us!</p>
-        <p className="text-[9px] text-slate-400">Please keep receipt for any returns.</p>
+        <p className="text-fine-print text-ink-48 mt-2">Thank you for shopping with us!</p>
+        <p className="text-micro-legal text-ink-48">Please keep receipt for any returns.</p>
       </div>
     </div>
   );

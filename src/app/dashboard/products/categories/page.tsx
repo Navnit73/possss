@@ -7,10 +7,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { categorySchema } from "@/lib/validations";
 import { Plus, Tags, Edit } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Textarea } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, EmptyState } from "@/components/ui/Page";
+import { Card } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Modal } from "@/components/ui/Modal";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 type CategoryForm = {
   name: string;
@@ -77,7 +82,7 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <PageShell>
       <PageHeader 
         title="Categories"
         description="Manage medicine categories (e.g. Antibiotics, Painkillers)."
@@ -89,106 +94,102 @@ export default function CategoriesPage() {
                 reset({ name: "", description: "" });
                 setIsAdding(true);
               }}
-              className="flex items-center gap-2"
             >
-              <Plus className="w-4 h-4" />
+              <Plus aria-hidden="true" />
               Add Category
             </Button>
           )
         }
       />
 
-      {error && !isAdding && <div role="alert" className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
+      {error && !isAdding && <Alert variant="destructive">{error}</Alert>}
 
-      {isAdding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-surface border border-border p-6 rounded-xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <h2 className="text-xl font-bold text-foreground mb-6">
-              {editingId ? "Edit Category" : "New Category"}
-            </h2>
-            {/* Shown inside the modal: the page-level banner is hidden behind the overlay */}
-            {error && <div role="alert" className="mb-4 p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div className="space-y-2">
-                <Label>Name *</Label>
-                <Input 
-                  {...register("name")}
-                  placeholder="e.g. Antibiotics"
-                />
-                {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <textarea 
-                  {...register("description")}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  placeholder="Optional description..."
-                  rows={4}
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-border mt-6">
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={handleCancel}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {editingId ? "Update Category" : "Save Category"}
-                </Button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isAdding}
+        onClose={handleCancel}
+        title={editingId ? "Edit Category" : "New Category"}
+        className="max-w-md"
+      >
+        {/* Shown inside the modal: the page-level banner is hidden behind the overlay */}
+        {error && <Alert variant="destructive" className="mb-4">{error}</Alert>}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="category-name">Name *</Label>
+            <Input 
+              id="category-name"
+              {...register("name")}
+              placeholder="e.g. Antibiotics"
+              aria-invalid={!!errors.name}
+            />
+            {errors.name && <p className="text-caption text-destructive">{errors.name.message}</p>}
           </div>
-        </div>
-      )}
+          <div className="space-y-2">
+            <Label htmlFor="category-description">Description</Label>
+            <Textarea 
+              id="category-description"
+              {...register("description")}
+              className="resize-none"
+              placeholder="Optional description..."
+              rows={4}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={handleCancel}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" loading={isSubmitting}>
+              {editingId ? "Update Category" : "Save Category"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
-      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+      <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-6">
             <TableSkeleton columns={3} rows={5} />
           </div>
         ) : categories.length === 0 ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-              <Tags className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-medium text-foreground mb-1">No categories yet</h3>
-            <p className="text-muted-foreground text-sm max-w-sm">
-              Add your first category to start organizing your pharmacy inventory.
-            </p>
-          </div>
+          <EmptyState
+            icon={Tags}
+            title="No categories yet"
+            description="Add your first category to start organizing your pharmacy inventory."
+          />
         ) : (
-          <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-secondary/50">
-                <th className="p-4 text-sm font-semibold text-foreground">Name</th>
-                <th className="p-4 text-sm font-semibold text-foreground">Description</th>
-                <th className="p-4 text-sm font-semibold text-foreground text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {categories.map((cat) => (
-                <tr key={cat._id} className="hover:bg-secondary/30 transition-colors group">
-                  <td className="p-4 text-sm font-medium text-foreground">{cat.name}</td>
-                  <td className="p-4 text-sm text-muted-foreground">{cat.description || "-"}</td>
-                  <td className="p-4 text-right">
-                    <button
+                <TableRow key={cat._id}>
+                  <TableCell className="font-semibold text-ink">{cat.name}</TableCell>
+                  <TableCell className="text-ink-48">{cat.description || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleEditClick(cat)}
-                      className="inline-flex items-center justify-center p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                       title="Edit Category"
+                      aria-label="Edit Category"
                     >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
+                      <Edit aria-hidden="true" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-          </div>
+            </TableBody>
+          </Table>
         )}
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

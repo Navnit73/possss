@@ -2,40 +2,32 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { AlertCircle, CheckCircle2, Info, XCircle } from "lucide-react"
 
+/** Inline notice on a white canvas with a hairline and 18px radius; status is carried by the icon tone only. */
 export interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "destructive" | "success" | "warning"
 }
 
+const icons = {
+  default: <Info className="size-5 text-primary shrink-0" aria-hidden="true" />,
+  destructive: <XCircle className="size-5 text-destructive shrink-0" aria-hidden="true" />,
+  success: <CheckCircle2 className="size-5 text-success shrink-0" aria-hidden="true" />,
+  warning: <AlertCircle className="size-5 text-warning shrink-0" aria-hidden="true" />,
+}
+
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
   ({ className, variant = "default", children, ...props }, ref) => {
-    
-    const variants = {
-      default: "bg-surface text-foreground border-border",
-      destructive: "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
-      success: "border-success/50 text-success dark:border-success [&>svg]:text-success",
-      warning: "border-yellow-500/50 text-yellow-600 dark:text-yellow-500 [&>svg]:text-yellow-600",
-    }
-    
-    const icons = {
-      default: <Info className="h-4 w-4" />,
-      destructive: <XCircle className="h-4 w-4" />,
-      success: <CheckCircle2 className="h-4 w-4" />,
-      warning: <AlertCircle className="h-4 w-4" />
-    }
-
     return (
       <div
         ref={ref}
-        role="alert"
+        role={variant === "default" ? "status" : "alert"}
         className={cn(
-          "relative w-full rounded-md border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
-          variants[variant],
+          "flex w-full items-start gap-3 rounded-lg bg-canvas border border-hairline px-4.25 py-3 text-caption text-ink",
           className
         )}
         {...props}
       >
         {icons[variant]}
-        <div className="text-sm [&_p]:leading-relaxed">{children}</div>
+        <div className="flex-1 min-w-0 [&_p]:leading-relaxed">{children}</div>
       </div>
     )
   }

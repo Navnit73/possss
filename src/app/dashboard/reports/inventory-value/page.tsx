@@ -73,10 +73,10 @@ export default function InventoryValueReportPage() {
 
   const m = data?.metrics;
   const columns: ReportColumn<any, Col>[] = [
-    { key: "product_name", label: "Product", className: "font-medium text-foreground", render: (r) => r.product_name },
-    { key: "category", label: "Category", className: "text-muted-foreground", render: (r) => r.category },
-    { key: "batch_number", label: "Batch", className: "text-muted-foreground", render: (r) => r.batch_number },
-    { key: "rack_location", label: "Rack", className: "text-muted-foreground", render: (r) => r.rack_location },
+    { key: "product_name", label: "Product", className: "font-semibold text-ink", render: (r) => r.product_name },
+    { key: "category", label: "Category", className: "text-ink-48", render: (r) => r.category },
+    { key: "batch_number", label: "Batch", className: "text-ink-48", render: (r) => r.batch_number },
+    { key: "rack_location", label: "Rack", className: "text-ink-48", render: (r) => r.rack_location },
     { key: "qty_available", label: "Available Qty", align: "right", className: "font-semibold", render: (r) => r.qty_available },
     { key: "cost_price", label: "Cost Price", align: "right", render: (r) => formatCurrency(r.cost_price) },
     { key: "selling_price", label: "Selling Price", align: "right", render: (r) => formatCurrency(r.selling_price) },
@@ -84,7 +84,7 @@ export default function InventoryValueReportPage() {
     {
       key: "expiry_date",
       label: "Expiry Date",
-      className: "text-muted-foreground",
+      className: "text-ink-48",
       // "yyyy-MM-dd" calendar date: shown as-is (new Date() would parse it as UTC and can show the previous day)
       render: (r) => (
         <span className="inline-flex items-center gap-2">
@@ -96,14 +96,14 @@ export default function InventoryValueReportPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ReportFilterBar onSubmit={apply} isLoading={isLoading} onExport={exportCsv} isExporting={isExporting}>
         <Select
           aria-label="Category"
           value={draft.category}
           onChange={(e) => setDraft({ ...draft, category: e.target.value })}
           disabled={isLoading}
-          className="w-auto min-w-[170px] bg-surface"
+          className="w-auto min-w-[170px]"
         >
           <option value="">All Categories</option>
           {categories.map((c) => (

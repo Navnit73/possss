@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import { Receipt, Download, CreditCard } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, EmptyState } from "@/components/ui/Page";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 export default function BillingPage() {
   const [payments, setPayments] = useState<any[]>([]);
@@ -49,83 +56,82 @@ export default function BillingPage() {
     }
   };
 
-  if (loading) return <div className="p-8"><TableSkeleton columns={5} rows={5} /></div>;
+  if (loading) {
+    return (
+      <PageShell className="max-w-[980px]">
+        <Card className="p-6">
+          <TableSkeleton columns={5} rows={5} />
+        </Card>
+      </PageShell>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing History</h1>
-        <p className="text-muted-foreground">Your subscription payments and receipts.</p>
-      </div>
+    <PageShell className="max-w-[980px]">
+      <PageHeader title="Billing History" description="Your subscription payments and receipts." />
 
       {error && (
-        <div role="alert" className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-sm">
+        <Alert variant="destructive">
           {error}
-        </div>
+        </Alert>
       )}
 
-      <div className="bg-surface border border-border rounded-sm overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm text-left">
-          <thead className="bg-muted/50 border-b border-border">
-            <tr>
-              <th className="px-6 py-3 font-medium text-muted-foreground">Date</th>
-              <th className="px-6 py-3 font-medium text-muted-foreground">Description</th>
-              <th className="px-6 py-3 font-medium text-muted-foreground">Amount</th>
-              <th className="px-6 py-3 font-medium text-muted-foreground">Status</th>
-              <th className="px-6 py-3 font-medium text-muted-foreground text-right">Receipt</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {payments.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                  <Receipt className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  <p>No billing history found.</p>
-                </td>
-              </tr>
-            ) : (
-              payments.map((payment) => (
-                <tr key={payment._id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-foreground">
+      <Card className="overflow-hidden">
+        {payments.length === 0 ? (
+          <EmptyState icon={Receipt} title="No billing history found." />
+        ) : (
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-6">Date</TableHead>
+                <TableHead className="px-6">Description</TableHead>
+                <TableHead className="px-6">Amount</TableHead>
+                <TableHead className="px-6">Status</TableHead>
+                <TableHead className="px-6 text-right">Receipt</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment._id}>
+                  <TableCell className="px-6 py-4 font-semibold tabular">
                     {new Date(payment.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4">
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="w-4 h-4 text-muted-foreground" />
+                      <CreditCard className="size-4 text-ink-48" aria-hidden="true" />
                       <span>{payment.plan_name} Plan Subscription</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium">
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-semibold tabular">
                     {new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency || "USD" }).format(payment.amount)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
-                      payment.status === "failed" ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"
-                    }`}>
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    <Badge variant={payment.status === "failed" ? "destructive" : "success"} className="capitalize">
                       {payment.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 text-right">
                     {payment.has_receipt && payment.payment_id ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="link"
                         onClick={() => openReceipt(payment.payment_id)}
                         disabled={openingReceipt !== null}
-                        className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 text-sm font-medium disabled:opacity-50"
+                        className="text-caption"
                       >
-                        <Download className="w-4 h-4" />
+                        <Download />
                         Receipt
-                      </button>
+                      </Button>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-ink-48">—</span>
                     )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+    </PageShell>
   );
 }

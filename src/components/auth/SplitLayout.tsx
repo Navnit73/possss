@@ -1,37 +1,35 @@
 import React from "react";
 import { Activity } from "lucide-react";
 
+/**
+ * Auth chassis: form on a white product-tile-light, paired with a flat product-tile-dark
+ * (#272729) carrying the brand headline. No gradients, no decorative blobs — the surface
+ * change is the divider.
+ */
 export function SplitLayout({ children, title, subtitle }: { children: React.ReactNode, title: string, subtitle?: string }) {
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Form Side */}
-      <div className="flex flex-col justify-center px-6 sm:px-16 lg:px-24 bg-surface py-12">
-        <div className="w-full max-w-md mx-auto space-y-8">
-          <div className="flex items-center gap-2 text-primary mb-12">
-            <Activity className="w-8 h-8" aria-hidden="true" />
-            <span className="font-display font-bold text-xl tracking-tight">Pharmacy POS</span>
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-canvas">
+      <div className="flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-12 lg:py-20">
+        <div className="w-full max-w-md mx-auto">
+          <div className="flex items-center gap-2 text-ink mb-12">
+            <Activity className="size-5" aria-hidden="true" />
+            <span className="text-body font-semibold">Pharmacy POS</span>
           </div>
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">{title}</h1>
-            {subtitle && <p className="text-muted-foreground mt-2">{subtitle}</p>}
+          <div className="mb-8">
+            <h1 className="text-display-lg text-ink">{title}</h1>
+            {subtitle && <p className="text-body text-ink-48 mt-3">{subtitle}</p>}
           </div>
           {children}
         </div>
       </div>
 
-      {/* Hero Side */}
-      <div className="hidden md:flex relative bg-primary flex-col justify-center items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-[#005575] to-success opacity-90" />
-        {/* Abstract Geometry */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-success/20 rounded-full blur-2xl" />
-        
-        <div className="relative z-10 p-12 max-w-lg text-center">
-          <h2 className="font-display text-4xl font-bold text-primary-foreground leading-tight mb-6">
+      <div className="hidden lg:flex bg-tile-1 text-on-dark flex-col justify-center items-center px-20 py-20">
+        <div className="max-w-lg text-center">
+          <h2 className="text-display-lg text-on-dark mb-4">
             Precision in every prescription.
           </h2>
-          <p className="text-primary-foreground/80 text-lg">
-            Streamline your pharmacy operations with our clinical-grade inventory management and point of sale system.
+          <p className="text-lead text-body-muted">
+            Inventory and point of sale, built for the pharmacy counter.
           </p>
         </div>
       </div>

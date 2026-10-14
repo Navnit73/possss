@@ -1,6 +1,6 @@
 "use client";
 
-import Swal from "sweetalert2";
+import Swal from "@/lib/swal";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { format, subDays, isValid } from "date-fns";
@@ -10,6 +10,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { PageShell, EmptyState } from "@/components/ui/Page";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 import Papa from "papaparse";
 
 function safeFormatDate(dateVal: any, formatString = "MMM dd, yyyy hh:mm a"): string {
@@ -148,28 +153,28 @@ export default function StockHistoryPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Red if stock reduced, Green if stock added
-  const getChangeBadgeStyle = (qty: number) => {
-    if (qty > 0) return "bg-emerald-100 text-emerald-800 border-emerald-200 font-bold";
-    if (qty < 0) return "bg-rose-100 text-rose-800 border-rose-200 font-bold";
-    return "bg-slate-100 text-slate-800 border-slate-200 font-bold";
+  // Red if stock reduced, Green if stock added (status tone on text only)
+  const getChangeTone = (qty: number) => {
+    if (qty > 0) return "text-success";
+    if (qty < 0) return "text-destructive";
+    return "text-ink";
   };
 
-  const getMovementBadgeStyle = (movementType: string, qty: number) => {
+  const getMovementBadgeVariant = (movementType: string, qty: number): "success" | "destructive" | "secondary" => {
     const t = (movementType || "").toUpperCase();
     if (t === "PURCHASE" || t === "RETURN" || (t === "ADJUSTMENT" && qty > 0)) {
-      return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      return "success";
     }
     if (t === "SALE" || t === "DAMAGE" || (t === "ADJUSTMENT" && qty < 0)) {
-      return "bg-rose-100 text-rose-800 border-rose-200";
+      return "destructive";
     }
-    return "bg-slate-100 text-slate-800 border-slate-200";
+    return "secondary";
   };
 
   const hasActiveFilters = search !== "" || type !== "All" || startDate !== thirtyDaysAgoStr || endDate !== todayStr;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <PageShell>
       <PageHeader 
         title="Stock History"
         description="Immutable ledger of all inventory stock movements, adjustments, and transactions."
@@ -178,187 +183,174 @@ export default function StockHistoryPage() {
             variant="outline" 
             onClick={() => fetchMovements(true)}
             disabled={isExporting}
-            className="cursor-pointer gap-2"
+            className="gap-2"
           >
-            <Download className="w-4 h-4" /> {isExporting ? "Exporting..." : "Export CSV"}
+            <Download aria-hidden="true" /> {isExporting ? "Exporting..." : "Export CSV"}
           </Button>
         }
       />
 
-      {error && <div className="p-4 text-sm text-rose-600 bg-rose-50 rounded-lg border border-rose-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-      {/* Filters Container */}
-      <div className="bg-surface border border-border rounded-lg p-4 flex flex-col md:flex-row justify-between gap-4 items-center">
-        <div className="flex-1 max-w-4xl flex flex-wrap gap-3 items-center w-full">
-          
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              type="text" 
-              placeholder="Search product, batch number, or notes..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-            <Select 
-              value={type}
-              onChange={(e) => { setType(e.target.value); setPage(1); }}
-              className="w-[140px] text-sm"
-            >
-              <option value="All">All Types</option>
-              <option value="PURCHASE">Purchase</option>
-              <option value="SALE">Sale</option>
-              <option value="DAMAGE">Damage</option>
-              <option value="RETURN">Return</option>
-              <option value="ADJUSTMENT">Adjustment</option>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm">
-            <Input 
-              type="date"
-              value={startDate}
-              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-              className="text-xs"
-            />
-            <span className="text-muted-foreground text-xs font-medium">to</span>
-            <Input 
-              type="date"
-              value={endDate}
-              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-              className="text-xs"
-            />
-          </div>
-
-          {hasActiveFilters && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={resetFilters}
-              className="text-xs text-muted-foreground hover:text-foreground gap-1"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Reset
-            </Button>
-          )}
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center w-full">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-ink-48" aria-hidden="true" />
+          <Input 
+            type="text" 
+            placeholder="Search product, batch number, or notes..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
         </div>
+
+        <div className="flex items-center gap-2">
+          <Filter className="size-4 text-ink-48 shrink-0" aria-hidden="true" />
+          <Select 
+            value={type}
+            onChange={(e) => { setType(e.target.value); setPage(1); }}
+            className="w-[170px]"
+          >
+            <option value="All">All Types</option>
+            <option value="PURCHASE">Purchase</option>
+            <option value="SALE">Sale</option>
+            <option value="DAMAGE">Damage</option>
+            <option value="RETURN">Return</option>
+            <option value="ADJUSTMENT">Adjustment</option>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Input 
+            type="date"
+            value={startDate}
+            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+            className="w-auto"
+          />
+          <span className="text-caption text-ink-48">to</span>
+          <Input 
+            type="date"
+            value={endDate}
+            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+            className="w-auto"
+          />
+        </div>
+
+        {hasActiveFilters && (
+          <Button 
+            variant="link" 
+            size="sm" 
+            onClick={resetFilters}
+            className="gap-1"
+          >
+            <RefreshCw className="size-3.5" aria-hidden="true" /> Reset
+          </Button>
+        )}
       </div>
 
       {/* Stock History Table */}
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+      <Card className="overflow-hidden flex flex-col">
         {isLoading ? (
           <div className="p-6">
             <TableSkeleton columns={8} rows={7} />
           </div>
         ) : movements.length === 0 ? (
-          <div className="p-16 text-center text-muted-foreground flex flex-col items-center justify-center">
-            <History className="w-12 h-12 text-muted-foreground mb-3 opacity-60" />
-            <h3 className="font-bold text-foreground text-base mb-1">No stock movements found</h3>
-            <p className="text-sm max-w-sm">
-              {hasActiveFilters ? "Try adjusting or clearing your date range and search filters." : "No stock movements recorded in the ledger yet."}
-            </p>
-            {hasActiveFilters && (
-              <Button variant="outline" size="sm" onClick={resetFilters} className="mt-4">
+          <EmptyState
+            icon={History}
+            title="No stock movements found"
+            description={hasActiveFilters ? "Try adjusting or clearing your date range and search filters." : "No stock movements recorded in the ledger yet."}
+            action={hasActiveFilters ? (
+              <Button variant="outline" onClick={resetFilters}>
                 Clear Filters
               </Button>
-            )}
-          </div>
+            ) : undefined}
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-secondary/50">
-                  <th className="p-4 text-sm font-semibold text-foreground">Date</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Product</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Batch</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Type</th>
-                  <th className="p-4 text-sm font-semibold text-foreground text-center">Change</th>
-                  <th className="p-4 text-sm font-semibold text-foreground text-center">Ledger (Before &rarr; After)</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">User</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {movements.map((m: any) => (
-                  <tr key={m._id} className="hover:bg-secondary/30 transition-colors">
-                    <td className="p-4 whitespace-nowrap text-xs text-muted-foreground">
-                      {safeFormatDate(m.created_at, "MMM dd, yyyy hh:mm a")}
-                    </td>
-                    <td className="p-4 font-semibold text-foreground">
-                      {m.product?.name || "Unknown Product"}
-                      {m.product?.strength && (
-                        <span className="ml-2 text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded border border-border">
-                          {m.product.strength}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 font-mono text-xs text-muted-foreground">
-                      {m.batch?.batch_number || m.batch_id || "N/A"}
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border ${getMovementBadgeStyle(m.movement_type, m.quantity)}`}>
-                        {m.movement_type}
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${getChangeBadgeStyle(m.quantity)}`}>
-                        {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-2 text-xs font-medium bg-secondary/50 px-3 py-1 rounded-md border border-border w-max mx-auto">
-                        <span className="text-muted-foreground">{m.before_qty ?? 0}</span>
-                        <ArrowRight className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-foreground font-bold">{m.after_qty ?? 0}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-muted-foreground text-xs font-medium">
-                      {m.user?.name || "System"}
-                    </td>
-                    <td className="p-4 text-muted-foreground text-xs max-w-[200px] truncate" title={m.notes}>
-                      {m.notes || "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-center">Change</TableHead>
+                <TableHead className="text-center">Ledger (Before &rarr; After)</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {movements.map((m: any) => (
+                <TableRow key={m._id}>
+                  <TableCell className="whitespace-nowrap text-ink-48 tabular">
+                    {safeFormatDate(m.created_at, "MMM dd, yyyy hh:mm a")}
+                  </TableCell>
+                  <TableCell className="font-semibold text-ink">
+                    {m.product?.name || "Unknown Product"}
+                    {m.product?.strength && (
+                      <Badge variant="outline" className="ml-2 font-normal">
+                        {m.product.strength}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-fine-print text-ink-48">
+                    {m.batch?.batch_number || m.batch_id || "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getMovementBadgeVariant(m.movement_type, m.quantity)}>
+                      {m.movement_type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className={`text-center tabular font-semibold ${getChangeTone(m.quantity)}`}>
+                    {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-2 tabular w-max mx-auto">
+                      <span className="text-ink-48">{m.before_qty ?? 0}</span>
+                      <ArrowRight className="size-3 text-ink-48" aria-hidden="true" />
+                      <span className="text-ink font-semibold">{m.after_qty ?? 0}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-ink-48">
+                    {m.user?.name || "System"}
+                  </TableCell>
+                  <TableCell className="text-ink-48 max-w-[200px] truncate" title={m.notes}>
+                    {m.notes || "-"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
         
         {/* Pagination Controls */}
         {!isLoading && movements.length > 0 && (
-          <div className="p-4 border-t border-border bg-secondary/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-xs text-muted-foreground font-medium">
-              Page <span className="font-bold text-foreground">{pagination.page}</span> of <span className="font-bold text-foreground">{pagination.totalPages === 0 ? 1 : pagination.totalPages}</span>
-              <span className="ml-2 font-normal text-muted-foreground">({pagination.total} total ledger entries)</span>
+          <div className="px-6 py-4 border-t border-hairline flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-caption text-ink-48 tabular">
+              Page <span className="font-semibold text-ink">{pagination.page}</span> of <span className="font-semibold text-ink">{pagination.totalPages === 0 ? 1 : pagination.totalPages}</span>
+              <span className="ml-2">({pagination.total} total ledger entries)</span>
             </div>
 
             <div className="flex gap-2">
               <Button 
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={pagination.page === 1}
-                className="h-8 text-xs font-medium"
               >
-                <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+                <ChevronLeft aria-hidden="true" /> Previous
               </Button>
               <Button 
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
                 disabled={pagination.page >= pagination.totalPages || pagination.totalPages === 0}
-                className="h-8 text-xs font-medium"
               >
-                Next <ChevronRight className="w-4 h-4 ml-1" />
+                Next <ChevronRight aria-hidden="true" />
               </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

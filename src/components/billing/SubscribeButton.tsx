@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { PAID_STATUSES, PLAN, PLAN_PRICE_LABEL } from "@/lib/billing";
+import { buttonClasses } from "@/components/ui/Button";
+import { colors } from "@/lib/design";
 
 declare global {
   interface Window {
@@ -83,7 +85,7 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
         name: "Pharmacy POS",
         description: `${PLAN.name} plan — ${PLAN_PRICE_LABEL} / month`,
         prefill: checkout.prefill,
-        theme: { color: "#0f172a" },
+        theme: { color: colors.primary },
         modal: {
           ondismiss: () => {
             setStatus("");
@@ -130,10 +132,10 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
         aria-busy={busy}
         className={
           className ??
-          "w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          buttonClasses({ className: "w-full disabled:pointer-events-none disabled:opacity-40" })
         }
       >
-        {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+        {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
         {busy ? status || "Please wait…" : label}
       </button>
       <p className="sr-only" aria-live="polite">{busy ? status : ""}</p>

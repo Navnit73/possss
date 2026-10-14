@@ -7,7 +7,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema } from "@/lib/validations";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Label } from "@/components/ui/Label";
+import { Alert } from "@/components/ui/Alert";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { cn } from "@/lib/utils";
 import * as z from "zod";
 
 type ProductFormType = z.infer<typeof productSchema>;
@@ -111,404 +118,344 @@ export function ProductForm({ initialData: rawInitialData, isEdit }: ProductForm
 
   return (
     <div className="space-y-8">
-      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
       {Object.keys(errors).length > 0 && (
-        <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">
+        <Alert variant="destructive">
           Please fix the highlighted fields: {Object.keys(errors).map(k => k.replace(/_/g, " ")).join(", ")}.
-        </div>
+        </Alert>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Section 1: Basic Information */}
-        <div className="bg-surface border border-border rounded-sm p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Basic Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="col-span-1 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">Medicine Name *</label>
-              <input 
-                {...register("name")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. Paracetamol 500mg Tablet"
-              />
-              {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>}
-            </div>
+        <FormSection title="Basic Information" gridClassName="md:grid-cols-2">
+          <Field id="name" label="Medicine Name *" className="md:col-span-2" error={errors.name?.message}>
+            <Input id="name" {...register("name")} aria-invalid={!!errors.name} placeholder="e.g. Paracetamol 500mg Tablet" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Generic Name</label>
-              <input 
-                {...register("generic_name")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. Acetaminophen"
-              />
-            </div>
+          <Field id="generic_name" label="Generic Name">
+            <Input id="generic_name" {...register("generic_name")} placeholder="e.g. Acetaminophen" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Brand</label>
-              <input 
-                {...register("brand")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. Tylenol"
-              />
-            </div>
+          <Field id="brand" label="Brand">
+            <Input id="brand" {...register("brand")} placeholder="e.g. Tylenol" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Category *</label>
-              <select 
-                {...register("category_id")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                disabled={isLoadingData}
-              >
-                <option value="">Select Category...</option>
-                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
-              {errors.category_id && <p className="text-sm text-red-500 mt-1">{errors.category_id.message}</p>}
-            </div>
+          <Field id="category_id" label="Category *" error={errors.category_id?.message}>
+            <Select id="category_id" {...register("category_id")} aria-invalid={!!errors.category_id} disabled={isLoadingData}>
+              <option value="">Select Category...</option>
+              {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+            </Select>
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Manufacturer *</label>
-              <select 
-                {...register("manufacturer_id")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-                disabled={isLoadingData}
-              >
-                <option value="">Select Manufacturer...</option>
-                {manufacturers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
-              </select>
-              {errors.manufacturer_id && <p className="text-sm text-red-500 mt-1">{errors.manufacturer_id.message}</p>}
-            </div>
+          <Field id="manufacturer_id" label="Manufacturer *" error={errors.manufacturer_id?.message}>
+            <Select id="manufacturer_id" {...register("manufacturer_id")} aria-invalid={!!errors.manufacturer_id} disabled={isLoadingData}>
+              <option value="">Select Manufacturer...</option>
+              {manufacturers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+            </Select>
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Barcode (UPC/EAN)</label>
-              <input 
-                {...register("barcode")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="Scan or enter barcode"
-              />
-            </div>
+          <Field id="barcode" label="Barcode (UPC/EAN)">
+            <Input id="barcode" {...register("barcode")} className="font-mono" placeholder="Scan or enter barcode" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">SKU (Internal Code)</label>
-              <input 
-                {...register("sku")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. MED-001"
-              />
-            </div>
-          </div>
-        </div>
+          <Field id="sku" label="SKU (Internal Code)">
+            <Input id="sku" {...register("sku")} className="font-mono" placeholder="e.g. MED-001" />
+          </Field>
+        </FormSection>
 
         {/* Section 2: Regulatory & Compliance */}
-        <div className="bg-surface border border-border rounded-sm p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Regulatory & Compliance</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="text-sm font-medium text-foreground">Schedule Class</label>
-              <select 
-                {...register("schedule_class")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Non-scheduled</option>
-                <option value="Schedule H">Schedule H</option>
-                <option value="Schedule H1">Schedule H1</option>
-                <option value="Schedule X">Schedule X</option>
-                <option value="Schedule II">Schedule II</option>
-                <option value="Schedule III">Schedule III</option>
-                <option value="Schedule IV">Schedule IV</option>
-                <option value="Schedule V">Schedule V</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">HSN / Tax Code</label>
-              <input 
-                {...register("hsn_code")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. 3004"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">NDC Code</label>
-              <input 
-                {...register("ndc_code")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. 12345-6789-01"
-              />
-            </div>
-          </div>
-        </div>
+        <FormSection title="Regulatory & Compliance">
+          <Field id="schedule_class" label="Schedule Class">
+            <Select id="schedule_class" {...register("schedule_class")}>
+              <option value="">Non-scheduled</option>
+              <option value="Schedule H">Schedule H</option>
+              <option value="Schedule H1">Schedule H1</option>
+              <option value="Schedule X">Schedule X</option>
+              <option value="Schedule II">Schedule II</option>
+              <option value="Schedule III">Schedule III</option>
+              <option value="Schedule IV">Schedule IV</option>
+              <option value="Schedule V">Schedule V</option>
+            </Select>
+          </Field>
+          <Field id="hsn_code" label="HSN / Tax Code">
+            <Input id="hsn_code" {...register("hsn_code")} className="font-mono" placeholder="e.g. 3004" />
+          </Field>
+          <Field id="ndc_code" label="NDC Code">
+            <Input id="ndc_code" {...register("ndc_code")} className="font-mono" placeholder="e.g. 12345-6789-01" />
+          </Field>
+        </FormSection>
 
         {/* Section 3: Clinical & Administration */}
-        <div className="bg-surface border border-border rounded-sm p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Clinical & Administration</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="text-sm font-medium text-foreground">Strength</label>
-              <input 
-                {...register("strength")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. 500mg, 10ml"
-              />
-            </div>
+        <FormSection title="Clinical & Administration">
+          <Field id="strength" label="Strength">
+            <Input id="strength" {...register("strength")} placeholder="e.g. 500mg, 10ml" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Dosage Form</label>
-              <select 
-                {...register("dosage_form")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Select Form...</option>
-                <option value="Tablet">Tablet</option>
-                <option value="Capsule">Capsule</option>
-                <option value="Syrup">Syrup</option>
-                <option value="Injection">Injection</option>
-                <option value="Ointment">Ointment</option>
-                <option value="Drops">Drops</option>
-                <option value="Inhaler">Inhaler</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-foreground">Route of Admin</label>
-              <select 
-                {...register("route_of_administration")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Select Route...</option>
-                <option value="Oral">Oral</option>
-                <option value="Intravenous">Intravenous (IV)</option>
-                <option value="Intramuscular">Intramuscular (IM)</option>
-                <option value="Topical">Topical</option>
-                <option value="Ophthalmic">Ophthalmic</option>
-                <option value="Otic">Otic</option>
-                <option value="Subcutaneous">Subcutaneous</option>
-              </select>
-            </div>
+          <Field id="dosage_form" label="Dosage Form">
+            <Select id="dosage_form" {...register("dosage_form")}>
+              <option value="">Select Form...</option>
+              <option value="Tablet">Tablet</option>
+              <option value="Capsule">Capsule</option>
+              <option value="Syrup">Syrup</option>
+              <option value="Injection">Injection</option>
+              <option value="Ointment">Ointment</option>
+              <option value="Drops">Drops</option>
+              <option value="Inhaler">Inhaler</option>
+              <option value="Other">Other</option>
+            </Select>
+          </Field>
+          
+          <Field id="route_of_administration" label="Route of Admin">
+            <Select id="route_of_administration" {...register("route_of_administration")}>
+              <option value="">Select Route...</option>
+              <option value="Oral">Oral</option>
+              <option value="Intravenous">Intravenous (IV)</option>
+              <option value="Intramuscular">Intramuscular (IM)</option>
+              <option value="Topical">Topical</option>
+              <option value="Ophthalmic">Ophthalmic</option>
+              <option value="Otic">Otic</option>
+              <option value="Subcutaneous">Subcutaneous</option>
+            </Select>
+          </Field>
 
-            <div className="col-span-1 md:col-span-3">
-              <label className="text-sm font-medium text-foreground">Active Ingredients</label>
-              <input 
-                {...register("active_ingredients")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. Amoxicillin, Clavulanate Potassium"
-              />
-            </div>
+          <Field id="active_ingredients" label="Active Ingredients" className="md:col-span-3">
+            <Input id="active_ingredients" {...register("active_ingredients")} placeholder="e.g. Amoxicillin, Clavulanate Potassium" />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Storage Conditions</label>
-              <select 
-                {...register("storage_conditions")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Room Temperature</option>
-                <option value="Refrigerated (2-8°C)">Refrigerated (2-8°C)</option>
-                <option value="Frozen">Frozen</option>
-                <option value="Protect from Light">Protect from Light</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium text-foreground">Pregnancy Category</label>
-              <select 
-                {...register("pregnancy_category")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Unknown / N/A</option>
-                <option value="Category A">Category A</option>
-                <option value="Category B">Category B</option>
-                <option value="Category C">Category C</option>
-                <option value="Category D">Category D</option>
-                <option value="Category X">Category X</option>
-              </select>
-            </div>
+          <Field id="storage_conditions" label="Storage Conditions">
+            <Select id="storage_conditions" {...register("storage_conditions")}>
+              <option value="">Room Temperature</option>
+              <option value="Refrigerated (2-8°C)">Refrigerated (2-8°C)</option>
+              <option value="Frozen">Frozen</option>
+              <option value="Protect from Light">Protect from Light</option>
+            </Select>
+          </Field>
+          
+          <Field id="pregnancy_category" label="Pregnancy Category">
+            <Select id="pregnancy_category" {...register("pregnancy_category")}>
+              <option value="">Unknown / N/A</option>
+              <option value="Category A">Category A</option>
+              <option value="Category B">Category B</option>
+              <option value="Category C">Category C</option>
+              <option value="Category D">Category D</option>
+              <option value="Category X">Category X</option>
+            </Select>
+          </Field>
 
-            <div className="flex items-center gap-3 mt-8">
-              <input 
-                type="checkbox"
-                id="requires_prescription"
-                {...register("requires_prescription")}
-                className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
-              />
-              <label htmlFor="requires_prescription" className="text-sm font-medium text-foreground select-none cursor-pointer">
-                Requires Prescription (Rx)
-              </label>
-            </div>
+          <div className="flex items-center gap-3 md:mt-8">
+            <input 
+              type="checkbox"
+              id="requires_prescription"
+              {...register("requires_prescription")}
+              className="accent-primary size-4 cursor-pointer"
+            />
+            <Label htmlFor="requires_prescription" className="font-normal select-none cursor-pointer">
+              Requires Prescription (Rx)
+            </Label>
           </div>
-        </div>
+        </FormSection>
 
         {/* Section 4: Packaging & Dispensing */}
-        <div className="bg-surface border border-border rounded-sm p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Packaging & Dispensing</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="text-sm font-medium text-foreground">Unit of Measure (UOM) *</label>
-              <select 
-                {...register("unit_of_measure")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Select Base Unit...</option>
-                <option value="Tablet">Tablet</option>
-                <option value="Capsule">Capsule</option>
-                <option value="ml">Milliliter (ml)</option>
-                <option value="gm">Gram (gm)</option>
-                <option value="Vial">Vial</option>
-                <option value="Ampoule">Ampoule</option>
-                <option value="Piece">Piece</option>
-              </select>
-              {errors.unit_of_measure && <p className="text-sm text-red-500 mt-1">{errors.unit_of_measure.message}</p>}
-            </div>
+        <FormSection title="Packaging & Dispensing">
+          <Field id="unit_of_measure" label="Unit of Measure (UOM) *" error={errors.unit_of_measure?.message}>
+            <Select id="unit_of_measure" {...register("unit_of_measure")} aria-invalid={!!errors.unit_of_measure}>
+              <option value="">Select Base Unit...</option>
+              <option value="Tablet">Tablet</option>
+              <option value="Capsule">Capsule</option>
+              <option value="ml">Milliliter (ml)</option>
+              <option value="gm">Gram (gm)</option>
+              <option value="Vial">Vial</option>
+              <option value="Ampoule">Ampoule</option>
+              <option value="Piece">Piece</option>
+            </Select>
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Package Type</label>
-              <select 
-                {...register("package_type")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="">Select Type...</option>
-                <option value="Strip">Strip</option>
-                <option value="Blister Pack">Blister Pack</option>
-                <option value="Bottle">Bottle</option>
-                <option value="Box">Box</option>
-                <option value="Tube">Tube</option>
-              </select>
-            </div>
+          <Field id="package_type" label="Package Type">
+            <Select id="package_type" {...register("package_type")}>
+              <option value="">Select Type...</option>
+              <option value="Strip">Strip</option>
+              <option value="Blister Pack">Blister Pack</option>
+              <option value="Bottle">Bottle</option>
+              <option value="Box">Box</option>
+              <option value="Tube">Tube</option>
+            </Select>
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Package Size</label>
-              <div className="flex items-center gap-2 mt-1.5">
-                <input 
-                  type="number"
-                  min="1"
-                  {...register("package_size")}
-                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="e.g. 10"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">units per pack</span>
-              </div>
-              {errors.package_size && <p className="text-sm text-red-500 mt-1">{errors.package_size.message}</p>}
+          <Field id="package_size" label="Package Size" error={errors.package_size?.message}>
+            <div className="flex items-center gap-2">
+              <Input 
+                id="package_size"
+                type="number"
+                min="1"
+                {...register("package_size")}
+                aria-invalid={!!errors.package_size}
+                className="tabular"
+                placeholder="e.g. 10"
+              />
+              <span className="text-caption text-ink-48 whitespace-nowrap">units per pack</span>
             </div>
-          </div>
-        </div>
+          </Field>
+        </FormSection>
 
         {/* Section 5: Inventory Settings */}
-        <div className="bg-surface border border-border rounded-sm p-6 ">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Inventory Settings</h2>
-          
-          <div className="bg-primary/5 rounded-lg p-4 mb-6 border border-primary/10 text-sm text-primary/80">
-            <strong>Note:</strong> Product Master does not store quantity. Stock levels are managed separately by receiving Inventory Batches.
-          </div>
+        <FormSection
+          title="Inventory Settings"
+          gridClassName="md:grid-cols-4"
+          intro={
+            <Alert>
+              <strong className="font-semibold">Note:</strong> Product Master does not store quantity. Stock levels are managed separately by receiving Inventory Batches.
+            </Alert>
+          }
+        >
+          <Field id="rack_number" label="Rack Number" hint="Pharmacy storage location.">
+            <Input id="rack_number" {...register("rack_number")} placeholder="e.g. A1, Shelf 3" />
+          </Field>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div>
-              <label className="text-sm font-medium text-foreground">Rack Number</label>
-              <input 
-                {...register("rack_number")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="e.g. A1, Shelf 3"
-              />
-              <p className="text-xs text-muted-foreground mt-1.5">Pharmacy storage location.</p>
-            </div>
+          <Field id="minimum_stock" label="Minimum Stock Alert" error={errors.minimum_stock?.message} hint="Alerts when total stock falls below this level.">
+            <Input 
+              id="minimum_stock"
+              type="number"
+              min="0"
+              {...register("minimum_stock")}
+              aria-invalid={!!errors.minimum_stock}
+              className="tabular"
+              placeholder="0"
+            />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Minimum Stock Alert</label>
-              <input 
-                type="number"
-                min="0"
-                {...register("minimum_stock")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="0"
-              />
-              {errors.minimum_stock && <p className="text-sm text-red-500 mt-1">{errors.minimum_stock.message}</p>}
-              <p className="text-xs text-muted-foreground mt-1.5">Alerts when total stock falls below this level.</p>
-            </div>
+          <Field id="tax_rate" label="Tax Rate (%)" error={errors.tax_rate?.message}>
+            <Input 
+              id="tax_rate"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register("tax_rate")}
+              aria-invalid={!!errors.tax_rate}
+              className="tabular"
+              placeholder="0.00"
+            />
+          </Field>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Tax Rate (%)</label>
-              <input 
-                type="number"
-                step="0.01"
-                min="0"
-                {...register("tax_rate")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                placeholder="0.00"
-              />
-              {errors.tax_rate && <p className="text-sm text-red-500 mt-1">{errors.tax_rate.message}</p>}
-            </div>
+          <Field id="status" label="Status">
+            <Select id="status" {...register("status")}>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </Select>
+          </Field>
+        </FormSection>
 
-            <div>
-              <label className="text-sm font-medium text-foreground">Status</label>
-              <select 
-                {...register("status")}
-                className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-4 pt-4 pb-6">
-          <Link 
-            href="/dashboard/products"
-            className="px-6 py-2.5 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors"
-          >
+        <div className="frosted sticky bottom-0 z-10 -mx-4 sm:-mx-6 lg:-mx-8 border-t border-hairline px-8 py-3 flex justify-end gap-3">
+          <Link href="/dashboard/products" className={buttonClasses({ variant: "outline" })}>
             Cancel
           </Link>
-          <button 
+          <Button 
             type="submit"
-            disabled={isSubmitting || isLoadingData}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+            disabled={isLoadingData}
+            loading={isSubmitting}
           >
-            <Save className="w-4 h-4" />
+            {!isSubmitting && <Save aria-hidden="true" />}
             {isSubmitting ? "Saving..." : (isEdit ? "Update Product" : "Save Product")}
-          </button>
+          </Button>
         </div>
       </form>
       
       {isEdit && editLogs.length > 0 && (
-        <div className="bg-surface border border-border rounded-sm p-6 mt-8">
-          <h2 className="text-lg font-semibold text-foreground mb-4 pb-2 border-b border-border/50">Edit History</h2>
-          <div className="space-y-4">
-            {editLogs.map((log, index) => {
-              const changes = log.details?.changes || {};
-              const hasChanges = Object.keys(changes).length > 0;
-              const actionLabel = log.action ? log.action.replace(/_/g, " ") : "Product Edited";
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y divide-divider-soft">
+              {editLogs.map((log, index) => {
+                const changes = log.details?.changes || {};
+                const hasChanges = Object.keys(changes).length > 0;
+                const actionLabel = log.action ? log.action.replace(/_/g, " ") : "Product Edited";
 
-              return (
-                <div key={index} className="flex items-start gap-3 p-4 rounded-lg bg-background border border-border/50">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm text-foreground">
+                return (
+                  <li key={index} className="py-4 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                      <span className="text-body font-semibold text-ink">
                         {actionLabel} by {log.userName || "Staff"}
                       </span>
-                      <span className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</span>
+                      <span className="text-caption text-ink-48 tabular">{new Date(log.timestamp).toLocaleString()}</span>
                     </div>
                     {hasChanges ? (
-                      <div className="text-sm text-muted-foreground">
-                        <p className="font-medium mb-1">Changes:</p>
+                      <div className="text-caption text-ink-80">
+                        <p className="font-semibold mb-1">Changes:</p>
                         <ul className="list-disc pl-5 space-y-1">
                           {Object.entries(changes).map(([field, vals]: [string, any]) => (
                             <li key={field}>
                               <span className="capitalize">{field.replace(/_/g, " ")}</span>: 
-                              <span className="line-through mx-1 text-red-400">{String(vals?.old ?? "None")}</span> 
-                              <span>&rarr;</span> 
-                              <span className="ml-1 text-green-600 font-medium">{String(vals?.new ?? "None")}</span>
+                              <span className="line-through mx-1 text-ink-48">{String(vals?.old ?? "None")}</span> 
+                              <span aria-hidden="true">&rarr;</span> 
+                              <span className="ml-1 text-ink font-semibold">{String(vals?.new ?? "None")}</span>
                             </li>
                           ))}
                         </ul>
                       </div>
                     ) : log.after?.name ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-caption text-ink-48">
                         Updated product details ({log.after.name})
                       </p>
                     ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
       )}
+    </div>
+  );
+}
+
+/** Form section on the store-utility-card: tagline title, then a responsive field grid. */
+function FormSection({
+  title,
+  intro,
+  gridClassName = "md:grid-cols-3",
+  children,
+}: {
+  title: string;
+  intro?: React.ReactNode;
+  gridClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {intro}
+        <div className={cn("grid grid-cols-1 gap-6", gridClassName)}>{children}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Label + control + optional validation message / helper caption. */
+function Field({
+  id,
+  label,
+  error,
+  hint,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  hint?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+      {error && <p className="text-caption text-destructive">{error}</p>}
+      {hint && <p className="text-caption text-ink-48">{hint}</p>}
     </div>
   );
 }

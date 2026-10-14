@@ -153,20 +153,20 @@ export function SearchableSelect({
         aria-labelledby={ariaLabelledBy}
         data-invalid={ariaInvalid || undefined}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-invalid:border-destructive",
-          !selectedOption && "text-muted-foreground"
+          "flex min-h-11 w-full items-center justify-between rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 data-invalid:border-destructive",
+          !selectedOption && "text-ink-48"
         )}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+        <ChevronsUpDown className="ml-2 size-4 shrink-0 text-ink-48" aria-hidden="true" />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface text-foreground shadow-lg animate-in fade-in zoom-in-95" ref={listRef}>
-          <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+        <div className="absolute top-full z-50 mt-2 max-h-72 w-full overflow-auto rounded-lg border border-hairline bg-canvas text-ink animate-in fade-in zoom-in-95" ref={listRef}>
+          <div className="sticky top-0 z-10 flex items-center border-b border-hairline bg-canvas px-4">
+            <Search className="mr-2 size-3.5 shrink-0 text-ink-48" aria-hidden="true" />
             <input
               role="combobox"
               aria-expanded={true}
@@ -174,7 +174,7 @@ export function SearchableSelect({
               aria-autocomplete="list"
               aria-activedescendant={visibleOptions[activeIndex] ? optionId(activeIndex) : undefined}
               aria-label="Search options"
-              className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-full bg-transparent py-3 text-body text-ink outline-none placeholder:text-ink-48 disabled:cursor-not-allowed disabled:opacity-40"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => {
@@ -185,9 +185,9 @@ export function SearchableSelect({
               autoFocus
             />
           </div>
-          <div className="p-1" role="listbox" id={listboxId} aria-label={ariaLabel ?? placeholder}>
+          <div className="p-1.5" role="listbox" id={listboxId} aria-label={ariaLabel ?? placeholder}>
             {visibleOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground" role="presentation">
+              <div className="py-6 text-center text-caption text-ink-48" role="presentation">
                 No results found.
               </div>
             ) : (
@@ -202,9 +202,9 @@ export function SearchableSelect({
                     role="option"
                     aria-selected={isSelected}
                     className={cn(
-                      "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
-                      isActive && "bg-accent text-accent-foreground",
-                      isSelected && "font-medium"
+                      "relative flex w-full cursor-pointer select-none items-center rounded-sm py-2 pl-3 pr-8 text-caption text-ink outline-none",
+                      isActive && "bg-parchment",
+                      isSelected && "font-semibold"
                     )}
                     onMouseEnter={() => setActiveIndex(index)}
                     // Keep focus in the search box so keyboard navigation continues to work
@@ -214,7 +214,7 @@ export function SearchableSelect({
                     <span className="truncate">{option.label}</span>
                     {isSelected && (
                       <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                        <Check className="h-4 w-4" aria-hidden="true" />
+                        <Check className="size-4 text-primary" aria-hidden="true" />
                       </span>
                     )}
                   </div>
@@ -222,7 +222,7 @@ export function SearchableSelect({
               })
             )}
             {filteredOptions.length > MAX_RENDERED_OPTIONS && (
-              <div className="px-2 py-2 text-center text-xs text-muted-foreground" role="presentation">
+              <div className="px-2 py-2 text-center text-fine-print text-ink-48" role="presentation">
                 Showing first {MAX_RENDERED_OPTIONS} of {filteredOptions.length} — type to narrow results.
               </div>
             )}

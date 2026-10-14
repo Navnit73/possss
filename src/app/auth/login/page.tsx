@@ -9,6 +9,10 @@ import Link from "next/link";
 import { z } from "zod";
 import { loginSchema } from "@/lib/validations";
 import { SplitLayout } from "@/components/auth/SplitLayout";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 
 type LoginForm = z.infer<typeof loginSchema>;
 
@@ -59,49 +63,46 @@ export default function LoginPage() {
   return (
     <SplitLayout title="Welcome back" subtitle="Enter your credentials to access your terminal.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {justRegistered && !error && <div role="status" className="p-3 text-sm text-green-700 dark:text-green-400 bg-green-500/10 rounded-md border border-green-500/20">Account created. Please sign in to continue.</div>}
-        {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
-        
+        {justRegistered && !error && (
+          <Alert variant="success" role="status">Account created. Please sign in to continue.</Alert>
+        )}
+        {error && <Alert variant="destructive">{error}</Alert>}
+
         <div className="space-y-2">
-          <label htmlFor="login-email" className="text-sm font-medium text-foreground">Email</label>
-          <input 
+          <Label htmlFor="login-email">Email</Label>
+          <Input
             {...register("email")}
             id="login-email"
             autoComplete="email"
             aria-invalid={!!errors.email}
             type="email"
-            className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
             placeholder="pharmacist@example.com"
           />
-          {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+          {errors.email && <p className="text-caption text-destructive">{errors.email.message}</p>}
         </div>
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label htmlFor="login-password" className="text-sm font-medium text-foreground">Password</label>
-            <Link href="/auth/forgot-password" className="text-sm text-primary hover:text-primary-hover font-medium">Forgot password?</Link>
+            <Label htmlFor="login-password">Password</Label>
+            <Link href="/auth/forgot-password" className="text-caption text-primary hover:underline underline-offset-[3px]">Forgot password?</Link>
           </div>
-          <input 
+          <Input
             {...register("password")}
             id="login-password"
             autoComplete="current-password"
             aria-invalid={!!errors.password}
             type="password"
-            className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />
-          {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+          {errors.password && <p className="text-caption text-destructive">{errors.password.message}</p>}
         </div>
 
-        <button 
-          disabled={isLoading}
-          type="submit"
-          className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors disabled:opacity-50"
-        >
+        <Button disabled={isLoading} type="submit" className="w-full">
           {isLoading ? "Signing in..." : "Sign in"}
-        </button>
+        </Button>
 
-        <p className="text-center text-sm text-muted-foreground pt-4">
-          Don't have an account? <Link href="/auth/register" className="text-primary hover:text-primary-hover font-medium">Register</Link>
+        <p className="text-center text-caption text-ink-48 pt-2">
+          Don&apos;t have an account?{" "}
+          <Link href="/auth/register" className="text-primary hover:underline underline-offset-[3px]">Register</Link>
         </p>
       </form>
     </SplitLayout>

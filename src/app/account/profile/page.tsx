@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { User, Store, Mail, Phone, MapPin, Globe, CreditCard, ShieldCheck, AlertCircle, RefreshCw, Briefcase, Building2 } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
 import { z } from "zod";
 import { useCurrency } from "@/context/CurrencyContext";
 
@@ -144,148 +151,131 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
-        <div className="border-b border-border pb-6 space-y-2">
-          <div className="h-6 w-48 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-72 bg-muted rounded animate-pulse" />
+      <PageShell className="max-w-[980px]">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-5 w-80" />
         </div>
-        <div className="p-6 bg-card border border-border rounded-lg space-y-4">
+        <Card className="p-6">
           <TableSkeleton columns={2} rows={4} />
-        </div>
-      </div>
+        </Card>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="border-b border-border pb-6">
-        <div className="flex items-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase mb-1">
-          <User className="w-4 h-4" /> Personal & Business Identity
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Account Profile</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your user profile credentials, contact information, and store business settings.
-        </p>
-      </div>
+    <PageShell className="max-w-[980px]">
+      <PageHeader
+        title="Account Profile"
+        description="Manage your user profile credentials, contact information, and store business settings."
+      />
 
       {/* Notifications */}
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <Alert variant="destructive">
           <span>{error}</span>
-        </div>
+        </Alert>
       )}
-      
+
       {success && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg flex items-center gap-3 text-sm">
-          <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
+        <Alert variant="success">
           <span>{success}</span>
-        </div>
+        </Alert>
       )}
 
       {/* User Summary Card */}
-      <div className="p-6 bg-card border border-border rounded-xl shadow-2xs flex flex-col sm:flex-row items-center gap-5">
-        <div className="w-16 h-16 rounded-full bg-primary/10 text-primary font-bold text-xl flex items-center justify-center shrink-0 border border-primary/20">
+      <Card className="p-6 flex flex-col sm:flex-row items-center gap-5">
+        <div className="size-16 rounded-full bg-parchment text-ink text-tagline flex items-center justify-center shrink-0">
           {userForm.name ? userForm.name.charAt(0).toUpperCase() : "U"}
         </div>
         <div className="space-y-1 text-center sm:text-left flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <h2 className="text-lg font-bold text-foreground">{userForm.name || "User Account"}</h2>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold w-fit mx-auto sm:mx-0 border ${
-              userRole === "OWNER" 
-                ? "bg-amber-500/10 text-amber-600 border-amber-500/20" 
-                : "bg-primary/10 text-primary border-primary/20"
-            }`}>
+            <h2 className="text-tagline text-ink">{userForm.name || "User Account"}</h2>
+            <Badge variant={userRole === "OWNER" ? "dark" : "secondary"} className="w-fit mx-auto sm:mx-0">
               {userRole}
-            </span>
+            </Badge>
           </div>
-          <p className="text-xs text-muted-foreground">{userForm.email}</p>
+          <p className="text-caption text-ink-48">{userForm.email}</p>
         </div>
-      </div>
+      </Card>
 
-      <form onSubmit={handleSave} className="grid gap-8">
+      <form onSubmit={handleSave} className="space-y-8">
         {/* Personal Information */}
-        <div className="bg-card border border-border rounded-xl shadow-2xs">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center gap-2 rounded-t-xl">
-            <User className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Personal Information</h2>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal Information</CardTitle>
+          </CardHeader>
 
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Full Name *</label>
-              <input
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">Full name *</Label>
+              <Input
+                id="profile-name"
                 type="text"
                 required
                 value={userForm.name}
                 onChange={e => setUserForm({...userForm, name: e.target.value})}
-                className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email Address (Read Only)</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="profile-email">Email address (read only)</Label>
+              <Input
+                id="profile-email"
                 type="email"
                 value={userForm.email}
                 disabled
-                className="w-full h-10 px-3.5 bg-muted/40 border border-border rounded-md text-muted-foreground cursor-not-allowed text-sm"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone Number</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="profile-phone">Phone number</Label>
+              <Input
+                id="profile-phone"
                 type="tel"
                 placeholder="+1 (555) 000-0000"
                 value={userForm.phone}
                 onChange={e => setUserForm({...userForm, phone: e.target.value})}
-                className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Job Title</label>
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="profile-job-title">Job title</Label>
+              <Input
+                id="profile-job-title"
                 type="text"
                 placeholder="e.g. Chief Pharmacist"
                 value={userForm.job_title}
                 onChange={e => setUserForm({...userForm, job_title: e.target.value})}
-                className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
               />
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Business Information (Owner Only) */}
         {userRole === "OWNER" && (
-          <div className="bg-card border border-border rounded-xl shadow-2xs">
-            <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between rounded-t-xl">
-              <div className="flex items-center gap-2">
-                <Store className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold text-foreground">Pharmacy & Store Settings</h2>
-              </div>
-              <span className="text-xs bg-amber-500/10 text-amber-600 px-2.5 py-0.5 rounded font-semibold border border-amber-500/20">
-                Owner Access Only
-              </span>
-            </div>
+          <Card>
+            <CardHeader className="flex-row items-center justify-between gap-3">
+              <CardTitle>Pharmacy &amp; Store Settings</CardTitle>
+              <Badge variant="secondary">Owner access only</Badge>
+            </CardHeader>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pharmacy Business Name *</label>
-                <input
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <Label htmlFor="tenant-business-name">Pharmacy business name *</Label>
+                <Input
+                  id="tenant-business-name"
                   type="text"
                   required
                   value={tenantForm.business_name}
                   onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})}
-                  className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Country</label>
+              <div className="space-y-2">
+                <Label id="tenant-country-label">Country</Label>
                 <SearchableSelect
+                  aria-labelledby="tenant-country-label"
                   options={COUNTRY_OPTIONS}
                   value={tenantForm.country}
                   onChange={val => setTenantForm({...tenantForm, country: val})}
@@ -293,20 +283,22 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <div className="col-span-1 md:col-span-2 space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Business Physical Address</label>
-                <textarea
+              <div className="col-span-1 md:col-span-2 space-y-2">
+                <Label htmlFor="tenant-address">Business physical address</Label>
+                <Textarea
+                  id="tenant-address"
                   value={tenantForm.address}
                   onChange={e => setTenantForm({...tenantForm, address: e.target.value})}
-                  className="w-full p-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground resize-none"
+                  className="resize-none"
                   rows={3}
                   placeholder="Store address..."
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Store Currency</label>
+              <div className="space-y-2">
+                <Label id="tenant-currency-label">Store currency</Label>
                 <SearchableSelect
+                  aria-labelledby="tenant-currency-label"
                   options={CURRENCIES}
                   value={tenantForm.currency}
                   onChange={val => setTenantForm({...tenantForm, currency: val})}
@@ -314,32 +306,27 @@ export default function ProfilePage() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Store Timezone</label>
+              <div className="space-y-2">
+                <Label id="tenant-timezone-label">Store timezone</Label>
                 <SearchableSelect
+                  aria-labelledby="tenant-timezone-label"
                   options={TIMEZONES}
                   value={tenantForm.timezone}
                   onChange={val => setTenantForm({...tenantForm, timezone: val})}
                   placeholder="Select Timezone"
                 />
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Save Button */}
-        <div className="flex justify-end pt-2">
-          <Button
-            type="submit"
-            disabled={saving}
-            className="px-8 h-10 font-semibold gap-2"
-          >
-            {saving && <RefreshCw className="w-4 h-4 animate-spin" />}
+        <div className="flex justify-end">
+          <Button type="submit" loading={saving}>
             {saving ? "Saving Changes..." : "Save Profile & Store Settings"}
           </Button>
         </div>
       </form>
-    </div>
+    </PageShell>
   );
 }
-

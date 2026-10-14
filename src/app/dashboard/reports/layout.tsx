@@ -1,43 +1,41 @@
-import { BarChart3, TrendingUp, Package, AlertCircle, ArrowUpRight } from "lucide-react";
 import { NavLink } from "@/components/ui/NavLink";
 
 const tabs = [
-  { name: "Sales", href: "/dashboard/reports/sales", icon: TrendingUp },
-  { name: "Profit & Loss", href: "/dashboard/reports/profit-loss", icon: BarChart3 },
-  { name: "Inventory Value", href: "/dashboard/reports/inventory-value", icon: Package },
-  { name: "Expiry", href: "/dashboard/reports/expiry", icon: AlertCircle },
-  { name: "Fast Moving", href: "/dashboard/reports/fast-moving", icon: ArrowUpRight },
+  { name: "Sales", href: "/dashboard/reports/sales" },
+  { name: "Profit & Loss", href: "/dashboard/reports/profit-loss" },
+  { name: "Inventory Value", href: "/dashboard/reports/inventory-value" },
+  { name: "Expiry", href: "/dashboard/reports/expiry" },
+  { name: "Fast Moving", href: "/dashboard/reports/fast-moving" },
 ];
 
 // Server Component: only the tab highlight needs the pathname, which NavLink handles client-side.
+// sub-nav-frosted: 52px Parchment-80% bar with backdrop blur, sticky under the 44px global nav.
 export default function ReportsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-full bg-background">
-      <div className="bg-surface border-b border-border px-4 sm:px-8 pt-6 sm:pt-8 print:pt-0">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Reports & Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Business insights and inventory tracking.</p>
+    <div className="flex flex-col min-h-full">
+      <div className="frosted sticky top-11 z-30 border-b border-hairline print:hidden">
+        <div className="max-w-[1440px] mx-auto h-13 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-6">
+          <h1 className="text-tagline text-ink shrink-0">Reports</h1>
+          <nav aria-label="Reports" className="flex items-center gap-5 overflow-x-auto hide-scrollbar">
+            {tabs.map((tab) => (
+              <NavLink
+                key={tab.name}
+                href={tab.href}
+                className="text-caption shrink-0 whitespace-nowrap"
+                activeClassName="text-ink font-semibold"
+                inactiveClassName="text-ink-80"
+              >
+                {tab.name}
+              </NavLink>
+            ))}
+          </nav>
         </div>
-        <nav aria-label="Reports" className="flex gap-6 overflow-x-auto hide-scrollbar print:hidden">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.name}
-              href={tab.href}
-              className="flex items-center gap-2 pb-3 text-sm font-semibold transition-colors shrink-0 border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-t-sm"
-              activeClassName="border-primary text-foreground"
-              inactiveClassName="border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            >
-              <tab.icon className="w-4 h-4" aria-hidden="true" />
-              {tab.name}
-            </NavLink>
-          ))}
-        </nav>
       </div>
-      <div className="flex-1 p-4 sm:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+      <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-8">
         {children}
       </div>
     </div>

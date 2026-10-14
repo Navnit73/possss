@@ -4,8 +4,15 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function EditSupplierPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -70,84 +77,87 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
   };
 
   if (isLoading) {
-    return <div className="p-12 text-center text-muted-foreground">Loading supplier details...</div>;
+    return (
+      <div className="flex h-[calc(100dvh-2.75rem)] flex-col items-center justify-center gap-3">
+        <Spinner label="" />
+        <p className="text-caption text-ink-48">Loading supplier details...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6">
+    <PageShell className="max-w-4xl">
       <PageHeader 
         title="Edit Supplier"
         description="Update supplier information."
         backHref={`/dashboard/suppliers/${id}`}
       />
 
-      <div className="bg-surface border border-border rounded-lg p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-md border border-red-100 text-sm">
-              {error}
-            </div>
-          )}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Supplier Name *</label>
-              <input
+              <Label htmlFor="supplier-name">Supplier Name *</Label>
+              <Input
+                id="supplier-name"
                 type="text"
                 name="name"
                 required
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Email</label>
-              <input
+              <Label htmlFor="supplier-email">Email</Label>
+              <Input
+                id="supplier-email"
                 type="email"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Phone Number</label>
-              <input
+              <Label htmlFor="supplier-phone">Phone Number</Label>
+              <Input
+                id="supplier-phone"
                 type="text"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
             
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-foreground">Address</label>
-              <textarea
+              <Label htmlFor="supplier-address">Address</Label>
+              <Textarea
+                id="supplier-address"
                 name="address"
                 rows={3}
                 value={formData.address}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          <div className="flex justify-end pt-4 border-t border-border">
-            <button
-              type="submit"
-              disabled={isSubmitting || loadFailed}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-70"
-            >
-              <Save className="w-4 h-4" />
-              {isSubmitting ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex justify-end gap-3">
+          <Link href={`/dashboard/suppliers/${id}`} className={buttonClasses({ variant: "outline" })}>
+            Cancel
+          </Link>
+          <Button type="submit" disabled={loadFailed} loading={isSubmitting}>
+            {!isSubmitting && <Save aria-hidden="true" />}
+            {isSubmitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </PageShell>
   );
 }

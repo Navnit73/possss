@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function Spinner({ className, label = "Loading" }: { className?: string; label?: string }) {
   return (
     <Loader2
-      className={cn("w-8 h-8 animate-spin text-primary", className)}
+      className={cn("size-6 animate-spin text-ink-48", className)}
       {...(label ? { role: "status", "aria-label": label } : { "aria-hidden": true })}
     />
   );

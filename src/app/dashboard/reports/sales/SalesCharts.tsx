@@ -4,9 +4,10 @@ import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
+import { chartTheme, colors } from "@/lib/design";
 import { useCurrency } from "@/context/CurrencyContext";
 import {
-  CHART, PAYMENT_COLORS, ChartCard, ChartLegend, axisTick, compact, legendStyle, shortDate, tooltipStyle,
+  CHART, PAYMENT_COLORS, ChartCard, ChartLegend, axisTick, compact, legendStyle, shortDate,
 } from "@/components/reports/ReportUI";
 
 const CUSTOMER_COLORS = [CHART.primary, CHART.axis];
@@ -37,10 +38,10 @@ export default function SalesCharts({ charts }: { charts: any }) {
         >
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={charts.dailyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
+              <CartesianGrid {...chartTheme.grid} vertical={false} />
               <XAxis dataKey="date" tickFormatter={shortDate} tick={axisTick} axisLine={false} tickLine={false} minTickGap={16} />
               <YAxis width={56} tick={axisTick} axisLine={false} tickLine={false} tickFormatter={moneyTick} />
-              <Tooltip contentStyle={tooltipStyle} labelFormatter={shortDate} formatter={money} />
+              <Tooltip {...chartTheme.tooltip} labelFormatter={shortDate} formatter={money} />
               <Line isAnimationActive={false} type="monotone" dataKey="revenue" name="Total" stroke={CHART.primary} strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
               <Line isAnimationActive={false} type="monotone" dataKey="cash" name="Cash" stroke={PAYMENT_COLORS.CASH} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
               <Line isAnimationActive={false} type="monotone" dataKey="card" name="Card" stroke={PAYMENT_COLORS.CARD} strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
@@ -57,7 +58,7 @@ export default function SalesCharts({ charts }: { charts: any }) {
                   <Cell key={e.method} fill={PAYMENT_COLORS[e.method] || CHART.warning} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={money} />
+              <Tooltip {...chartTheme.tooltip} formatter={money} />
               <Legend iconType="circle" wrapperStyle={legendStyle} />
             </PieChart>
           </ResponsiveContainer>
@@ -73,22 +74,12 @@ export default function SalesCharts({ charts }: { charts: any }) {
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={charts.dailyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="salesRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={CHART.primary} stopOpacity={0.18} />
-                  <stop offset="95%" stopColor={CHART.primary} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="salesProf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={CHART.success} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={CHART.success} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
+              <CartesianGrid {...chartTheme.grid} vertical={false} />
               <XAxis dataKey="date" tickFormatter={shortDate} tick={axisTick} axisLine={false} tickLine={false} minTickGap={16} />
               <YAxis width={56} tick={axisTick} axisLine={false} tickLine={false} tickFormatter={moneyTick} />
-              <Tooltip contentStyle={tooltipStyle} labelFormatter={shortDate} formatter={money} />
-              <Area isAnimationActive={false} type="monotone" dataKey="revenue" name="Revenue" stroke={CHART.primary} fill="url(#salesRev)" strokeWidth={2} />
-              <Area isAnimationActive={false} type="monotone" dataKey="profit" name="Net Profit" stroke={CHART.success} fill="url(#salesProf)" strokeWidth={2} />
+              <Tooltip {...chartTheme.tooltip} labelFormatter={shortDate} formatter={money} />
+              <Area isAnimationActive={false} type="monotone" dataKey="revenue" name="Revenue" stroke={CHART.primary} fill={CHART.primary} fillOpacity={0.12} strokeWidth={2} />
+              <Area isAnimationActive={false} type="monotone" dataKey="profit" name="Net Profit" stroke={CHART.success} fill={CHART.success} fillOpacity={0.12} strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -96,10 +87,10 @@ export default function SalesCharts({ charts }: { charts: any }) {
         <ChartCard title="Peak Hours (Hourly Sales)" height="h-64" isEmpty={!hasSales}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={charts.hourlyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART.grid} />
+              <CartesianGrid {...chartTheme.grid} vertical={false} />
               <XAxis dataKey="hour" tick={axisTick} axisLine={false} tickLine={false} minTickGap={8} />
               <YAxis width={56} tick={axisTick} axisLine={false} tickLine={false} tickFormatter={moneyTick} />
-              <Tooltip contentStyle={tooltipStyle} formatter={money} cursor={{ fill: "#F1F5F9" }} />
+              <Tooltip {...chartTheme.tooltip} formatter={money} />
               <Bar isAnimationActive={false} dataKey="revenue" name="Revenue" fill={CHART.primary} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -110,11 +101,11 @@ export default function SalesCharts({ charts }: { charts: any }) {
         <ChartCard title="Top 5 Best-Selling Medicines" height="h-64" isEmpty={charts.topProducts.length === 0}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={charts.topProducts} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={CHART.grid} />
+              <CartesianGrid {...chartTheme.grid} horizontal={false} />
               <XAxis type="number" tick={axisTick} axisLine={false} tickLine={false} tickFormatter={moneyTick} />
-              <YAxis dataKey="name" type="category" width={100} tick={{ ...axisTick, fill: CHART.primary }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} formatter={money} cursor={{ fill: "#F1F5F9" }} />
-              <Bar isAnimationActive={false} dataKey="revenue" name="Revenue" fill={CHART.success} radius={[0, 4, 4, 0]} />
+              <YAxis dataKey="name" type="category" width={100} tick={{ ...axisTick, fill: colors.ink }} axisLine={false} tickLine={false} />
+              <Tooltip {...chartTheme.tooltip} formatter={money} />
+              <Bar isAnimationActive={false} dataKey="revenue" name="Revenue" fill={CHART.primary} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -127,7 +118,7 @@ export default function SalesCharts({ charts }: { charts: any }) {
                   <Cell key={e.name} fill={CHART.categorical[i % CHART.categorical.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={money} />
+              <Tooltip {...chartTheme.tooltip} formatter={money} />
               <Legend iconType="circle" wrapperStyle={legendStyle} />
             </PieChart>
           </ResponsiveContainer>
@@ -141,7 +132,7 @@ export default function SalesCharts({ charts }: { charts: any }) {
                   <Cell key={e.name} fill={CUSTOMER_COLORS[i % CUSTOMER_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={tooltipStyle} formatter={money} />
+              <Tooltip {...chartTheme.tooltip} formatter={money} />
               <Legend iconType="circle" wrapperStyle={legendStyle} />
             </PieChart>
           </ResponsiveContainer>

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 
-const poppins = Poppins({
-  // 300 was never used; 900 (font-black, ~24 usages) was being faux-bolded from 800
-  weight: ["400", "500", "600", "700", "800", "900"],
-  variable: "--font-poppins",
+// SF Pro resolves from the system stack on Apple platforms (see --font-sans in globals.css);
+// Inter is DESIGN.md's documented substitute everywhere else. Weight ladder: 300 / 400 / 600 / 700.
+const inter = Inter({
+  weight: ["300", "400", "600", "700"],
+  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
 });
@@ -23,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={poppins.variable}>
+    <html lang="en" className={inter.variable}>
       <head>
         <Script id="microsoft-clarity" strategy="lazyOnload">
           {`
@@ -35,7 +36,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={`${poppins.className} antialiased`}>
+      <body className="font-sans antialiased">
         <AuthProvider>
           {children}
         </AuthProvider>

@@ -4,9 +4,18 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
-import { ArrowLeft, UserCircle, Phone, Mail, MapPin, Calendar, CreditCard, ShoppingBag, Receipt } from "lucide-react";
+import { Edit, Calendar, CreditCard, ShoppingBag, Receipt } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useCurrency } from "@/context/CurrencyContext";
+import { PageShell, StatCard, EmptyState } from "@/components/ui/Page";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { buttonClasses } from "@/components/ui/Button";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { cn } from "@/lib/utils";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 export default function CustomerProfilePage() {
   const { id } = useParams();
@@ -31,10 +40,10 @@ export default function CustomerProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-sm font-medium">Loading profile...</p>
+      <div className="flex h-[calc(100dvh-2.75rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Spinner label="" />
+          <p className="text-caption text-ink-48">Loading profile...</p>
         </div>
       </div>
     );
@@ -42,13 +51,13 @@ export default function CustomerProfilePage() {
 
   if (error || !customer) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100 flex flex-col gap-2">
+      <PageShell className="max-w-4xl">
+        <Alert variant="destructive">
           <p className="font-semibold">Error</p>
-          <p className="text-sm">{error || "Customer not found"}</p>
-          <Link href="/dashboard/customers" className="text-sm underline mt-2">Return to Customers</Link>
-        </div>
-      </div>
+          <p>{error || "Customer not found"}</p>
+          <Link href="/dashboard/customers" className="text-primary hover:underline mt-2 inline-block">Return to Customers</Link>
+        </Alert>
+      </PageShell>
     );
   }
 
@@ -57,152 +66,123 @@ export default function CustomerProfilePage() {
     : 0;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/customers" className="text-muted-foreground hover:text-foreground" aria-label="Back to customers">
-            <ArrowLeft className="w-5 h-5" aria-hidden />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              {customer.name}
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider align-middle ${
-                customer.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {customer.status}
-              </span>
-            </h1>
-            <p className="text-muted-foreground text-sm font-mono">{customer.customer_id}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/dashboard/customers/${customer._id}/edit`} className="bg-white border border-border px-4 py-2 rounded-md font-medium text-sm hover:bg-surface text-foreground/80">
+    <PageShell>
+      <PageHeader
+        title={customer.name}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-caption">{customer.customer_id}</span>
+            {/* Badge renders a <div>, which can't sit inside PageHeader's <p>; same recipe on a span */}
+            <span className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-1 text-fine-print font-semibold bg-parchment",
+              customer.status === 'ACTIVE' ? 'text-success' : 'text-ink-80'
+            )}>
+              {customer.status}
+            </span>
+          </span>
+        }
+        backHref="/dashboard/customers"
+        backLabel="Customers"
+        actions={
+          <Link href={`/dashboard/customers/${customer._id}/edit`} className={buttonClasses({ variant: "outline" })}>
+            <Edit aria-hidden="true" />
             Edit Profile
           </Link>
-        </div>
+        }
+      />
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <StatCard label="Lifetime" icon={CreditCard} value={formatCurrency(customer.lifetime_spending || 0)} />
+        <StatCard label="Total Orders" icon={ShoppingBag} value={customer.total_sales_count || 0} />
+        <StatCard label="Avg Order" icon={Receipt} value={formatCurrency(avgPurchase)} />
+        <StatCard
+          label="Last Visit"
+          icon={Calendar}
+          value={customer.last_visit ? format(new Date(customer.last_visit), 'MMM d, yyyy') : 'Never'}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column: Details */}
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-white rounded-lg border border-border shadow-sm p-5">
-            <h3 className="font-semibold text-foreground mb-4">Contact Information</h3>
-            <div className="space-y-4 text-sm">
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <Phone className="w-4 h-4 mt-0.5 shrink-0" />
-                <span className="text-foreground">{customer.phone || "No phone provided"}</span>
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Contact Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="space-y-4">
+              <div>
+                <dt className="text-caption text-ink-48">Phone</dt>
+                <dd className="text-body text-ink mt-0.5">{customer.phone || "No phone provided"}</dd>
               </div>
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <Mail className="w-4 h-4 mt-0.5 shrink-0" />
-                <span className="text-foreground">{customer.email || "No email provided"}</span>
+              <div>
+                <dt className="text-caption text-ink-48">Email</dt>
+                <dd className="text-body text-ink mt-0.5 break-words">{customer.email || "No email provided"}</dd>
               </div>
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
-                <span className="text-foreground leading-relaxed">{customer.address || "No address provided"}</span>
+              <div>
+                <dt className="text-caption text-ink-48">Address</dt>
+                <dd className="text-body text-ink mt-0.5">{customer.address || "No address provided"}</dd>
               </div>
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <Calendar className="w-4 h-4 mt-0.5 shrink-0" />
-                <span className="text-foreground">
+              <div>
+                <dt className="text-caption text-ink-48">Date of Birth</dt>
+                <dd className="text-body text-ink mt-0.5">
                   {customer.date_of_birth ? format(parseISO(customer.date_of_birth), 'MMM d, yyyy') : "No DOB provided"}
-                </span>
+                </dd>
               </div>
-            </div>
-            
-            {customer.notes && (
-              <div className="mt-6 pt-6 border-t border-border">
-                <h3 className="font-semibold text-foreground mb-2 text-sm">Notes</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed bg-surface p-3 rounded">{customer.notes}</p>
-              </div>
-            )}
-            
-            <div className="mt-6 pt-6 border-t border-border text-xs text-muted-foreground">
+              {customer.notes && (
+                <div>
+                  <dt className="text-caption text-ink-48">Notes</dt>
+                  <dd className="text-body text-ink mt-0.5 whitespace-pre-line">{customer.notes}</dd>
+                </div>
+              )}
+            </dl>
+          </CardContent>
+          <CardFooter>
+            <p className="text-caption text-ink-48">
               Customer since {format(new Date(customer.created_at), 'MMMM d, yyyy')}
-            </div>
-          </div>
-        </div>
+            </p>
+          </CardFooter>
+        </Card>
 
-        {/* Right Column: Stats & History */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
-              <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5" /> Lifetime
-              </div>
-              <div className="text-2xl font-bold text-slate-900">{formatCurrency(customer.lifetime_spending || 0)}</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
-              <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
-                <ShoppingBag className="w-3.5 h-3.5" /> Total Orders
-              </div>
-              <div className="text-2xl font-bold text-slate-900">{customer.total_sales_count || 0}</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
-              <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
-                <Receipt className="w-3.5 h-3.5" /> Avg Order
-              </div>
-              <div className="text-2xl font-bold text-slate-900">{formatCurrency(avgPurchase)}</div>
-            </div>
-            <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
-              <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" /> Last Visit
-              </div>
-              <div className="text-lg font-bold text-slate-900 mt-1">
-                {customer.last_visit ? format(new Date(customer.last_visit), 'MMM d, yyyy') : 'Never'}
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Purchases */}
-          <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-border bg-surface flex justify-between items-center">
-              <h3 className="font-semibold text-foreground">Recent Purchases</h3>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-muted-foreground uppercase bg-white border-b border-border">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold">Date</th>
-                    <th className="px-6 py-3 font-semibold">Invoice No</th>
-                    <th className="px-6 py-3 font-semibold">Method</th>
-                    <th className="px-6 py-3 font-semibold text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(!customer.recent_sales || customer.recent_sales.length === 0) ? (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
-                        No purchase history found.
-                      </td>
-                    </tr>
-                  ) : (
-                    customer.recent_sales.map((sale: any) => (
-                      <tr key={sale._id} className="bg-white border-b border-border last:border-0 hover:bg-surface transition-colors">
-                        <td className="px-6 py-4 text-foreground whitespace-nowrap">
-                          {format(new Date(sale.created_at), 'MMM d, yyyy HH:mm')}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
-                          {sale.invoice_no}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">
-                            {sale.payment_method}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold text-slate-900">
-                          {formatCurrency(sale.total)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        {/* Right Column: History */}
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardHeader>
+            <CardTitle>Recent Purchases</CardTitle>
+          </CardHeader>
+          {(!customer.recent_sales || customer.recent_sales.length === 0) ? (
+            <EmptyState icon={ShoppingBag} title="No purchase history found" className="pt-0" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Invoice No</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customer.recent_sales.map((sale: any) => (
+                  <TableRow key={sale._id}>
+                    <TableCell className="whitespace-nowrap">
+                      {format(new Date(sale.created_at), 'MMM d, yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell className="font-mono text-ink-80">
+                      {sale.invoice_no}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{sale.payment_method}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular">
+                      {formatCurrency(sale.total)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
       </div>
-    </div>
+    </PageShell>
   );
 }

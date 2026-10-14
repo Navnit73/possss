@@ -69,9 +69,9 @@ export default function SalesReportPage() {
   const m = summary.data?.metrics;
   const columns: ReportColumn<any, Col>[] = [
     { key: "invoice_no", label: "Invoice No", className: "font-semibold text-foreground", render: (r) => r.invoice_no },
-    { key: "created_at", label: "Date", className: "text-muted-foreground", render: (r) => new Date(r.created_at).toLocaleString() },
-    { key: "product_name", label: "Product", className: "font-medium text-foreground", render: (r) => r.product_name },
-    { key: "batch_number", label: "Batch", className: "text-muted-foreground", render: (r) => r.batch_number },
+    { key: "created_at", label: "Date", className: "text-ink-48", render: (r) => new Date(r.created_at).toLocaleString() },
+    { key: "product_name", label: "Product", className: "font-semibold text-ink", render: (r) => r.product_name },
+    { key: "batch_number", label: "Batch", className: "text-ink-48", render: (r) => r.batch_number },
     { key: "qty", label: "Qty", align: "right", render: (r) => r.qty },
     { key: "price", label: "Price", align: "right", render: (r) => formatCurrency(r.price) },
     { key: "profit", label: "Profit", align: "right", render: (r) => <Signed value={r.profit} format={formatCurrency} /> },
@@ -84,7 +84,7 @@ export default function SalesReportPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ReportFilterBar onSubmit={apply} isLoading={isLoading} onExport={exportCsv} isExporting={isExporting}>
         <DateRangeFilter value={draft} onChange={(v) => setDraft({ ...draft, ...v })} disabled={isLoading} />
         <Select
@@ -92,7 +92,7 @@ export default function SalesReportPage() {
           value={draft.paymentMethod}
           onChange={(e) => setDraft({ ...draft, paymentMethod: e.target.value })}
           disabled={isLoading}
-          className="w-auto min-w-[140px] bg-surface"
+          className="w-auto min-w-[140px]"
         >
           <option value="">All Payments</option>
           <option value="CASH">Cash</option>

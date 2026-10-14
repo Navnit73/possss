@@ -8,16 +8,18 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations";
 import { SplitLayout } from "@/components/auth/SplitLayout";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import axios from "axios";
 
 type EmailForm = z.infer<typeof forgotPasswordSchema>;
 const otpFormSchema = resetPasswordSchema.omit({ email: true });
 type OtpForm = z.infer<typeof otpFormSchema>;
 
-const inputClass =
-  "w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors disabled:opacity-50";
-const buttonClass =
-  "w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors mt-6 disabled:opacity-50";
+const errorText = "text-caption text-destructive";
+const textLink = "text-primary hover:underline underline-offset-[3px]";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -62,17 +64,15 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const errorBox = error && (
-    <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>
-  );
+  const errorBox = error && <Alert variant="destructive">{error}</Alert>;
 
   if (step === "done") {
     return (
       <SplitLayout title="Password updated" subtitle="You can now sign in with your new password.">
-        <div role="status" className="p-4 bg-success/10 border border-success/20 rounded-md text-center">
-          <p className="text-success font-medium mb-2">Password reset successful</p>
-          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
-        </div>
+        <Alert variant="success" role="status">
+          <p className="font-semibold">Password reset successful</p>
+          <p className="text-ink-48">Redirecting to login...</p>
+        </Alert>
       </SplitLayout>
     );
   }
@@ -81,13 +81,13 @@ export default function ForgotPasswordPage() {
     const { register, handleSubmit, formState: { errors } } = otpForm;
     return (
       <SplitLayout title="Enter verification code" subtitle={`Enter the 6-digit code sent to ${email} and choose a new password.`}>
-        <form onSubmit={handleSubmit(resetPassword)} className="space-y-4">
-          {info && <div role="status" className="p-3 text-sm text-success bg-success/10 rounded-md border border-success/20">{info}</div>}
+        <form onSubmit={handleSubmit(resetPassword)} className="space-y-5">
+          {info && <Alert variant="success" role="status">{info}</Alert>}
           {errorBox}
 
-          <div className="space-y-1">
-            <label htmlFor="reset-otp" className="text-sm font-medium text-foreground">Verification code</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="reset-otp">Verification code</Label>
+            <Input
               {...register("otp")}
               id="reset-otp"
               inputMode="numeric"
@@ -95,32 +95,31 @@ export default function ForgotPasswordPage() {
               maxLength={6}
               aria-invalid={!!errors.otp}
               disabled={loading}
-              className={`${inputClass} tracking-[0.5em] text-center text-lg`}
+              className="tracking-[0.5em] text-center text-tagline tabular"
             />
-            {errors.otp && <p className="text-sm text-red-500">{errors.otp.message}</p>}
+            {errors.otp && <p className={errorText}>{errors.otp.message}</p>}
           </div>
 
-          <div className="space-y-1">
-            <label htmlFor="new-password" className="text-sm font-medium text-foreground">New Password</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
               {...register("password")}
               id="new-password"
               type="password"
               autoComplete="new-password"
               aria-invalid={!!errors.password}
               disabled={loading}
-              className={inputClass}
             />
-            {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+            {errors.password && <p className={errorText}>{errors.password.message}</p>}
           </div>
 
-          <button disabled={loading} type="submit" className={buttonClass}>
+          <Button disabled={loading} type="submit" className="w-full mt-3">
             {loading ? "Resetting..." : "Reset password"}
-          </button>
+          </Button>
 
-          <p className="text-center text-sm text-muted-foreground pt-2">
+          <p className="text-center text-caption text-ink-48 pt-2">
             Didn&apos;t get it?{" "}
-            <button type="button" disabled={loading} onClick={() => sendOtp(email)} className="text-primary hover:text-primary-hover font-medium">
+            <button type="button" disabled={loading} onClick={() => sendOtp(email)} className={`${textLink} cursor-pointer disabled:opacity-40`}>
               Resend code
             </button>
           </p>
@@ -132,28 +131,27 @@ export default function ForgotPasswordPage() {
   const { register, handleSubmit, formState: { errors } } = emailForm;
   return (
     <SplitLayout title="Reset password" subtitle="Enter your email to receive a verification code.">
-      <form onSubmit={handleSubmit((d) => sendOtp(d.email))} className="space-y-4">
+      <form onSubmit={handleSubmit((d) => sendOtp(d.email))} className="space-y-5">
         {errorBox}
 
-        <div className="space-y-1">
-          <label htmlFor="forgot-email" className="text-sm font-medium text-foreground">Email</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="forgot-email">Email</Label>
+          <Input
             {...register("email")}
             id="forgot-email"
             autoComplete="email"
             aria-invalid={!!errors.email}
             type="email"
-            className={inputClass}
           />
-          {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+          {errors.email && <p className={errorText}>{errors.email.message}</p>}
         </div>
 
-        <button disabled={loading} type="submit" className={buttonClass}>
+        <Button disabled={loading} type="submit" className="w-full mt-3">
           {loading ? "Sending..." : "Send OTP"}
-        </button>
+        </Button>
 
-        <p className="text-center text-sm text-muted-foreground pt-4">
-          Remembered your password? <Link href="/auth/login" className="text-primary hover:text-primary-hover font-medium">Sign in</Link>
+        <p className="text-center text-caption text-ink-48 pt-2">
+          Remembered your password? <Link href="/auth/login" className={textLink}>Sign in</Link>
         </p>
       </form>
     </SplitLayout>

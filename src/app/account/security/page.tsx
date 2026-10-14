@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Lock, Smartphone, ShieldCheck, Eye, EyeOff, KeyRound, 
-  ShieldAlert, CheckCircle2, AlertCircle, RefreshCw, Check, Zap, Shield
-} from "lucide-react";
+import { Smartphone, ShieldCheck, Eye, EyeOff, KeyRound, Check, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, StatCard } from "@/components/ui/Page";
 import { signOut } from "next-auth/react";
 
-function calculatePasswordStrength(pass: string): { score: number; label: string; color: string; width: string } {
-  if (!pass) return { score: 0, label: "", color: "bg-muted", width: "0%" };
+/** `color` is the meter fill; `textColor` tones the label (status tones are text-only). */
+function calculatePasswordStrength(pass: string): { score: number; label: string; color: string; textColor: string; width: string } {
+  if (!pass) return { score: 0, label: "", color: "bg-ink", textColor: "text-ink-48", width: "0%" };
   let score = 0;
   if (pass.length >= 8) score += 1;
   if (pass.length >= 12) score += 1;
@@ -17,10 +22,10 @@ function calculatePasswordStrength(pass: string): { score: number; label: string
   if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score += 1;
   if (/[^A-Za-z0-9]/.test(pass)) score += 1;
 
-  if (score <= 1) return { score, label: "Weak", color: "bg-rose-500", width: "20%" };
-  if (score === 2) return { score, label: "Fair", color: "bg-amber-500", width: "40%" };
-  if (score === 3) return { score, label: "Good", color: "bg-sky-500", width: "70%" };
-  return { score, label: "Strong", color: "bg-emerald-500", width: "100%" };
+  if (score <= 1) return { score, label: "Weak", color: "bg-ink", textColor: "text-destructive", width: "20%" };
+  if (score === 2) return { score, label: "Fair", color: "bg-ink", textColor: "text-warning", width: "40%" };
+  if (score === 3) return { score, label: "Good", color: "bg-ink", textColor: "text-ink", width: "70%" };
+  return { score, label: "Strong", color: "bg-ink", textColor: "text-success", width: "100%" };
 }
 
 export default function SecurityPage() {
@@ -88,80 +93,63 @@ export default function SecurityPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="border-b border-border pb-6">
-        <div className="flex items-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase mb-1">
-          <Shield className="w-4 h-4" /> Account Protection
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Security Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your account authentication credentials, password strength, and security preferences.
-        </p>
-      </div>
+    <PageShell className="max-w-[980px]">
+      <PageHeader
+        title="Security Settings"
+        description="Manage your account authentication credentials, password strength, and security preferences."
+      />
 
       {/* Notifications */}
       {error && (
-        <div role="alert" className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <Alert variant="destructive">
           <span>{error}</span>
-        </div>
+        </Alert>
       )}
 
       {success && (
-        <div role="status" className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg flex items-center gap-3 text-sm">
-          <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
+        <Alert variant="success" role="status">
           <span>{success}</span>
-        </div>
+        </Alert>
       )}
 
       {/* Security Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-card border border-border rounded-lg shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Password Protection</span>
-            <KeyRound className="w-4 h-4 text-primary" />
-          </div>
-          <p className="text-lg font-bold text-foreground">Bcrypt Encrypted</p>
-          <p className="text-[11px] text-muted-foreground">Salting & hashing with cost factor 12</p>
-        </div>
-
-        <div className="p-4 bg-card border border-border rounded-lg shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Audit Trail Logging</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          </div>
-          <p className="text-lg font-bold text-emerald-600">Active Monitoring</p>
-          <p className="text-[11px] text-muted-foreground">IP & device context captured on edits</p>
-        </div>
-
-        <div className="p-4 bg-card border border-border rounded-lg shadow-2xs space-y-1">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Session Protection</span>
-            <Zap className="w-4 h-4 text-purple-500" />
-          </div>
-          <p className="text-lg font-bold text-indigo-600">JWT Authorized</p>
-          <p className="text-[11px] text-muted-foreground">Secure HTTP-only session tokens</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <StatCard
+          label="Password protection"
+          icon={KeyRound}
+          value={<span className="text-tagline">Bcrypt Encrypted</span>}
+          hint="Salting & hashing with cost factor 12"
+        />
+        <StatCard
+          label="Audit trail logging"
+          icon={ShieldCheck}
+          tone="success"
+          value={<span className="text-tagline">Active Monitoring</span>}
+          hint="IP & device context captured on edits"
+        />
+        <StatCard
+          label="Session protection"
+          icon={Zap}
+          value={<span className="text-tagline">JWT Authorized</span>}
+          hint="Secure HTTP-only session tokens"
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Change Password Form (2 cols) */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-lg overflow-hidden shadow-2xs">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
-              <h2 className="font-semibold text-foreground">Change Account Password</h2>
-            </div>
-            <span className="text-xs text-muted-foreground">Required every 90 days recommended</span>
-          </div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Change Account Password</CardTitle>
+            <CardDescription>Required every 90 days recommended</CardDescription>
+          </CardHeader>
 
-          <form onSubmit={handlePasswordChange} className="p-6 space-y-6">
+          <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-6">
             {/* Current Password */}
             <div className="space-y-2">
-              <label htmlFor="current-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Password</label>
+              <Label htmlFor="current-password">Current password</Label>
               <div className="relative">
-                <input
+                <Input
                   id="current-password"
                   autoComplete="current-password"
                   type={showCurrent ? "text" : "password"}
@@ -169,35 +157,31 @@ export default function SecurityPage() {
                   value={passwordForm.currentPassword}
                   onChange={e => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
                   placeholder="Enter current password"
-                  className="w-full h-10 pl-3 pr-10 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
                   aria-label={showCurrent ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="press cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-ink-48"
                 >
-                  {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showCurrent ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
             </div>
 
             {/* New Password */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Password</label>
+              <div className="flex justify-between items-center gap-3">
+                <Label htmlFor="new-password">New password</Label>
                 {passwordForm.newPassword && (
-                  <span className={`text-xs font-bold ${
-                    strength.label === "Weak" ? "text-rose-500" :
-                    strength.label === "Fair" ? "text-amber-500" :
-                    strength.label === "Good" ? "text-sky-500" : "text-emerald-500"
-                  }`}>
+                  <span className={`text-caption font-semibold ${strength.textColor}`}>
                     {strength.label} Password
                   </span>
                 )}
               </div>
               <div className="relative">
-                <input
+                <Input
                   id="new-password"
                   autoComplete="new-password"
                   type={showNew ? "text" : "password"}
@@ -206,32 +190,32 @@ export default function SecurityPage() {
                   value={passwordForm.newPassword}
                   onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                   placeholder="Minimum 8 characters"
-                  className="w-full h-10 pl-3 pr-10 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
                   aria-label={showNew ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="press cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-ink-48"
                 >
-                  {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showNew ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
 
               {/* Password Strength Meter */}
               {passwordForm.newPassword && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${strength.color}`} 
-                      style={{ width: strength.width }} 
+                <div className="space-y-2 pt-1">
+                  <div className="h-1.5 w-full bg-divider-soft rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-[width] duration-300 ${strength.color}`}
+                      style={{ width: strength.width }}
                     />
                   </div>
-                  <div className="grid grid-cols-2 text-[11px] text-muted-foreground gap-1">
-                    <span className={passwordForm.newPassword.length >= 8 ? "text-emerald-600 font-medium flex items-center gap-1" : ""}>
+                  <div className="grid grid-cols-2 text-fine-print text-ink-48 gap-1">
+                    <span className={passwordForm.newPassword.length >= 8 ? "text-success font-semibold flex items-center gap-1" : ""}>
                       {passwordForm.newPassword.length >= 8 ? "✓ At least 8 chars" : "• At least 8 chars"}
                     </span>
-                    <span className={/[0-9]/.test(passwordForm.newPassword) ? "text-emerald-600 font-medium flex items-center gap-1" : ""}>
+                    <span className={/[0-9]/.test(passwordForm.newPassword) ? "text-success font-semibold flex items-center gap-1" : ""}>
                       {/[0-9]/.test(passwordForm.newPassword) ? "✓ Contains number" : "• Contains number"}
                     </span>
                   </div>
@@ -241,9 +225,9 @@ export default function SecurityPage() {
 
             {/* Confirm New Password */}
             <div className="space-y-2">
-              <label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm New Password</label>
+              <Label htmlFor="confirm-password">Confirm new password</Label>
               <div className="relative">
-                <input
+                <Input
                   id="confirm-password"
                   autoComplete="new-password"
                   type={showConfirm ? "text" : "password"}
@@ -252,79 +236,75 @@ export default function SecurityPage() {
                   value={passwordForm.confirmPassword}
                   onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                   placeholder="Re-enter new password"
-                  className="w-full h-10 pl-3 pr-10 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm text-foreground"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
                   aria-label={showConfirm ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="press cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-ink-48"
                 >
-                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
 
               {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
-                <p className="text-xs text-rose-500">Passwords do not match</p>
+                <p className="text-caption text-destructive">Passwords do not match</p>
               )}
             </div>
 
             <Button
               type="submit"
+              loading={loading}
               disabled={loading || (passwordForm.confirmPassword !== "" && passwordForm.newPassword !== passwordForm.confirmPassword)}
-              className="w-full h-10 font-semibold gap-2"
+              className="w-full"
             >
-              {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
               {loading ? "Updating Password..." : "Update Password"}
             </Button>
           </form>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Security Best Practices Sidebar (1 col) */}
         <div className="space-y-6">
           {/* Security Checklist */}
-          <div className="bg-card border border-border rounded-lg p-5 space-y-4 shadow-2xs">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Security Checklist
-            </h3>
+          <Card className="p-6 space-y-4">
+            <h3 className="text-body font-semibold text-ink">Security checklist</h3>
 
-            <ul className="space-y-3 text-xs text-muted-foreground">
+            <ul className="space-y-3 text-caption text-ink-80">
               <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span><strong>Unique Password:</strong> Avoid using passwords shared across other websites.</span>
+                <Check className="size-4 text-success shrink-0 mt-0.5" aria-hidden="true" />
+                <span><strong className="font-semibold text-ink">Unique Password:</strong> Avoid using passwords shared across other websites.</span>
               </li>
               <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span><strong>Role Isolation:</strong> Ensure staff permissions align with least privilege principles.</span>
+                <Check className="size-4 text-success shrink-0 mt-0.5" aria-hidden="true" />
+                <span><strong className="font-semibold text-ink">Role Isolation:</strong> Ensure staff permissions align with least privilege principles.</span>
               </li>
               <li className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span><strong>Audit Log Tracking:</strong> Security and login actions are recorded for administrative auditing.</span>
+                <Check className="size-4 text-success shrink-0 mt-0.5" aria-hidden="true" />
+                <span><strong className="font-semibold text-ink">Audit Log Tracking:</strong> Security and login actions are recorded for administrative auditing.</span>
               </li>
             </ul>
-          </div>
+          </Card>
 
           {/* 2FA Status Card */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden shadow-2xs">
-            <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-muted-foreground" />
-                <h4 className="font-semibold text-xs text-foreground uppercase tracking-wider">Two-Factor Authentication</h4>
+                <Smartphone className="size-4 text-ink-48" aria-hidden="true" />
+                <h4 className="text-body font-semibold text-ink">Two-factor authentication</h4>
               </div>
-              <span className="text-[10px] bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold uppercase">Coming Soon</span>
+              <Badge variant="secondary">Coming soon</Badge>
             </div>
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Enhance account protection by requiring TOTP authenticator app verification codes upon sign-in.
-              </p>
-              <Button disabled variant="outline" size="sm" className="w-full text-xs cursor-not-allowed opacity-60">
-                Enable 2FA Authenticator
-              </Button>
-            </div>
-          </div>
+            <p className="text-caption text-ink-48">
+              Enhance account protection by requiring TOTP authenticator app verification codes upon sign-in.
+            </p>
+            <Button disabled variant="outline" size="sm" className="w-full">
+              Enable 2FA Authenticator
+            </Button>
+          </Card>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
-

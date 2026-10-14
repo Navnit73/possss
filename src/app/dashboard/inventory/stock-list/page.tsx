@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { PageShell, StatCard, EmptyState, Chip } from "@/components/ui/Page";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -155,80 +160,53 @@ export default function StockListPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <PageShell>
       <PageHeader 
         title="Stock List"
         description="Manage inventory levels across all product batches."
         actions={
-          <Link href="/dashboard/inventory/add-stock">
-            <Button className="gap-2 cursor-pointer bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-sm">
-              <Plus className="w-4 h-4" />
-              Receive Stock
-            </Button>
+          <Link href="/dashboard/inventory/add-stock" className={buttonClasses({})}>
+            <Plus aria-hidden="true" />
+            Receive Stock
           </Link>
         }
       />
 
-      {error && (
-        <div className="p-4 text-sm text-rose-600 bg-rose-50 rounded-lg border border-rose-200 font-medium">
-          {error}
-        </div>
-      )}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Products</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.totalProducts}</h3>
-          </div>
-          <div className="p-3 bg-slate-50 rounded-lg text-slate-700">
-            <Package className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Units In Stock</p>
-            <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.totalStockItems.toLocaleString()}</h3>
-          </div>
-          <div className="p-3 bg-emerald-50 rounded-lg text-emerald-600">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Low Stock Alerts</p>
-            <h3 className="text-2xl font-black text-rose-600 mt-1">{stats.lowStockCount}</h3>
-          </div>
-          <div className="p-3 bg-rose-50 rounded-lg text-rose-600">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-        </div>
+        <StatCard label="Total products" value={stats.totalProducts} icon={Package} />
+        <StatCard label="Total units in stock" value={stats.totalStockItems.toLocaleString()} icon={CheckCircle2} />
+        <StatCard
+          label="Low stock alerts"
+          value={stats.lowStockCount}
+          icon={AlertTriangle}
+          tone={stats.lowStockCount > 0 ? "destructive" : "default"}
+        />
       </div>
 
       {/* Search & Filters Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col md:flex-row justify-between gap-4 items-center shadow-sm">
-        <div className="flex-1 max-w-4xl flex flex-wrap gap-3 items-center w-full">
+      <div className="flex flex-col lg:flex-row justify-between gap-4 lg:items-center">
+        <div className="flex-1 flex flex-wrap gap-3 items-center w-full">
           
           <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-ink-48" aria-hidden="true" />
             <Input 
               type="text" 
               placeholder="Search product, strength, batch #, supplier..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-white border-slate-200"
+              className="pl-10"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+            <Filter className="size-4 text-ink-48 shrink-0" aria-hidden="true" />
             <Select 
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-[160px] text-sm bg-white border-slate-200"
+              className="w-[200px]"
             >
               <option value="All">All Categories</option>
               {categories.map((c: any) => (
@@ -238,72 +216,71 @@ export default function StockListPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Select 
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-[140px] text-sm bg-white border-slate-200"
-            >
-              <option value="All">All Statuses</option>
-              <option value="IN_STOCK">In Stock</option>
-              <option value="LOW">Low Stock</option>
-            </Select>
+            {[
+              { value: "All", label: "All Statuses" },
+              { value: "IN_STOCK", label: "In Stock" },
+              { value: "LOW", label: "Low Stock" },
+            ].map((opt) => (
+              <Chip
+                key={opt.value}
+                selected={selectedStatus === opt.value}
+                onClick={() => setSelectedStatus(opt.value)}
+              >
+                {opt.label}
+              </Chip>
+            ))}
           </div>
 
           {(search || selectedCategory !== "All" || selectedStatus !== "All") && (
             <Button 
-              variant="ghost" 
+              variant="link" 
               size="sm" 
               onClick={() => { setSearch(""); setSelectedCategory("All"); setSelectedStatus("All"); }}
-              className="text-xs text-slate-500 hover:text-slate-900 gap-1"
+              className="gap-1"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Reset
+              <RefreshCw className="size-3.5" aria-hidden="true" /> Reset
             </Button>
           )}
         </div>
 
         {filteredGroupedStock.length > 0 && (
           <Button 
-            variant="outline" 
-            size="sm" 
+            variant="secondary" 
             onClick={toggleExpandAll}
-            className="text-xs font-semibold gap-1 whitespace-nowrap border-slate-200 text-slate-700 hover:bg-slate-100"
+            className="gap-1 self-start lg:self-auto"
           >
-            <ChevronsUpDown className="w-3.5 h-3.5" />
+            <ChevronsUpDown aria-hidden="true" />
             {expandedProducts.size > 0 ? "Collapse All" : "Expand All"}
           </Button>
         )}
       </div>
 
       {/* Stock Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      <Card className="overflow-hidden">
         {isLoading ? (
           <div className="p-6">
             <TableSkeleton columns={5} rows={6} />
           </div>
         ) : filteredGroupedStock.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center justify-center">
-            <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-              <Package className="w-7 h-7 text-slate-300" />
-            </div>
-            <p className="text-base font-bold text-slate-800 mb-1">No matching inventory found</p>
-            <p className="text-sm text-slate-500 max-w-sm mb-4">
-              Try adjusting your search terms or category filters.
-            </p>
-            <Link href="/dashboard/inventory/add-stock">
-              <Button size="sm" className="gap-2 bg-slate-900 text-white">
-                <Plus className="w-4 h-4" /> Receive First Batch
-              </Button>
-            </Link>
-          </div>
+          <EmptyState
+            icon={Package}
+            title="No matching inventory found"
+            description="Try adjusting your search terms or category filters."
+            action={
+              <Link href="/dashboard/inventory/add-stock" className={buttonClasses({})}>
+                <Plus aria-hidden="true" /> Receive First Batch
+              </Link>
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
-          <div className="divide-y divide-slate-100 min-w-[760px]">
+          <div className="min-w-[760px] text-caption text-ink">
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 p-5 bg-slate-50/80 font-bold text-xs tracking-wider text-slate-500 uppercase border-b border-slate-100">
+            <div className="grid grid-cols-12 gap-4 px-4 h-11 items-center text-caption font-semibold text-ink-48 border-b border-hairline">
               <div className="col-span-1"></div>
-              <div className="col-span-4">Product Name</div>
+              <div className="col-span-4">Product name</div>
               <div className="col-span-3">Category</div>
-              <div className="col-span-2 text-right">Total Stock</div>
+              <div className="col-span-2 text-right">Total stock</div>
               <div className="col-span-2 text-center">Status</div>
             </div>
 
@@ -315,15 +292,16 @@ export default function StockListPage() {
               const isLowStock = group.sellableQty <= minStock;
 
               return (
-                <div key={pId} className="flex flex-col border-b border-slate-100 last:border-0 group/parent">
+                <div key={pId} className="flex flex-col border-b border-divider-soft last:border-0">
                   {/* Product Parent Row */}
                   <div 
                     role="button"
                     tabIndex={0}
                     aria-expanded={isExpanded}
-                    className={`grid grid-cols-12 gap-4 p-4 items-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                      isExpanded ? 'bg-emerald-50/70 hover:bg-emerald-100/60' : 'hover:bg-slate-50'
-                    }`}
+                    className={cn(
+                      "grid grid-cols-12 gap-4 px-4 py-3 items-center cursor-pointer",
+                      isExpanded && "bg-parchment"
+                    )}
                     onClick={() => toggleExpand(pId)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -332,51 +310,40 @@ export default function StockListPage() {
                       }
                     }}
                   >
-                    <div className="col-span-1 flex justify-center text-slate-400">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                        isExpanded ? 'bg-emerald-200 text-emerald-800 shadow-sm border border-emerald-300' : 'hover:bg-slate-200 text-slate-600'
-                      }`}>
-                        {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                      </div>
+                    <div className="col-span-1 flex justify-center text-ink-48">
+                      {isExpanded ? <ChevronDown className="size-5" aria-hidden="true" /> : <ChevronRight className="size-5" aria-hidden="true" />}
                     </div>
-                    <div className="col-span-4 font-bold text-slate-900 flex items-center gap-2">
+                    <div className="col-span-4 text-body font-semibold text-ink flex items-center gap-2">
                       {group.product?.name || "Unknown Product"}
                       {group.product?.strength && (
-                        <span className="text-xs font-semibold text-slate-500 px-2 py-0.5 bg-slate-100 rounded-full border border-slate-200">
-                          {group.product.strength}
-                        </span>
+                        <Badge variant="outline">{group.product.strength}</Badge>
                       )}
                     </div>
-                    <div className="col-span-3 text-sm font-medium text-slate-500">
+                    <div className="col-span-3 text-ink-48">
                       {group.product?.category?.name || "Uncategorized"}
                     </div>
-                    <div className="col-span-2 text-right font-black text-slate-900 flex items-center justify-end gap-2">
+                    <div className="col-span-2 text-right text-body font-semibold tabular text-ink flex items-center justify-end gap-2">
                       {group.totalQty.toLocaleString()}
                       {isLowStock && (
                         <span title={`Low Stock (Min: ${minStock})`}>
-                          <AlertCircle className="w-4 h-4 text-rose-500" />
+                          <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
                         </span>
                       )}
                     </div>
                     <div className="col-span-2 flex justify-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
-                        isLowStock 
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200' 
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}>
+                      <Badge variant={isLowStock ? "destructive" : "success"}>
                         {isLowStock ? 'Low Stock' : 'In Stock'}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
 
-                  {/* Batches Child Rows (Green Tree UI) */}
+                  {/* Batches Child Rows */}
                   {isExpanded && (
-                    <div className="bg-emerald-50/30 pb-4 shadow-inner border-t border-emerald-100">
+                    <div className="bg-parchment pb-3">
                       {/* Child Table Header */}
-                      <div className="grid grid-cols-12 gap-4 px-4 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
-                        {/* Connecting vertical line for header */}
+                      <div className="grid grid-cols-12 gap-4 px-4 py-2 text-caption font-semibold text-ink-48">
                         <div className="col-span-1 relative">
-                          <div className="absolute left-1/2 top-0 w-[2px] bg-emerald-600 -translate-x-1/2 h-full"></div>
+                          <div className="absolute left-1/2 top-0 w-px bg-hairline -translate-x-1/2 h-full"></div>
                         </div>
                         <div className="col-span-2">Batch #</div>
                         <div className="col-span-2">Supplier</div>
@@ -387,51 +354,43 @@ export default function StockListPage() {
                         <div className="col-span-1 text-right">Qty</div>
                       </div>
 
-                      {/* Child Rows with Green Tree Branches */}
+                      {/* Child Rows */}
                       {group.batches.map((batch: any, index: number) => {
                         const isLast = index === group.batches.length - 1;
 
                         return (
-                          <div key={batch._id} className="grid grid-cols-12 gap-4 px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50/80 cursor-pointer transition-colors group/row">
+                          <div key={batch._id} className="grid grid-cols-12 gap-4 px-4 py-2 text-caption text-ink">
                             
                             {/* Visual Tree Node Column */}
-                            <div className="col-span-1 relative flex items-center min-h-[36px]">
-                              {/* Vertical tree line */}
-                              <div className={`absolute left-1/2 top-0 w-[2px] bg-emerald-600 -translate-x-1/2 ${isLast ? 'h-[50%]' : 'h-full'}`}></div>
-                              
-                              {/* Horizontal branch line */}
-                              <div className="absolute left-1/2 top-1/2 w-[calc(50%+16px)] h-[2px] bg-emerald-600"></div>
-                              
-                              {/* Tree node dot */}
-                              <div className="absolute right-[-20px] top-1/2 w-2 h-2 bg-emerald-600 rounded-full -translate-y-1/2 group-hover/row:bg-emerald-700 transition-colors z-10 ring-4 ring-emerald-50 group-hover/row:ring-white"></div>
+                            <div className="col-span-1 relative flex items-center min-h-9">
+                              <div className={cn("absolute left-1/2 top-0 w-px bg-hairline -translate-x-1/2", isLast ? "h-1/2" : "h-full")}></div>
+                              <div className="absolute left-1/2 top-1/2 w-[calc(50%+16px)] h-px bg-hairline"></div>
                             </div>
 
                             <div className="col-span-2 flex items-center pl-2">
-                              <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded shadow-sm">
+                              <span className="font-mono text-fine-print text-ink-80 bg-canvas border border-hairline px-2.5 py-1 rounded-xs">
                                 {batch.batch_number}
                               </span>
                             </div>
-                            <div className="col-span-2 text-slate-500 font-medium truncate flex items-center">
+                            <div className="col-span-2 text-ink-48 truncate flex items-center">
                               {batch.supplier || "-"}
                             </div>
-                            <div className="col-span-2 text-slate-600 flex items-center gap-2">
+                            <div className="col-span-2 text-ink-80 tabular flex items-center gap-2">
                               {batch.expiry_date || "-"}
                               {isBatchExpired(batch.expiry_date, todayStr) && (
-                                <span className="text-[10px] font-bold uppercase text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                                  Expired
-                                </span>
+                                <Badge variant="destructive" className="bg-canvas">Expired</Badge>
                               )}
                             </div>
-                            <div className="col-span-2 text-slate-600 flex items-center">
+                            <div className="col-span-2 text-ink-80 flex items-center">
                               {group.product?.rack_number || "-"}
                             </div>
-                            <div className="col-span-1 text-right font-medium flex items-center justify-end text-slate-500">
+                            <div className="col-span-1 text-right tabular flex items-center justify-end text-ink-48">
                               {formatCurrency(batch.cost_price)}
                             </div>
-                            <div className="col-span-1 text-right font-bold flex items-center justify-end text-emerald-700">
+                            <div className="col-span-1 text-right tabular font-semibold flex items-center justify-end text-ink">
                               {formatCurrency(batch.selling_price)}
                             </div>
-                            <div className="col-span-1 text-right font-black flex items-center justify-end text-slate-900">
+                            <div className="col-span-1 text-right tabular font-semibold flex items-center justify-end text-ink">
                               {batch.qty_available}
                             </div>
                           </div>
@@ -445,7 +404,7 @@ export default function StockListPage() {
           </div>
           </div>
         )}
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

@@ -68,9 +68,9 @@ export default function FastMovingReportPage() {
   const m = data?.metrics;
   const pg = data?.table?.pagination;
   const columns: ReportColumn<any, Col>[] = [
-    { key: "rank", label: "#", align: "center", className: "text-muted-foreground w-12", render: (_r, i) => (pg ? (pg.page - 1) * pg.limit + i + 1 : i + 1) },
-    { key: "product_name", label: "Product", className: "font-medium text-foreground", render: (r) => r.product_name },
-    { key: "category", label: "Category", className: "text-muted-foreground", render: (r) => r.category },
+    { key: "rank", label: "#", align: "center", className: "text-ink-48 w-12", render: (_r, i) => (pg ? (pg.page - 1) * pg.limit + i + 1 : i + 1) },
+    { key: "product_name", label: "Product", className: "font-semibold text-ink", render: (r) => r.product_name },
+    { key: "category", label: "Category", className: "text-ink-48", render: (r) => r.category },
     { key: "qty_sold", label: "Units Sold", align: "right", className: "font-semibold", render: (r) => r.qty_sold },
     { key: "revenue_generated", label: "Revenue", align: "right", render: (r) => formatCurrency(r.revenue_generated) },
     { key: "profit_generated", label: "Profit", align: "right", render: (r) => <Signed value={r.profit_generated} format={formatCurrency} /> },
@@ -82,14 +82,14 @@ export default function FastMovingReportPage() {
       align: "right",
       render: (r) => {
         const d = r.estimated_stock_days;
-        if (d === NO_SALES_DAYS || d == null) return <span className="text-muted-foreground">∞</span>;
-        return <span className={d < 7 ? "font-semibold text-rose-600" : d < 14 ? "font-semibold text-amber-600" : undefined}>{fmtDays(d)} days</span>;
+        if (d === NO_SALES_DAYS || d == null) return <span className="text-ink-48">∞</span>;
+        return <span className={d < 7 ? "font-semibold text-destructive" : d < 14 ? "font-semibold text-warning" : undefined}>{fmtDays(d)} days</span>;
       },
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ReportFilterBar onSubmit={apply} isLoading={isLoading} onExport={exportCsv} isExporting={isExporting}>
         <DateRangeFilter value={draft} onChange={(v) => setDraft({ ...draft, ...v })} disabled={isLoading} />
         <SearchInput
@@ -107,10 +107,10 @@ export default function FastMovingReportPage() {
         <KpiGrid
           items={
             m && [
-              { label: "#1 Fast-Selling Product", value: <span className="text-lg sm:text-xl">{m.topPerformers?.[0] || "N/A"}</span> },
+              { label: "#1 Fast-Selling Product", value: <span className="text-tagline">{m.topPerformers?.[0] || "N/A"}</span> },
               { label: "Products Sold", value: Number(m.totalAnalyzed ?? 0).toLocaleString() },
               { label: "Stockout Risk (< 14 days)", value: m.atRiskCount, tone: m.atRiskCount > 0 ? "danger" : "success" },
-              { label: "Ranked By", value: <span className="text-lg sm:text-xl">Units Sold</span> },
+              { label: "Ranked By", value: <span className="text-tagline">Units Sold</span> },
             ]
           }
         />

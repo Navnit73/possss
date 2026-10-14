@@ -71,7 +71,7 @@ export function Modal({ isOpen, onClose, title, description, children, className
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -84,14 +84,14 @@ export function Modal({ isOpen, onClose, title, description, children, className
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-md bg-surface text-foreground p-6 shadow-lg outline-none animate-in zoom-in-95 duration-200",
+          "w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-lg bg-canvas text-ink p-6 sm:p-8 outline-none animate-in zoom-in-95 duration-200",
           className
         )}
       >
         {(title || description) && (
-          <div className="mb-4">
-            {title && <h2 id={titleId} className="text-lg font-semibold">{title}</h2>}
-            {description && <p id={descriptionId} className="text-sm text-muted-foreground">{description}</p>}
+          <div className="mb-6 space-y-1">
+            {title && <h2 id={titleId} className="text-tagline text-ink">{title}</h2>}
+            {description && <p id={descriptionId} className="text-caption text-ink-48">{description}</p>}
           </div>
         )}
 

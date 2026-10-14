@@ -61,25 +61,25 @@ export default function ExpiryReportPage() {
 
   const m = data?.metrics;
   const columns: ReportColumn<any, Col>[] = [
-    { key: "product_name", label: "Product", className: "font-medium text-foreground", render: (r) => r.product_name },
-    { key: "batch_number", label: "Batch", className: "text-muted-foreground", render: (r) => r.batch_number },
-    { key: "supplier_name", label: "Supplier", className: "text-muted-foreground max-w-[180px] truncate", render: (r) => r.supplier_name },
+    { key: "product_name", label: "Product", className: "font-semibold text-ink", render: (r) => r.product_name },
+    { key: "batch_number", label: "Batch", className: "text-ink-48", render: (r) => r.batch_number },
+    { key: "supplier_name", label: "Supplier", className: "text-ink-48 max-w-[180px] truncate", render: (r) => r.supplier_name },
     { key: "qty_available", label: "Qty", align: "right", className: "font-semibold", render: (r) => r.qty_available },
     { key: "cost_price", label: "Cost", align: "right", render: (r) => formatCurrency(r.cost_price) },
-    { key: "purchase_value_loss", label: "Value at Risk", align: "right", className: "font-semibold text-rose-600", render: (r) => formatCurrency(r.purchase_value_loss) },
-    { key: "expiry_date", label: "Expiry Date", className: "text-muted-foreground", render: (r) => r.expiry_date },
+    { key: "purchase_value_loss", label: "Value at Risk", align: "right", className: "font-semibold text-destructive", render: (r) => formatCurrency(r.purchase_value_loss) },
+    { key: "expiry_date", label: "Expiry Date", className: "text-ink-48", render: (r) => r.expiry_date },
     { key: "status", label: "Status", align: "center", render: (r) => <StatusBadge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</StatusBadge> },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ReportFilterBar onSubmit={apply} isLoading={isLoading} onExport={exportCsv} isExporting={isExporting}>
         <Select
           aria-label="Expiry status"
           value={draft.status}
           onChange={(e) => setDraft({ ...draft, status: e.target.value })}
           disabled={isLoading}
-          className="w-auto min-w-[200px] bg-surface"
+          className="w-auto min-w-[200px]"
         >
           <option value="all">All At Risk (≤ 90 Days)</option>
           <option value="expired">Already Expired</option>

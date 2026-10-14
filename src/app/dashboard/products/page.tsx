@@ -6,6 +6,14 @@ import Link from "next/link";
 import { Plus, Package, Search, Eye, Edit } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, EmptyState } from "@/components/ui/Page";
+import { buttonClasses } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
+import { cn } from "@/lib/utils";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -39,33 +47,31 @@ export default function ProductsPage() {
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <PageShell>
       <PageHeader 
         title="Products"
         description="Manage your pharmacy's medicine master catalog."
         actions={
-          <Link
-            href="/dashboard/products/add"
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
+          <Link href="/dashboard/products/add" className={buttonClasses()}>
+            <Plus aria-hidden="true" />
             Add Product
           </Link>
         }
       />
 
-      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col ">
-        <div className="p-4 border-b border-border bg-secondary/30">
+      <Card className="overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-hairline">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input 
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-ink-48" aria-hidden="true" />
+            <Input 
               type="text" 
+              aria-label="Search products"
               placeholder="Search by name, generic name, SKU, or barcode..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
+              className="pl-10"
             />
           </div>
         </div>
@@ -75,102 +81,94 @@ export default function ProductsPage() {
             <TableSkeleton columns={8} rows={6} />
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-              <Package className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-medium text-foreground mb-2">No products found</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mb-6">
-              {search ? "Try adjusting your search terms." : "Your product master catalog is empty. Add a product to get started."}
-            </p>
-            {!search && (
-              <Link
-                href="/dashboard/products/add"
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Add Your First Product
-              </Link>
-            )}
-          </div>
+          <EmptyState
+            icon={Package}
+            title="No products found"
+            description={search ? "Try adjusting your search terms." : "Your product master catalog is empty. Add a product to get started."}
+            action={
+              !search ? (
+                <Link href="/dashboard/products/add" className={buttonClasses()}>
+                  Add Your First Product
+                </Link>
+              ) : undefined
+            }
+            className="py-16"
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-secondary/50">
-                  <th className="p-4 text-sm font-semibold text-foreground">Medicine Name</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Brand</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Category</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Rack</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Current Stock</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Stock Alert</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Status</th>
-                  <th className="p-4 text-sm font-semibold text-foreground text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredProducts.map((p) => (
-                  <tr key={p._id} className="hover:bg-secondary/30 transition-colors group">
-                    <td className="p-4">
-                      <p className="font-medium text-foreground">{p.name}</p>
-                      {p.generic_name && <p className="text-xs text-muted-foreground">{p.generic_name}</p>}
-                    </td>
-                    <td className="p-4 text-sm text-foreground">
-                      {p.brand || <span className="text-muted-foreground">-</span>}
-                    </td>
-                    <td className="p-4 text-sm text-foreground">
-                      {p.category?.name || <span className="text-muted-foreground italic">Uncategorized</span>}
-                    </td>
-                    <td className="p-4 text-sm text-foreground">
-                      {p.rack_number || <span className="text-muted-foreground">-</span>}
-                    </td>
-                    <td className="p-4 text-sm">
-                      <span className={`font-medium ${p.total_stock === 0 || !p.total_stock ? "text-red-500" : p.total_stock <= p.minimum_stock ? "text-amber-600" : "text-foreground"}`}>
-                        {p.total_stock || 0}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm">
-                      {p.minimum_stock > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          Min: {p.minimum_stock}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {p.status === "ACTIVE" ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 border border-slate-200">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right space-x-2">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Medicine Name</TableHead>
+                <TableHead>Brand</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Rack</TableHead>
+                <TableHead>Current Stock</TableHead>
+                <TableHead>Stock Alert</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((p) => (
+                <TableRow key={p._id}>
+                  <TableCell>
+                    <p className="font-semibold text-ink">{p.name}</p>
+                    {p.generic_name && <p className="text-fine-print text-ink-48">{p.generic_name}</p>}
+                  </TableCell>
+                  <TableCell>
+                    {p.brand || <span className="text-ink-48">-</span>}
+                  </TableCell>
+                  <TableCell>
+                    {p.category?.name || <span className="text-ink-48 italic">Uncategorized</span>}
+                  </TableCell>
+                  <TableCell>
+                    {p.rack_number || <span className="text-ink-48">-</span>}
+                  </TableCell>
+                  <TableCell>
+                    <span className={cn("font-semibold tabular", p.total_stock === 0 || !p.total_stock ? "text-destructive" : p.total_stock <= p.minimum_stock ? "text-warning" : "text-ink")}>
+                      {p.total_stock || 0}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {p.minimum_stock > 0 ? (
+                      <Badge variant="warning" className="tabular">Min: {p.minimum_stock}</Badge>
+                    ) : (
+                      <span className="text-ink-48">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {p.status === "ACTIVE" ? (
+                      <Badge variant="success">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary">Inactive</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center gap-1">
                       <Link 
                         href={`/dashboard/products/${p._id}`}
-                        className="inline-flex items-center justify-center p-2 rounded-md bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                        className={buttonClasses({ variant: "ghost", size: "icon", className: "text-ink" })}
                         title="View Details"
+                        aria-label="View Details"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye aria-hidden="true" />
                       </Link>
                       <Link 
                         href={`/dashboard/products/${p._id}/edit`}
-                        className="inline-flex items-center justify-center p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                        className={buttonClasses({ variant: "ghost", size: "icon" })}
                         title="Edit Product"
+                        aria-label="Edit Product"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit aria-hidden="true" />
                       </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

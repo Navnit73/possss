@@ -6,7 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createStoreSchema } from "@/lib/validations";
-import { SplitLayout } from "@/components/auth/SplitLayout";
+import { OnboardingStep } from "../_components/OnboardingStep";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 
@@ -48,32 +52,27 @@ export default function CreateStorePage() {
   };
 
   return (
-    <SplitLayout title="Name your pharmacy" subtitle="Step 1 of 3: Let's start with your business name.">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
-        
-        <div className="space-y-1">
-          <label htmlFor="business-name" className="text-sm font-medium text-foreground">Business Name</label>
-          <input 
+    <OnboardingStep step={1} title="Name your pharmacy" subtitle="Let's start with your business name.">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {error && <Alert variant="destructive">{error}</Alert>}
+
+        <div className="space-y-2">
+          <Label htmlFor="business-name">Business Name</Label>
+          <Input
             {...register("business_name")}
             id="business-name"
             autoComplete="organization"
             aria-invalid={!!errors.business_name}
             type="text"
             placeholder="e.g. Healthy Care Pharmacy"
-            className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />
-          {errors.business_name && <p className="text-sm text-red-500">{errors.business_name.message}</p>}
+          {errors.business_name && <p className="text-caption text-destructive">{errors.business_name.message}</p>}
         </div>
 
-        <button 
-          disabled={isLoading}
-          type="submit"
-          className="w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors mt-6 disabled:opacity-50"
-        >
+        <Button disabled={isLoading} type="submit" className="w-full mt-3">
           {isLoading ? "Saving..." : "Continue to Business Details"}
-        </button>
+        </Button>
       </form>
-    </SplitLayout>
+    </OnboardingStep>
   );
 }

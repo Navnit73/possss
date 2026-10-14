@@ -1,111 +1,242 @@
 @import "tailwindcss";
 
-/* Dark mode is class-driven (matches next-themes attribute="class" if a ThemeProvider is added later).
-   Without this, Tailwind v4 defaults `dark:` to prefers-color-scheme, so stray `dark:` utilities would
-   switch on under an OS dark theme while every token below stays light. */
+/* ==========================================================================
+   Apple design system — tokens from /DESIGN.md (installed via `npx getdesign add apple`).
+   Every value below maps 1:1 to a DESIGN.md token. Pages must use these tokens,
+   never raw palette classes (bg-slate-*, text-emerald-*, …) or hex values.
+   ========================================================================== */
+
+/* The system is light-only (DESIGN.md "Known Gaps": no dark counterparts). Keep `dark:` class-driven
+   so an OS dark theme never half-applies stray dark utilities. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-serif: var(--font-poppins), ui-serif, Georgia, serif;
+  /* ---- Typography: SF Pro via the system stack, Inter as the documented off-Apple substitute ---- */
+  --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, var(--font-inter), system-ui, sans-serif;
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, var(--font-inter), system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary-hover: var(--primary-hover);
-  
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+  /* Type ramp (DESIGN.md › typography). Use as text-hero, text-display-lg, text-body, text-caption … */
+  --text-hero: 56px;
+  --text-hero--line-height: 1.07;
+  --text-hero--letter-spacing: -0.28px;
+  --text-hero--font-weight: 600;
+  --text-display-lg: 40px;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: 0px;
+  --text-display-lg--font-weight: 600;
+  --text-display-md: 34px;
+  --text-display-md--line-height: 1.47;
+  --text-display-md--letter-spacing: -0.374px;
+  --text-display-md--font-weight: 600;
+  --text-lead: 28px;
+  --text-lead--line-height: 1.14;
+  --text-lead--letter-spacing: 0.196px;
+  --text-lead--font-weight: 400;
+  --text-lead-airy: 24px;
+  --text-lead-airy--line-height: 1.5;
+  --text-lead-airy--letter-spacing: 0px;
+  --text-lead-airy--font-weight: 300;
+  --text-tagline: 21px;
+  --text-tagline--line-height: 1.19;
+  --text-tagline--letter-spacing: 0.231px;
+  --text-tagline--font-weight: 600;
+  --text-body: 17px;
+  --text-body--line-height: 1.47;
+  --text-body--letter-spacing: -0.374px;
+  --text-dense-link: 17px;
+  --text-dense-link--line-height: 2.41;
+  --text-dense-link--letter-spacing: 0px;
+  --text-caption: 14px;
+  --text-caption--line-height: 1.43;
+  --text-caption--letter-spacing: -0.224px;
+  --text-button-large: 18px;
+  --text-button-large--line-height: 1;
+  --text-button-large--letter-spacing: 0px;
+  --text-button-large--font-weight: 300;
+  --text-fine-print: 12px;
+  --text-fine-print--line-height: 1.33;
+  --text-fine-print--letter-spacing: -0.12px;
+  --text-micro-legal: 10px;
+  --text-micro-legal--line-height: 1.3;
+  --text-micro-legal--letter-spacing: -0.08px;
+  --text-nav-link: 12px;
+  --text-nav-link--line-height: 1;
+  --text-nav-link--letter-spacing: -0.12px;
 
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  
-  --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  /* Safety net: legacy Tailwind sizes snap onto the Apple ladder */
+  --text-xs: 12px;
+  --text-xs--line-height: 1.33;
+  --text-xs--letter-spacing: -0.12px;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.43;
+  --text-sm--letter-spacing: -0.224px;
+  --text-base: 17px;
+  --text-base--line-height: 1.47;
+  --text-base--letter-spacing: -0.374px;
+  --text-lg: 17px;
+  --text-lg--line-height: 1.47;
+  --text-lg--letter-spacing: -0.374px;
+  --text-xl: 21px;
+  --text-xl--line-height: 1.19;
+  --text-xl--letter-spacing: 0.231px;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 1.14;
+  --text-2xl--letter-spacing: 0.196px;
+  --text-3xl: 34px;
+  --text-3xl--line-height: 1.2;
+  --text-3xl--letter-spacing: -0.374px;
+  --text-4xl: 40px;
+  --text-4xl--line-height: 1.1;
+  --text-5xl: 56px;
+  --text-5xl--line-height: 1.07;
+  --text-5xl--letter-spacing: -0.28px;
 
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  /* Weight ladder is 300 / 400 / 600 / 700 — 500 is deliberately absent, 800/900 don't exist */
+  --font-weight-medium: 600;
+  --font-weight-extrabold: 700;
+  --font-weight-black: 700;
 
-  /* Used by pages/components (bg-card, bg-popover, hover:bg-accent) but previously undefined,
-     which rendered those surfaces transparent. */
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  
-  /* Enforce rounded-sm globally for flat SaaS look */
-  --radius: 0.70rem;
-  --radius-xl: var(--radius);
-  --radius-lg: var(--radius);
-  --radius-md: var(--radius);
-  --radius-sm: var(--radius);
+  /* ---- Colors (DESIGN.md › colors) ---- */
+  --color-primary: #0066cc;
+  --color-primary-focus: #0071e3;
+  --color-primary-on-dark: #2997ff;
+  --color-primary-foreground: #ffffff;
+  --color-ink: #1d1d1f;
+  --color-ink-80: #333333;
+  --color-ink-48: #7a7a7a;
+  --color-body-muted: #cccccc;
+  --color-divider-soft: #f0f0f0;
+  --color-hairline: #e0e0e0;
+  --color-canvas: #ffffff;
+  --color-parchment: #f5f5f7;
+  --color-pearl: #fafafc;
+  --color-tile-1: #272729;
+  --color-tile-2: #2a2a2c;
+  --color-tile-3: #252527;
+  --color-chip: #d2d2d7;
+  --color-on-dark: #ffffff;
+
+  /* Status tones — gap-fill for DESIGN.md "Known Gaps" (validation/error states undocumented).
+     Taken from apple.com's own form/availability copy. Text and icons only; never a fill or accent. */
+  --color-destructive: #e30000;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #008009;
+  --color-success-foreground: #ffffff;
+  --color-warning: #b64400;
+
+  /* Semantic aliases so shared components read naturally */
+  --color-background: #f5f5f7;
+  --color-foreground: #1d1d1f;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-card-foreground: #1d1d1f;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1d1d1f;
+  --color-muted: #f5f5f7;
+  --color-muted-foreground: #7a7a7a;
+  --color-secondary: #fafafc;
+  --color-secondary-foreground: #333333;
+  --color-accent: #f5f5f7;
+  --color-accent-foreground: #1d1d1f;
+  --color-border: #e0e0e0;
+  --color-input: #e0e0e0;
+  --color-ring: #0071e3;
+
+  /* ---- Radius (DESIGN.md › rounded) ---- */
+  --radius: 8px;
+  --radius-xs: 5px;
+  --radius-sm: 8px;
+  --radius-md: 11px;
+  --radius-lg: 18px;
+  /* Safety net: no radius exists between 18px and pill */
+  --radius-xl: 18px;
+  --radius-2xl: 18px;
+  --radius-3xl: 18px;
+  --radius-4xl: 18px;
+
+  /* ---- Elevation: exactly one shadow in the system, for product imagery only ---- */
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px 0;
 }
 
 :root {
-  --background: #FAFAFA;
-  --foreground: #0F172A;
-  
-  --primary: #0F172A; /* Slate 900 for enterprise feel */
-  --primary-foreground: #F8FAFC;
-  --primary-hover: #1E293B;
-
-  --secondary: #F1F5F9;
-  --secondary-foreground: #0F172A;
-  
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-
-  --success: #10B981;
-  --success-foreground: #FFFFFF;
-  
-  --surface: #FFFFFF;
-  --border: #E2E8F0;
-  --input: #E2E8F0;
-  --ring: #94A3B8;
-
-  --muted: #F8FAFC;
-  --muted-foreground: #64748B;
-
-  --card: var(--surface);
-  --card-foreground: var(--foreground);
-  --popover: var(--surface);
-  --popover-foreground: var(--foreground);
-  --accent: #F1F5F9;
-  --accent-foreground: #0F172A;
-
-  /* The palette is light-only; keep native controls (date pickers, selects, scrollbars) light too. */
   color-scheme: light;
 }
 
+html {
+  background: var(--color-background);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-poppins), system-ui, -apple-system, sans-serif;
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  letter-spacing: var(--text-body--letter-spacing);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Remove heavy shadows globally for the flat look, but only the drop-shadow layers.
-   `box-shadow: none !important` also erased Tailwind's ring utilities (rings are box-shadows),
-   which made every focus-visible:ring-* focus indicator in the app invisible. */
+/* Headlines are SF Pro Display 600 (never 700+ at display sizes) */
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+/* Shadows on chrome are forbidden (cards, buttons, text). Only `shadow-product` survives.
+   Rings stay intact because focus indicators are drawn with outline, not box-shadow. */
 *, ::before, ::after {
   --tw-shadow: 0 0 #0000 !important;
   --tw-inset-shadow: 0 0 #0000 !important;
 }
+.shadow-product {
+  box-shadow: var(--shadow-product) !important;
+}
 
-/* Minimal enter animation for the `animate-in fade-in zoom-in-95` classes used across the app
-   (tailwindcss-animate is not installed, so these were no-ops). */
+/* Focus: 2px solid Focus Blue outline on every interactive element (button-primary-focus) */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary-focus);
+  outline-offset: 2px;
+}
+
+/* Press: transform scale(0.95) — the system-wide micro-interaction */
+.press {
+  transition: transform 150ms ease;
+}
+.press:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Text links: Action Blue, underline on interaction */
+.text-link {
+  color: var(--color-primary);
+  text-underline-offset: 3px;
+}
+.text-link:hover {
+  text-decoration: underline;
+}
+
+/* Frosted glass (sub-nav-frosted, floating-sticky-bar): Parchment 80% + saturate(180%) blur(20px) */
+.frosted {
+  background-color: rgb(245 245 247 / 0.8);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Muted chevron for native selects (ink-muted-48 stroke) */
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237a7a7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px;
+}
+
+/* Tabular numerals for prices, quantities and totals */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Enter animation for the `animate-in fade-in zoom-in-95` utilities */
 @keyframes enter {
   from {
     opacity: var(--tw-enter-opacity, 1);
@@ -113,7 +244,7 @@ body {
   }
 }
 @utility animate-in {
-  animation: enter 150ms ease-out;
+  animation: enter 200ms ease-out;
 }
 @utility fade-in {
   --tw-enter-opacity: 0;
@@ -129,21 +260,140 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .press:active:not(:disabled) {
+    transform: none;
+  }
 }
 
-/* Base utility for a light border instead of shadow to simulate flat SaaS cards */
+/* store-utility-card — kept as a class for legacy callers; prefer <Card> */
 .flat-card {
-  border: 1px solid var(--border);
-  background-color: var(--surface);
-  border-radius: var(--radius);
+  border: 1px solid var(--color-hairline);
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-lg);
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
-/* Hide scrollbar for IE, Edge and Firefox */
 .hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==========================================================================
+   SweetAlert2 dialogs, re-skinned onto the system (used with buttonsStyling: false via @/lib/swal)
+   ========================================================================== */
+.swal2-container.swal2-backdrop-show {
+  background: rgb(0 0 0 / 0.4) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.swal2-popup {
+  border-radius: var(--radius-lg) !important;
+  background: var(--color-canvas) !important;
+  color: var(--color-ink) !important;
+  font-family: var(--font-sans) !important;
+  padding: 32px 24px 24px !important;
+  box-shadow: none !important;
+}
+.swal2-title {
+  font-family: var(--font-display) !important;
+  font-size: var(--text-tagline) !important;
+  font-weight: 600 !important;
+  line-height: 1.19 !important;
+  letter-spacing: 0.231px !important;
+  color: var(--color-ink) !important;
+  padding: 8px 0 0 !important;
+}
+.swal2-html-container {
+  font-size: var(--text-body) !important;
+  line-height: 1.47 !important;
+  letter-spacing: -0.374px !important;
+  color: var(--color-ink-80) !important;
+}
+.swal2-actions {
+  gap: 12px;
+}
+.swal2-icon {
+  transform: scale(0.8);
+  margin-top: 8px !important;
+  margin-bottom: 0 !important;
+}
+.swal2-icon.swal2-info,
+.swal2-icon.swal2-question {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+.swal2-icon.swal2-success {
+  border-color: var(--color-success) !important;
+  color: var(--color-success) !important;
+}
+.swal2-icon.swal2-success [class^="swal2-success-line"] {
+  background-color: var(--color-success) !important;
+}
+.swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgb(0 128 9 / 0.3) !important;
+}
+.swal2-icon.swal2-error {
+  border-color: var(--color-destructive) !important;
+  color: var(--color-destructive) !important;
+}
+.swal2-icon.swal2-error [class^="swal2-x-mark-line"] {
+  background-color: var(--color-destructive) !important;
+}
+.swal2-icon.swal2-warning {
+  border-color: var(--color-warning) !important;
+  color: var(--color-warning) !important;
+}
+.swal2-input,
+.swal2-textarea,
+.swal2-select {
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  font-size: var(--text-body) !important;
+  color: var(--color-ink) !important;
+}
+.swal2-textarea {
+  border-radius: var(--radius-lg) !important;
+}
+.swal2-validation-message {
+  background: var(--color-parchment) !important;
+  color: var(--color-destructive) !important;
+  font-size: var(--text-caption) !important;
+}
+.swal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 33px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: var(--text-caption);
+  line-height: 1.24;
+  letter-spacing: -0.224px;
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+.swal-btn:active {
+  transform: scale(0.95);
+}
+.swal-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.swal-btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+.swal-btn-destructive {
+  background: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+}
+
+@media print {
+  body {
+    background: var(--color-canvas);
+  }
 }

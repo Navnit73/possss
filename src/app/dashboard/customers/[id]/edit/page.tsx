@@ -8,8 +8,17 @@ import axios from "axios";
 import { customerSchema } from "@/lib/validations";
 import type { z } from "zod";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
-import Swal from "sweetalert2";
+import { Save } from "lucide-react";
+import { PageShell } from "@/components/ui/Page";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Label } from "@/components/ui/Label";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
+import Swal from "@/lib/swal";
 
 type CustomerFormData = z.infer<typeof customerSchema>;
 
@@ -66,145 +75,132 @@ export default function EditCustomerPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      <div className="flex h-[calc(100dvh-2.75rem)] items-center justify-center">
+        <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href={`/dashboard/customers/${id}`} className="text-muted-foreground hover:text-foreground" aria-label="Back">
-          <ArrowLeft className="w-5 h-5" aria-hidden />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Edit Customer</h1>
-          <p className="text-muted-foreground text-sm">Update customer profile details</p>
-        </div>
-      </div>
+    <PageShell className="max-w-4xl">
+      <PageHeader
+        title="Edit Customer"
+        description="Update customer profile details"
+        backHref={`/dashboard/customers/${id}`}
+      />
 
-      <div className="bg-white rounded-lg border border-border shadow-sm p-6">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-md text-sm border border-red-100">
-            {error}
-          </div>
-        )}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label htmlFor="customer-name" className="text-sm font-semibold text-foreground">Full Name *</label>
-              <input
+              <Label htmlFor="customer-name">Full Name *</Label>
+              <Input
                 id="customer-name"
                 {...register("name")}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                aria-invalid={!!errors.name}
                 placeholder="John Doe"
               />
-              {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
+              {errors.name && <p className="text-caption text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="customer-phone" className="text-sm font-semibold text-foreground">Phone Number</label>
-              <input
+              <Label htmlFor="customer-phone">Phone Number</Label>
+              <Input
                 id="customer-phone"
                 {...register("phone")}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 placeholder="+1 234 567 8900"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="customer-email" className="text-sm font-semibold text-foreground">Email Address</label>
-              <input
+              <Label htmlFor="customer-email">Email Address</Label>
+              <Input
                 id="customer-email"
                 {...register("email")}
                 type="email"
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                aria-invalid={!!errors.email}
                 placeholder="john@example.com"
               />
-              {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
+              {errors.email && <p className="text-caption text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="customer-date_of_birth" className="text-sm font-semibold text-foreground">Date of Birth</label>
-              <input
+              <Label htmlFor="customer-date_of_birth">Date of Birth</Label>
+              <Input
                 id="customer-date_of_birth"
                 {...register("date_of_birth")}
                 type="date"
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label htmlFor="customer-address" className="text-sm font-semibold text-foreground">Address</label>
-              <textarea
+              <Label htmlFor="customer-address">Address</Label>
+              <Textarea
                 id="customer-address"
                 {...register("address")}
                 rows={2}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 placeholder="Full address"
               />
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2 md:col-span-2">
-              <label htmlFor="customer-notes" className="text-sm font-semibold text-foreground">Notes</label>
-              <textarea
-                id="customer-notes"
-                {...register("notes")}
-                rows={3}
-                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="Any special requirements or notes"
-              />
-            </div>
-
+        <Card>
+          <CardHeader>
+            <CardTitle>Account</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label htmlFor="customer-status" className="text-sm font-semibold text-foreground">Status</label>
-              <select
+              <Label htmlFor="customer-status">Status</Label>
+              <Select
                 id="customer-status"
                 {...register("status")}
-                className="w-full px-3 py-2 border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
-              </select>
+              </Select>
             </div>
-            
+
             <div className="space-y-2">
-              <label htmlFor="customer-customer_id" className="text-sm font-semibold text-foreground">Custom Customer ID</label>
-              <input
+              <Label htmlFor="customer-customer_id">Custom Customer ID</Label>
+              <Input
                 id="customer-customer_id"
                 {...register("customer_id")}
-                className="w-full px-3 py-2 border border-border rounded-md bg-surface text-muted-foreground focus:outline-none"
+                aria-invalid={!!errors.customer_id}
                 placeholder="Leave blank to auto-generate"
-                readOnly // We usually shouldn't let them edit ID easily or it breaks links if they manually type things, but schema allows it. Actually readOnly is safer so it submits.
+                  readOnly // We usually shouldn't let them edit ID easily or it breaks links if they manually type things, but schema allows it. Actually readOnly is safer so it submits.
+                  className="bg-parchment text-ink-48"
               />
-              {errors.customer_id && <p className="text-red-500 text-xs">{errors.customer_id.message}</p>}
+              {errors.customer_id && <p className="text-caption text-destructive">{errors.customer_id.message}</p>}
             </div>
-          </div>
 
-          <div className="pt-6 border-t border-border flex justify-end gap-3">
-            <Link
-              href={`/dashboard/customers/${id}`}
-              className="px-4 py-2 border border-border text-foreground/80 rounded-md font-medium text-sm hover:bg-surface"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-primary text-white px-6 py-2 rounded-md font-medium text-sm hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Update Customer
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="customer-notes">Notes</Label>
+              <Textarea
+                id="customer-notes"
+                {...register("notes")}
+                rows={3}
+                placeholder="Any special requirements or notes"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end gap-3">
+          <Link href={`/dashboard/customers/${id}`} className={buttonClasses({ variant: "outline" })}>
+            Cancel
+          </Link>
+          <Button type="submit" loading={isSubmitting}>
+            {!isSubmitting && <Save aria-hidden="true" />}
+            Update Customer
+          </Button>
+        </div>
+      </form>
+    </PageShell>
   );
 }

@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { ProductForm } from "@/components/products/ProductForm";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
 import { useParams } from "next/navigation";
 
 export default function EditProductPage() {
@@ -29,20 +31,26 @@ export default function EditProductPage() {
   }, [id]);
 
   if (isLoading) {
-    return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
+    return (
+      <PageShell>
+        <div className="flex items-center justify-center gap-3 py-16 text-caption text-ink-48">
+          <Spinner label="" className="size-5" /> Loading...
+        </div>
+      </PageShell>
+    );
   }
 
   if (error || !initialData) {
     return (
-      <div className="p-8 max-w-4xl mx-auto">
-        <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error || "Product not found"}</div>
-        <Link href="/dashboard/products" className="mt-4 inline-block text-primary hover:underline">Return to Products</Link>
-      </div>
+      <PageShell className="max-w-4xl">
+        <Alert variant="destructive">{error || "Product not found"}</Alert>
+        <Link href="/dashboard/products" className="text-link text-body">Return to Products</Link>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <PageShell>
       <PageHeader 
         title="Edit Product"
         description="Update medicine details."
@@ -50,6 +58,6 @@ export default function EditProductPage() {
       />
 
       <ProductForm initialData={initialData} isEdit={true} />
-    </div>
+    </PageShell>
   );
 }

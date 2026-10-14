@@ -2,11 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Save, Send, Loader2, X, Plus, AlertCircle } from "lucide-react";
-import Swal from "sweetalert2";
+import { Label } from "@/components/ui/Label";
+import { Badge } from "@/components/ui/Badge";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
+import {
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+} from "@/components/ui/Table";
+import { Save, Send, X, Plus, AlertCircle } from "lucide-react";
+import Swal from "@/lib/swal";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -199,65 +208,70 @@ export default function ReportSettingsPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <PageShell>
       <PageHeader 
         title="Report Settings"
         description="Configure automated email reports for your store"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <>
             <Button 
               variant="outline" 
               onClick={handleTestEmail} 
-              disabled={testing || recipients.length === 0}
+              disabled={recipients.length === 0}
+              loading={testing}
             >
-              {testing ? <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary" /> : <Send className="w-4 h-4 mr-2" />}
+              {!testing && <Send aria-hidden="true" />}
               Test Email
             </Button>
 
             <Button 
               onClick={handleSave} 
-              disabled={saving}
+              loading={saving}
             >
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin text-primary-foreground" /> : <Save className="w-4 h-4 mr-2" />}
+              {!saving && <Save aria-hidden="true" />}
               Save Settings
             </Button>
-          </div>
+          </>
         }
       />
 
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col p-6 space-y-8">
-        
+      <Card>
         {/* Enable Automation Toggle */}
-        <div className="flex items-center justify-between pb-6 border-b border-border">
-          <div>
-            <h3 className="text-lg font-medium text-foreground">Automated Reports</h3>
-            <p className="text-sm text-muted-foreground">Receive daily summaries of your store's performance.</p>
+        <CardHeader className="flex-row items-center justify-between gap-6 border-b border-hairline">
+          <div className="space-y-1">
+            <CardTitle id="automated-reports-title">Automated Reports</CardTitle>
+            <CardDescription>Receive daily summaries of your store&apos;s performance.</CardDescription>
           </div>
 
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="press relative inline-flex items-center cursor-pointer shrink-0">
             <input 
               type="checkbox" 
+              role="switch"
+              aria-labelledby="automated-reports-title"
               className="sr-only peer" 
               checked={enabled} 
               onChange={(e) => setEnabled(e.target.checked)} 
             />
-            <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            <span
+              aria-hidden="true"
+              className="block w-12 h-7 rounded-full bg-chip peer-checked:bg-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary-focus transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:size-6 after:rounded-full after:bg-canvas after:transition-transform peer-checked:after:translate-x-5"
+            />
           </label>
-        </div>
+        </CardHeader>
 
         {/* Configurations */}
-        <div className={`space-y-6 ${!enabled ? "opacity-50 pointer-events-none" : ""}`}>
-          
+        <CardContent className={`pt-6 space-y-6 ${!enabled ? "opacity-40 pointer-events-none" : ""}`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Schedule Time</label>
+              <Label htmlFor="report-time">Schedule Time</Label>
               <Input 
+                id="report-time"
                 type="time" 
                 value={time} 
                 onChange={(e) => setTime(e.target.value)}
@@ -266,8 +280,9 @@ export default function ReportSettingsPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Timezone</label>
+              <Label htmlFor="report-timezone">Timezone</Label>
               <Select 
+                id="report-timezone"
                 value={timezone} 
                 onChange={(e) => setTimezone(e.target.value)}
                 className="w-full"
@@ -286,8 +301,9 @@ export default function ReportSettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Frequency</label>
+            <Label htmlFor="report-frequency">Frequency</Label>
             <Select 
+              id="report-frequency"
               value={frequency} 
               onChange={(e) => setFrequency(e.target.value)}
               className="w-full"
@@ -296,18 +312,20 @@ export default function ReportSettingsPage() {
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
             </Select>
-            <p className="text-xs text-muted-foreground mt-1">Currently, only Daily reports are fully supported by the job scheduler.</p>
+            <p className="text-caption text-ink-48">Currently, only Daily reports are fully supported by the job scheduler.</p>
           </div>
 
           {/* Email Recipients */}
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-foreground">Recipients</label>
+          <div className="space-y-3">
+            <Label htmlFor="report-recipient">Recipients</Label>
             
             <div className="flex gap-2 w-full">
               <Input 
+                id="report-recipient"
                 type="email" 
                 placeholder="email@example.com" 
                 value={newRecipient} 
+                aria-invalid={emailError ? true : undefined}
                 onChange={(e) => {
                   setNewRecipient(e.target.value);
                   if (emailError) setEmailError("");
@@ -315,98 +333,95 @@ export default function ReportSettingsPage() {
                 onKeyDown={handleKeyDown}
                 className="w-full"
               />
-              <Button type="button" variant="secondary" onClick={validateAndAddRecipient}>
-                <Plus className="w-4 h-4" />
+              <Button type="button" variant="outline" size="icon" onClick={validateAndAddRecipient} aria-label="Add recipient">
+                <Plus aria-hidden="true" />
               </Button>
             </div>
 
             {emailError && (
-              <p className="text-xs text-rose-600 flex items-center gap-1 font-medium">
-                <AlertCircle className="w-3.5 h-3.5" /> {emailError}
+              <p className="text-caption text-destructive flex items-center gap-1.5">
+                <AlertCircle className="size-4 shrink-0" aria-hidden="true" /> {emailError}
               </p>
             )}
 
             {recipients.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 {recipients.map((email) => (
-                  <div 
+                  <span 
                     key={email} 
-                    className="flex items-center gap-2 px-3 py-1 bg-secondary text-secondary-foreground rounded-full text-sm"
+                    className="inline-flex items-center gap-1 rounded-full border border-hairline bg-canvas pl-4 pr-1 min-h-9 text-caption text-ink"
                   >
                     <span>{email}</span>
                     <button 
                       type="button" 
                       onClick={() => removeRecipient(email)} 
-                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={`Remove ${email}`}
+                      className="press cursor-pointer size-7 rounded-full flex items-center justify-center text-ink-48"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="size-3.5" aria-hidden="true" />
                     </button>
-                  </div>
+                  </span>
                 ))}
               </div>
             )}
 
             {recipients.length === 0 && (
-              <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-md border border-amber-200">
-                You must add at least one recipient to receive automated reports.
-              </p>
+              <Alert variant="warning">
+                <p>You must add at least one recipient to receive automated reports.</p>
+              </Alert>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Email History Table */}
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-border bg-secondary/30">
-          <h3 className="font-medium text-foreground">Email Dispatch History</h3>
-        </div>
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle>Email Dispatch History</CardTitle>
+        </CardHeader>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-secondary/50">
-                <th className="p-4 text-sm font-semibold text-foreground">Sent At</th>
-                <th className="p-4 text-sm font-semibold text-foreground">Report Date</th>
-                <th className="p-4 text-sm font-semibold text-foreground">Recipients</th>
-                <th className="p-4 text-sm font-semibold text-foreground">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {history.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-muted-foreground text-sm">
-                    No reports have been sent yet.
-                  </td>
-                </tr>
-              ) : (
-                history.map((log, i) => (
-                  <tr key={i} className="hover:bg-secondary/30 transition-colors">
-                    <td className="p-4 text-sm text-foreground">
-                      {safeFormatDate(log.sentAt)}
-                    </td>
-                    <td className="p-4 text-sm text-muted-foreground">{log.date || "N/A"}</td>
-                    <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate" title={log.recipients?.join(", ")}>
-                      {log.recipients?.join(", ") || "N/A"}
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        log.status === "SUCCESS" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
-                      }`}>
-                        {log.status}
-                      </span>
-                      {log.error && (
-                        <p className="text-xs text-rose-500 mt-1 max-w-[200px] truncate" title={log.error}>
-                          {log.error}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Sent At</TableHead>
+              <TableHead>Report Date</TableHead>
+              <TableHead>Recipients</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {history.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="py-12 text-center text-ink-48">
+                  No reports have been sent yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              history.map((log, i) => (
+                <TableRow key={i}>
+                  <TableCell className="text-ink tabular">
+                    {safeFormatDate(log.sentAt)}
+                  </TableCell>
+                  <TableCell className="text-ink-48 tabular">{log.date || "N/A"}</TableCell>
+                  <TableCell className="text-ink-48 max-w-52 truncate" title={log.recipients?.join(", ")}>
+                    {log.recipients?.join(", ") || "N/A"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={log.status === "SUCCESS" ? "success" : "destructive"}>
+                      {log.status}
+                    </Badge>
+                    {log.error && (
+                      <p className="text-fine-print text-destructive mt-1 max-w-52 truncate" title={log.error}>
+                        {log.error}
+                      </p>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
+    </PageShell>
   );
 }

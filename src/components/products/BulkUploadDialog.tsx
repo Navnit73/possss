@@ -5,7 +5,10 @@ import axios from "axios";
 import Papa from "papaparse";
 import { Upload, X, FileText, CheckCircle, AlertCircle, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Swal from "sweetalert2";
+import Swal from "@/lib/swal";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { cn } from "@/lib/utils";
 
 // Keep in sync with MAX_BULK_ROWS in /api/products/bulk
 const MAX_BULK_ROWS = 1000;
@@ -208,68 +211,64 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-upload-title"
-        className="bg-background border border-border w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="bg-canvas text-ink w-full max-w-2xl rounded-lg flex flex-col max-h-[90vh]"
       >
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 id="bulk-upload-title" className="text-xl font-semibold text-foreground">Bulk Upload Products</h2>
-          <button 
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-hairline">
+          <h2 id="bulk-upload-title" className="text-tagline text-ink">Bulk Upload Products</h2>
+          <Button 
+            variant="ghost"
+            size="icon"
             onClick={handleClose}
             disabled={isUploading}
             aria-label="Close"
-            className="text-muted-foreground hover:text-foreground hover:bg-secondary p-1.5 rounded-lg transition-colors disabled:opacity-50"
+            className="text-ink-48"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
           {isSuccess ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-medium text-foreground mb-2">Upload Complete!</h3>
-              <p className="text-muted-foreground">Successfully imported {successCount} products into medicine catalog.</p>
+              <CheckCircle className="size-8 text-success mb-4" aria-hidden="true" />
+              <h3 className="text-tagline text-ink mb-2">Upload Complete!</h3>
+              <p className="text-body text-ink-48">Successfully imported <span className="tabular">{successCount}</span> products into medicine catalog.</p>
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-semibold mb-1">Instructions:</p>
-                  <ul className="list-disc pl-4 space-y-1">
-                    <li>Download the template CSV below.</li>
-                    <li>If using Excel, save your file as <strong>CSV (Comma delimited) (.csv)</strong>.</li>
-                    <li>Required fields: <code>name</code>, <code>category_name</code>, <code>manufacturer_name</code>, <code>unit_of_measure</code>.</li>
-                    <li>Missing categories or manufacturers will be created automatically.</li>
-                    <li>Up to {MAX_BULK_ROWS} products per file.</li>
-                  </ul>
-                </div>
-              </div>
+              <Alert>
+                <p className="font-semibold mb-1">Instructions:</p>
+                <ul className="list-disc pl-4 space-y-1 text-ink-80">
+                  <li>Download the template CSV below.</li>
+                  <li>If using Excel, save your file as <strong className="font-semibold">CSV (Comma delimited) (.csv)</strong>.</li>
+                  <li>Required fields: <code className="font-mono">name</code>, <code className="font-mono">category_name</code>, <code className="font-mono">manufacturer_name</code>, <code className="font-mono">unit_of_measure</code>.</li>
+                  <li>Missing categories or manufacturers will be created automatically.</li>
+                  <li>Up to {MAX_BULK_ROWS} products per file.</li>
+                </ul>
+              </Alert>
 
               <div className="flex justify-center">
-                <button
-                  onClick={handleDownloadTemplate}
-                  className="flex items-center gap-2 px-4 py-2 bg-secondary text-foreground rounded-md hover:bg-secondary/80 transition-colors font-medium text-sm border border-border"
-                >
-                  <Download className="w-4 h-4" />
+                <Button variant="secondary" onClick={handleDownloadTemplate}>
+                  <Download aria-hidden="true" />
                   Download Template CSV
-                </button>
+                </Button>
               </div>
 
               <div 
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-                  isDragOver ? 'border-primary bg-primary/10' :
-                  file ? 'border-primary/50 bg-primary/5' : 'border-border hover:border-primary/30 hover:bg-secondary/50'
-                }`}
+                className={cn(
+                  "rounded-lg p-8 text-center",
+                  isDragOver || file
+                    ? "border-2 border-dashed border-primary-focus bg-parchment"
+                    : "border border-dashed border-hairline bg-canvas"
+                )}
               >
                 <input
                   type="file"
@@ -281,34 +280,31 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                 
                 {!file ? (
                   <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 bg-secondary rounded-full">
-                      <Upload className="w-6 h-6 text-muted-foreground" />
-                    </div>
+                    <Upload className="size-6 text-ink-48" aria-hidden="true" />
                     <div>
-                      <p className="font-medium text-foreground">Click to upload CSV</p>
-                      <p className="text-sm text-muted-foreground mt-1">or drag and drop your CSV file here</p>
+                      <p className="text-body font-semibold text-ink">Click to upload CSV</p>
+                      <p className="text-caption text-ink-48 mt-1">or drag and drop your CSV file here</p>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => fileInputRef.current?.click()}
-                      className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+                      className="mt-3"
                     >
                       Browse Files
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 bg-green-100 text-green-700 rounded-full">
-                      <FileText className="w-6 h-6" />
-                    </div>
+                    <FileText className="size-6 text-success" aria-hidden="true" />
                     <div>
-                      <p className="font-medium text-foreground">{file.name}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{(file.size / 1024).toFixed(2)} KB</p>
+                      <p className="text-body font-semibold text-ink">{file.name}</p>
+                      <p className="text-caption text-ink-48 mt-1 tabular">{(file.size / 1024).toFixed(2)} KB</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => { setFile(null); setErrors([]); }}
-                      className="mt-4 text-sm text-red-600 hover:text-red-700 font-medium"
+                      className="press cursor-pointer mt-3 text-caption text-destructive hover:underline"
                     >
                       Remove file
                     </button>
@@ -317,12 +313,12 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
               </div>
 
               {errors.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-red-800 font-semibold mb-2 text-sm">
-                    <AlertCircle className="w-4 h-4" />
+                <div role="alert" className="bg-parchment rounded-lg px-4.25 py-3">
+                  <div className="flex items-center gap-2 text-caption font-semibold text-ink mb-2">
+                    <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
                     <span>Errors found in upload:</span>
                   </div>
-                  <ul className="list-disc pl-5 text-sm text-red-700 space-y-1 max-h-40 overflow-y-auto">
+                  <ul className="list-disc pl-5 text-caption text-destructive space-y-1 max-h-40 overflow-y-auto">
                     {errors.map((err, i) => (
                       <li key={i}>{err}</li>
                     ))}
@@ -334,31 +330,28 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
         </div>
 
         {!isSuccess && (
-          <div className="p-6 border-t border-border flex justify-end gap-3 bg-secondary/30">
-            <button
+          <div className="px-6 py-4 border-t border-hairline flex justify-end gap-3">
+            <Button
+              variant="outline"
               onClick={handleClose}
               disabled={isUploading}
-              className="px-5 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors disabled:opacity-50"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleUpload}
-              disabled={!file || isUploading}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              disabled={!file}
+              loading={isUploading}
             >
               {isUploading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Processing...
-                </>
+                "Processing..."
               ) : (
                 <>
-                  <Upload className="w-4 h-4" />
+                  <Upload aria-hidden="true" />
                   Upload Data
                 </>
               )}
-            </button>
+            </Button>
           </div>
         )}
       </div>

@@ -1,6 +1,13 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+/**
+ * search-input grammar applied to every text field: white canvas, 1px hairline,
+ * full pill, body 17px, 44px tall, 12×20 padding. Invalid state uses the destructive tone.
+ */
+export const fieldClasses =
+  "flex min-h-11 w-full rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink placeholder:text-ink-48 disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive file:border-0 file:bg-transparent file:text-caption file:font-semibold file:text-primary"
+
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
 
@@ -9,10 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         type={type}
-        className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive/40",
-          className
-        )}
+        className={cn(fieldClasses, className)}
         ref={ref}
         {...props}
       />
@@ -21,4 +25,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 )
 Input.displayName = "Input"
 
-export { Input }
+/** Multi-line fields can't be pills; they take the utility-card radius (18px). */
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <textarea
+        className={cn(fieldClasses, "rounded-lg min-h-24 py-3", className)}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Textarea.displayName = "Textarea"
+
+export { Input, Textarea }

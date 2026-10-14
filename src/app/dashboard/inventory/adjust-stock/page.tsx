@@ -9,6 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { ArrowLeft, Settings2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
+import { Card } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Button, buttonClasses } from "@/components/ui/Button";
+import { Input, Textarea } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Label } from "@/components/ui/Label";
 
 // Mirrors the server rules in /api/inventory/adjust. Sales are recorded through POS only.
 const adjustSchema = z.object({
@@ -86,28 +93,29 @@ export default function AdjustStockPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <PageShell>
       <PageHeader 
         title="Adjust Stock"
         description="Record manual adjustments, damages, or corrections."
         backHref="/dashboard/inventory/stock-list"
       />
 
-      {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-        <strong>Important:</strong> Quantity should be the <em>delta</em>. For example, to deduct 5 damaged items, enter <code>-5</code>. To add 2 found items, enter <code>2</code>.
-      </div>
+      <Alert variant="warning" className="bg-canvas border border-hairline">
+        <strong className="font-semibold">Important:</strong> Quantity should be the <em>delta</em>. For example, to deduct 5 damaged items, enter <code className="font-mono">-5</code>. To add 2 found items, enter <code className="font-mono">2</code>.
+      </Alert>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 bg-surface border border-border rounded-lg p-6">
+      <Card className="p-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="col-span-1 md:col-span-2">
-            <label htmlFor="adjust-batch" className="text-sm font-medium text-foreground">Select Batch *</label>
-            <select 
+            <Label htmlFor="adjust-batch">Select Batch *</Label>
+            <Select 
               id="adjust-batch"
               {...register("batch_id")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+              className="mt-1.5"
               disabled={isLoading}
             >
               <option value="">Select a batch to adjust...</option>
@@ -120,65 +128,65 @@ export default function AdjustStockPage() {
                   ))}
                 </optgroup>
               ))}
-            </select>
-            {errors.batch_id && <p className="text-sm text-red-500 mt-1">{errors.batch_id.message}</p>}
+            </Select>
+            {errors.batch_id && <p className="text-caption text-destructive mt-1.5">{errors.batch_id.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="adjust-type" className="text-sm font-medium text-foreground">Movement Type *</label>
-            <select 
+            <Label htmlFor="adjust-type">Movement Type *</Label>
+            <Select 
               id="adjust-type"
               {...register("movement_type")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+              className="mt-1.5"
             >
               <option value="DAMAGE">Damage (reduces stock)</option>
               <option value="RETURN">Return (adds stock)</option>
               <option value="ADJUSTMENT">Stock Correction / Adjustment</option>
-            </select>
+            </Select>
           </div>
 
           <div>
-            <label htmlFor="adjust-qty" className="text-sm font-medium text-foreground">Quantity Offset *</label>
-            <input 
+            <Label htmlFor="adjust-qty">Quantity Offset *</Label>
+            <Input 
               id="adjust-qty"
               type="number"
               step="any"
               {...register("quantity")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="mt-1.5"
               placeholder="-5.5 or +5.5"
             />
-            {errors.quantity && <p className="text-sm text-red-500 mt-1">{errors.quantity.message}</p>}
+            {errors.quantity && <p className="text-caption text-destructive mt-1.5">{errors.quantity.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="adjust-notes" className="text-sm font-medium text-foreground">Reason / Notes</label>
-            <textarea 
+            <Label htmlFor="adjust-notes">Reason / Notes</Label>
+            <Textarea 
               id="adjust-notes"
               {...register("notes")}
-              className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[100px]"
+              className="mt-1.5"
               placeholder="Explain why this adjustment is being made..."
             />
-            {errors.notes && <p className="text-sm text-red-500 mt-1">{errors.notes.message}</p>}
+            {errors.notes && <p className="text-caption text-destructive mt-1.5">{errors.notes.message}</p>}
           </div>
         </div>
 
-        <div className="flex justify-end gap-4 pt-4 border-t border-border/50">
+        <div className="flex justify-end gap-3 pt-6 border-t border-hairline">
           <Link 
             href="/dashboard/inventory/stock-list"
-            className="px-6 py-2.5 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors"
+            className={buttonClasses({ variant: "outline" })}
           >
             Cancel
           </Link>
-          <button 
+          <Button 
             type="submit"
             disabled={isSubmitting || isLoading}
-            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Settings2 className="w-4 h-4" />
+            <Settings2 aria-hidden="true" />
             {isSubmitting ? "Processing..." : "Confirm Adjustment"}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+      </Card>
+    </PageShell>
   );
 }

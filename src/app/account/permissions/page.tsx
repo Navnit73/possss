@@ -1,10 +1,18 @@
 "use client";
 
-import Swal from "sweetalert2";
+import Swal, { destructiveSwalClasses } from "@/lib/swal";
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Shield, Check, X, Search, CheckSquare, Square, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Edit2, Trash2, Shield, X, Search, CheckSquare } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
+import { Alert } from "@/components/ui/Alert";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, EmptyState, Chip } from "@/components/ui/Page";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 
 const AVAILABLE_MODULES = [
   "POS",
@@ -127,8 +135,8 @@ export default function PermissionsPage() {
       text: "Users assigned to this role must be reassigned before deleting.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      confirmButtonText: "Yes, Delete Role"
+      confirmButtonText: "Yes, Delete Role",
+      customClass: destructiveSwalClasses
     });
 
     if (confirm.isConfirmed) {
@@ -204,174 +212,150 @@ export default function PermissionsPage() {
   );
 
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase mb-1">
-            <Shield className="w-4 h-4" /> Access Control Matrix
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Roles & Permissions</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure custom roles and fine-grained module access rights for store staff.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setEditingRole({ name: "", description: "", permissions: [] })}
-            className="gap-2 text-xs font-semibold"
-          >
-            <Plus className="w-4 h-4" /> Create Custom Role
+    <PageShell>
+      <PageHeader
+        title="Roles & Permissions"
+        description="Configure custom roles and fine-grained module access rights for store staff."
+        actions={
+          <Button onClick={() => setEditingRole({ name: "", description: "", permissions: [] })}>
+            <Plus /> Create Custom Role
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
-        <div role="alert" className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <Alert variant="destructive">
           <span>{error}</span>
-        </div>
+        </Alert>
       )}
 
       {editingRole ? (
         /* Edit / Create Role Form Modal / Drawer */
-        <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-          <div className="px-6 py-4 border-b border-border bg-muted/40 flex justify-between items-center">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                <Shield className="w-5 h-5" />
-              </div>
-              <h2 className="font-bold text-foreground text-base">
-                {editingRole._id ? `Edit Role: ${editingRole.name}` : "Create New Custom Role"}
-              </h2>
-            </div>
-            <button 
+        <Card className="overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="px-6 pt-6 flex justify-between items-center gap-3">
+            <h2 className="text-tagline text-ink">
+              {editingRole._id ? `Edit Role: ${editingRole.name}` : "Create New Custom Role"}
+            </h2>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               aria-label="Close"
-              onClick={() => setEditingRole(null)} 
-              className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors"
+              onClick={() => setEditingRole(null)}
             >
-              <X className="w-5 h-5" />
-            </button>
+              <X />
+            </Button>
           </div>
 
-          <form onSubmit={handleSaveRole} className="p-6 space-y-6">
+          <form onSubmit={handleSaveRole} className="p-6 space-y-8">
             {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role Name *</label>
-                <input
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-2">
+                <Label htmlFor="role-name">Role name *</Label>
+                <Input
+                  id="role-name"
                   type="text"
                   required
                   value={editingRole.name}
                   onChange={e => setEditingRole({...editingRole, name: e.target.value})}
-                  className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-medium text-foreground"
                   placeholder="e.g. Senior Pharmacist"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="role-description">Description</Label>
+                <Input
+                  id="role-description"
                   type="text"
                   value={editingRole.description || ""}
                   onChange={e => setEditingRole({...editingRole, description: e.target.value})}
-                  className="w-full h-10 px-3.5 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-medium text-foreground"
                   placeholder="Brief role summary..."
                 />
               </div>
             </div>
 
             {/* Role Preset Quick Select */}
-            <div className="p-4 bg-muted/20 border border-border rounded-lg space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-foreground uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-primary" /> Apply Quick Template Preset
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
+            <div className="space-y-3">
+              <p className="text-body font-semibold text-ink">Apply a template preset</p>
+              <div className="flex flex-wrap gap-2">
                 {PRESETS.map((preset) => (
-                  <button
+                  <Chip
                     key={preset.name}
-                    type="button"
                     onClick={() => applyPreset(preset)}
-                    className="px-3 py-1.5 bg-background border border-border hover:border-primary/50 text-foreground hover:text-primary text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
                     <span>{preset.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">({preset.permissions.length} perms)</span>
-                  </button>
+                    <span className="text-ink-48 tabular">({preset.permissions.length} perms)</span>
+                  </Chip>
                 ))}
               </div>
             </div>
 
             {/* Matrix */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Permissions Matrix</h3>
-                <span className="text-xs text-primary font-bold bg-primary/10 px-2.5 py-0.5 rounded-full">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-body font-semibold text-ink">Permissions matrix</h3>
+                <Badge variant="secondary" className="tabular">
                   {editingRole.permissions?.length || 0} Permissions Selected
-                </span>
+                </Badge>
               </div>
 
-              <div className="border border-border rounded-lg overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border text-xs font-semibold text-muted-foreground">
-                      <th className="px-4 py-3 w-1/3">Module / Entity</th>
+              <div className="border border-hairline rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-1/3">Module / entity</TableHead>
                       {AVAILABLE_ACTIONS.map(action => (
-                        <th key={action} className="px-4 py-3 text-center">
+                        <TableHead key={action} className="text-center">
                           <button
                             type="button"
                             onClick={() => toggleActionColumn(action)}
-                            className="inline-flex items-center gap-1 text-xs font-bold hover:text-primary transition-colors cursor-pointer"
+                            className="press inline-flex items-center gap-1 text-caption font-semibold text-primary cursor-pointer"
                             title={`Select/Deselect all ${action} permissions`}
                           >
                             <span>{action}</span>
-                            <CheckSquare className="w-3.5 h-3.5 text-muted-foreground/60" />
+                            <CheckSquare className="size-3.5" aria-hidden="true" />
                           </button>
-                        </th>
+                        </TableHead>
                       ))}
-                      <th className="px-4 py-3 text-center">Batch Row</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border bg-card">
+                      <TableHead className="text-center">Batch row</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {AVAILABLE_MODULES.map(module => {
                       const allRowSelected = AVAILABLE_ACTIONS.every(action => hasPermission(module, action));
                       return (
-                        <tr key={module} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-foreground text-xs">{module}</td>
+                        <TableRow key={module}>
+                          <TableCell className="font-mono font-semibold">{module}</TableCell>
                           {AVAILABLE_ACTIONS.map(action => (
-                            <td key={`${module}-${action}`} className="px-4 py-3 text-center">
-                              <label className="inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  className="sr-only peer"
-                                  checked={hasPermission(module, action)}
-                                  onChange={() => togglePermission(module, action)}
-                                />
-                                <div className="w-5 h-5 border-2 border-border rounded-md peer-checked:bg-primary peer-checked:border-primary flex items-center justify-center transition-colors">
-                                  {hasPermission(module, action) && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
-                                </div>
-                              </label>
-                            </td>
+                            <TableCell key={`${module}-${action}`} className="text-center">
+                              <input
+                                type="checkbox"
+                                aria-label={`${module} ${action}`}
+                                className="accent-primary size-4 cursor-pointer align-middle"
+                                checked={hasPermission(module, action)}
+                                onChange={() => togglePermission(module, action)}
+                              />
+                            </TableCell>
                           ))}
-                          <td className="px-4 py-3 text-center">
-                            <button
+                          <TableCell className="text-center">
+                            <Button
                               type="button"
+                              variant="link"
                               onClick={() => toggleModuleRow(module)}
-                              className="text-xs text-muted-foreground hover:text-primary font-semibold transition-colors cursor-pointer"
+                              className="text-caption"
                             >
                               {allRowSelected ? "Deselect Row" : "Select Row"}
-                            </button>
-                          </td>
-                        </tr>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <div className="flex justify-end gap-3">
               <Button
                 type="button"
                 variant="outline"
@@ -379,99 +363,93 @@ export default function PermissionsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving} className="font-semibold gap-2">
-                {saving && <RefreshCw className="w-4 h-4 animate-spin" />}
+              <Button type="submit" loading={saving}>
                 {saving ? "Saving..." : "Save Role & Permissions"}
               </Button>
             </div>
           </form>
-        </div>
+        </Card>
       ) : (
         /* Roles List Table */
-        <div className="bg-card border border-border rounded-lg overflow-hidden flex flex-col shadow-2xs">
-          <div className="p-4 border-b border-border bg-muted/30 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <Card className="overflow-hidden flex flex-col">
+          <div className="p-6 flex flex-col sm:flex-row justify-between items-center gap-3">
             <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input 
-                type="text" 
-                placeholder="Search custom roles by name or description..." 
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-3.5 text-ink-48" aria-hidden="true" />
+              <Input
+                type="text"
+                aria-label="Search roles"
+                placeholder="Search custom roles by name or description..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-xs font-medium transition-all"
+                className="pl-10"
               />
             </div>
-            <div className="text-xs font-semibold bg-primary/10 text-primary px-3 py-1 rounded-full border border-primary/20">
-              Total Roles: {roles.length}
-            </div>
+            <Badge variant="secondary" className="tabular">
+              Total roles: {roles.length}
+            </Badge>
           </div>
 
           {loading ? (
-            <div className="p-6">
+            <div className="p-6 pt-0">
               <TableSkeleton columns={4} rows={4} />
             </div>
           ) : filteredRoles.length === 0 ? (
-            <div className="p-16 text-center flex flex-col items-center justify-center">
-              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
-                <Shield className="w-7 h-7 opacity-40" />
-              </div>
-              <h3 className="text-sm font-semibold text-foreground mb-1">No custom roles found</h3>
-              <p className="text-muted-foreground text-xs max-w-sm mb-4">
-                {search ? "Try adjusting your search terms." : "Create custom roles to assign granular access to your staff."}
-              </p>
-              <Button onClick={() => setEditingRole({ name: "", description: "", permissions: [] })} size="sm">
-                Create First Role
-              </Button>
-            </div>
+            <EmptyState
+              icon={Shield}
+              title="No custom roles found"
+              description={search ? "Try adjusting your search terms." : "Create custom roles to assign granular access to your staff."}
+              action={
+                <Button onClick={() => setEditingRole({ name: "", description: "", permissions: [] })}>
+                  Create First Role
+                </Button>
+              }
+            />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <th className="px-6 py-3">Role Name</th>
-                    <th className="px-6 py-3">Description</th>
-                    <th className="px-6 py-3">Assigned Permissions</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border text-sm">
-                  {filteredRoles.map((role) => (
-                    <tr key={role._id} className="hover:bg-muted/30 transition-colors group">
-                      <td className="px-6 py-4 font-semibold text-foreground">{role.name}</td>
-                      <td className="px-6 py-4 text-muted-foreground text-xs">{role.description || "-"}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                          {role.permissions?.length || 0} Allowed Rights
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingRole(role)}
-                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(role)}
-                            className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Role name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Assigned permissions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRoles.map((role) => (
+                  <TableRow key={role._id}>
+                    <TableCell className="font-semibold">{role.name}</TableCell>
+                    <TableCell className="text-ink-48">{role.description || "-"}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="tabular">
+                        {role.permissions?.length || 0} Allowed Rights
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingRole(role)}
+                        >
+                          <Edit2 /> Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(role)}
+                          className="text-destructive"
+                        >
+                          <Trash2 /> Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </div>
+        </Card>
       )}
-    </div>
+    </PageShell>
   );
 }
-

@@ -3,9 +3,14 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import axios from "axios";
-import Link from "next/link";
-import { ArrowLeft, History, Package } from "lucide-react";
+import { History, Package } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell, EmptyState } from "@/components/ui/Page";
+import { Card } from "@/components/ui/Card";
+import { Alert } from "@/components/ui/Alert";
+import { Spinner } from "@/components/ui/Spinner";
+import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
 import { useCurrency } from "@/context/CurrencyContext";
 
 function PurchaseHistoryContent() {
@@ -54,84 +59,86 @@ function PurchaseHistoryContent() {
   }, [supplierId]);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <PageShell>
       <PageHeader 
         title={supplier ? `${supplier.name} - Purchase History` : "All Purchase History"}
         description="View historical stock receipts and batches."
         backHref={supplierId ? `/dashboard/suppliers/${supplierId}` : "/dashboard/suppliers"}
       />
 
-      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <Alert variant="destructive">{error}</Alert>}
 
-      <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+      <Card className="overflow-hidden">
         {isLoading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading history...</div>
+          <div className="p-6">
+            <TableSkeleton columns={supplierId ? 5 : 6} rows={5} />
+          </div>
         ) : batches.length === 0 ? (
-          <div className="p-16 text-center flex flex-col items-center justify-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-              <History className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-medium text-foreground mb-2">No purchase history found</h3>
-            <p className="text-muted-foreground text-sm max-w-sm mb-6">
-              There are no received batches recorded yet.
-            </p>
-          </div>
+          <EmptyState
+            icon={History}
+            title="No purchase history found"
+            description="There are no received batches recorded yet."
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-secondary/50">
-                  <th className="p-4 text-sm font-semibold text-foreground">Date</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Batch Number</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Product</th>
-                  {!supplierId && <th className="p-4 text-sm font-semibold text-foreground">Supplier</th>}
-                  <th className="p-4 text-sm font-semibold text-foreground">Quantity Received</th>
-                  <th className="p-4 text-sm font-semibold text-foreground">Cost Price</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {batches.map((b) => (
-                  <tr key={b._id} className="hover:bg-secondary/30 transition-colors">
-                    <td className="p-4 text-sm text-foreground">
-                      {new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
-                    <td className="p-4 text-sm text-foreground font-medium">
-                      {b.batch_number}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium text-foreground">
-                          {b.product?.name || "Unknown Product"}
-                        </span>
-                      </div>
-                    </td>
-                    {!supplierId && (
-                      <td className="p-4 text-sm text-foreground">
-                        {b.supplier || "-"}
-                      </td>
-                    )}
-                    <td className="p-4 text-sm text-foreground">
-                      {/* qty_available shrinks as stock sells; qty_received is the original receipt (older batches lack it) */}
-                      {b.qty_received ?? b.qty_available}
-                    </td>
-                    <td className="p-4 text-sm text-foreground">
-                      {formatCurrency(Number(b.cost_price || 0))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Batch Number</TableHead>
+                <TableHead>Product</TableHead>
+                {!supplierId && <TableHead>Supplier</TableHead>}
+                <TableHead className="text-right">Quantity Received</TableHead>
+                <TableHead className="text-right">Cost Price</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {batches.map((b) => (
+                <TableRow key={b._id}>
+                  <TableCell className="whitespace-nowrap">
+                    {new Date(b.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </TableCell>
+                  <TableCell className="font-mono text-ink-80">
+                    {b.batch_number}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Package className="size-4 text-ink-48 shrink-0" aria-hidden="true" />
+                      <span className="font-semibold text-ink">
+                        {b.product?.name || "Unknown Product"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  {!supplierId && (
+                    <TableCell>
+                      {b.supplier || "-"}
+                    </TableCell>
+                  )}
+                  <TableCell className="text-right tabular">
+                    {/* qty_available shrinks as stock sells; qty_received is the original receipt (older batches lack it) */}
+                    {b.qty_received ?? b.qty_available}
+                  </TableCell>
+                  <TableCell className="text-right tabular">
+                    {formatCurrency(Number(b.cost_price || 0))}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </div>
-    </div>
+      </Card>
+    </PageShell>
   );
 }
 
 export default function PurchaseHistoryPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-[calc(100dvh-2.75rem)] items-center justify-center">
+          <Spinner />
+        </div>
+      }
+    >
       <PurchaseHistoryContent />
     </Suspense>
   );

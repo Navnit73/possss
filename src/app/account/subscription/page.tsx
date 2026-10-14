@@ -4,9 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import axios from "axios";
-import Swal from "sweetalert2";
-import { CheckCircle2, AlertCircle, Loader2, CalendarClock } from "lucide-react";
+import Swal, { destructiveSwalClasses } from "@/lib/swal";
+import { CheckCircle2, Loader2, CalendarClock } from "lucide-react";
 import { SubscribeButton } from "@/components/billing/SubscribeButton";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageShell } from "@/components/ui/Page";
 import { PAID_STATUSES } from "@/lib/billing";
 
 interface SubscriptionInfo {
@@ -18,15 +23,15 @@ interface SubscriptionInfo {
 }
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  active: { label: "Active", className: "text-emerald-500" },
-  authenticated: { label: "Active", className: "text-emerald-500" },
-  pending: { label: "Payment failed – retrying", className: "text-amber-500" },
-  paused: { label: "Paused", className: "text-amber-500" },
-  halted: { label: "Suspended – payment failed", className: "text-red-500" },
-  cancelled: { label: "Cancelled", className: "text-red-500" },
-  completed: { label: "Completed", className: "text-red-500" },
-  expired: { label: "Expired", className: "text-red-500" },
-  created: { label: "Awaiting payment", className: "text-amber-500" },
+  active: { label: "Active", className: "text-success" },
+  authenticated: { label: "Active", className: "text-success" },
+  pending: { label: "Payment failed – retrying", className: "text-warning" },
+  paused: { label: "Paused", className: "text-warning" },
+  halted: { label: "Suspended – payment failed", className: "text-destructive" },
+  cancelled: { label: "Cancelled", className: "text-destructive" },
+  completed: { label: "Completed", className: "text-destructive" },
+  expired: { label: "Expired", className: "text-destructive" },
+  created: { label: "Awaiting payment", className: "text-warning" },
 };
 
 const formatDate = (value: string | null) =>
@@ -70,9 +75,9 @@ export default function SubscriptionPage() {
         text: "Your plan stays active until the end of the current billing period, then won't renew.",
         icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: "#ef4444",
         confirmButtonText: "Yes, cancel renewal",
         cancelButtonText: "Keep subscription",
+        customClass: destructiveSwalClasses,
       });
       if (!confirm.isConfirmed) return;
     }
@@ -89,117 +94,114 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="w-4 h-4 animate-spin" /> Loading subscription…
-      </div>
+      <PageShell className="max-w-[980px]">
+        <div role="status" className="flex items-center gap-2 text-caption text-ink-48">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading subscription…
+        </div>
+      </PageShell>
     );
   }
 
   const sub = info?.subscription;
   const isPaid = !!sub && PAID_STATUSES.includes(sub.status as any);
   const needsPlan = !sub || (info?.lapsed ?? false) || sub.status === "created";
-  const statusInfo = sub ? STATUS_LABELS[sub.status] ?? { label: sub.status, className: "text-muted-foreground" } : null;
+  const statusInfo = sub ? STATUS_LABELS[sub.status] ?? { label: sub.status, className: "text-ink-48" } : null;
   const nextDate = formatDate(sub?.charge_at ?? sub?.current_end ?? null);
   const endDate = formatDate(sub?.current_end ?? null);
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Subscription</h1>
-        <p className="text-muted-foreground">Manage your pharmacy POS plan and billing.</p>
-      </div>
+    <PageShell className="max-w-[980px]">
+      <PageHeader title="Subscription" description="Manage your pharmacy POS plan and billing." />
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-sm flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <Alert variant="destructive">
           {error}
-        </div>
+        </Alert>
       )}
 
       {info && !info.configured && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-sm flex items-center gap-2 text-sm">
-          <AlertCircle className="w-5 h-5 shrink-0" />
+        <Alert variant="warning">
           Online payments aren&apos;t configured yet (missing Razorpay keys). Subscribing is unavailable.
-        </div>
+        </Alert>
       )}
 
       {info?.lapsed && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 rounded-sm text-sm">
+        <Alert variant="destructive">
           Your subscription is inactive, so the POS, inventory and reports are locked. Subscribe again to restore access — your data is safe.
-        </div>
+        </Alert>
       )}
 
       {info && (
-        <div className="bg-surface border border-primary rounded-sm shadow-sm p-6 space-y-6">
+        <Card className="border-2 border-primary-focus p-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-bold">{info.plan.name} Plan</h2>
+              <h2 className="text-tagline text-ink">{info.plan.name} Plan</h2>
               {statusInfo && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Status: <span className={`font-medium ${statusInfo.className}`}>{statusInfo.label}</span>
+                <p className="text-caption text-ink-48 mt-2">
+                  Status: <span className={`font-semibold ${statusInfo.className}`}>{statusInfo.label}</span>
                 </p>
               )}
               {isPaid && !sub?.cancel_requested && nextDate && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                  <CalendarClock className="w-4 h-4" /> Next billing date: {nextDate}
+                <p className="text-caption text-ink-48 flex items-center gap-1.5 mt-1">
+                  <CalendarClock className="size-4" aria-hidden="true" /> Next billing date: {nextDate}
                 </p>
               )}
               {isPaid && sub?.cancel_requested && endDate && (
-                <p className="text-sm text-amber-600 flex items-center gap-1.5 mt-1">
-                  <CalendarClock className="w-4 h-4" /> Cancelled — access continues until {endDate}
+                <p className="text-caption text-warning flex items-center gap-1.5 mt-1">
+                  <CalendarClock className="size-4" aria-hidden="true" /> Cancelled — access continues until {endDate}
                 </p>
               )}
               {sub?.status === "cancelled" && endDate && !info.lapsed && (
-                <p className="text-sm text-amber-600 mt-1">Access continues until {endDate}</p>
+                <p className="text-caption text-warning mt-1">Access continues until {endDate}</p>
               )}
             </div>
             <div className="md:text-right">
-              <div className="text-3xl font-bold">
-                ${info.plan.amount} <span className="text-sm text-muted-foreground font-normal">/ month</span>
+              <div className="text-display-md leading-tight text-ink tabular">
+                ${info.plan.amount} <span className="text-caption text-ink-48">/ month</span>
               </div>
             </div>
           </div>
 
           <ul className="grid sm:grid-cols-2 gap-3">
             {info.plan.features.map((feature) => (
-              <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+              <li key={feature} className="flex items-start gap-2 text-caption text-ink-80">
+                <CheckCircle2 className="size-4 text-success mt-0.5 shrink-0" aria-hidden="true" />
                 <span>{feature}</span>
               </li>
             ))}
           </ul>
 
           {info.can_manage ? (
-            <div className="pt-2 border-t border-border space-y-3">
+            <div className="pt-6 border-t border-divider-soft space-y-3">
               {needsPlan && info.configured && (
-                <div className="max-w-sm pt-4">
+                <div className="max-w-sm">
                   <SubscribeButton label={`Subscribe — $${info.plan.amount}/month`} onActivated={onActivated} onError={setError} />
                 </div>
               )}
               {isPaid && !sub?.cancel_requested && (
-                <button
+                <Button
+                  variant="link"
                   onClick={() => manage("cancel")}
                   disabled={working}
-                  className="mt-4 text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                  className="text-caption text-destructive"
                 >
                   Cancel subscription
-                </button>
+                </Button>
               )}
               {isPaid && sub?.cancel_requested && (
-                <button
+                <Button
                   onClick={() => manage("resume")}
-                  disabled={working}
-                  className="mt-4 px-4 py-2 rounded-sm bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+                  loading={working}
                 >
                   Keep my subscription
-                </button>
+                </Button>
               )}
             </div>
           ) : (
-            <p className="pt-4 border-t border-border text-sm text-muted-foreground">Only the store owner can change the subscription.</p>
+            <p className="pt-6 border-t border-divider-soft text-caption text-ink-48">Only the store owner can change the subscription.</p>
           )}
-        </div>
+        </Card>
       )}
-    </div>
+    </PageShell>
   );
 }
