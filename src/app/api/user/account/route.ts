@@ -5,6 +5,8 @@ import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
+import { rateLimit } from "@/lib/rateLimit";
+import { getRazorpay, isBillingConfigured } from "@/lib/razorpay";
 
 export async function DELETE(req: Request) {
   try {
@@ -14,10 +16,15 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Deleting an account is destructive: stop a hijacked session from guessing the password
+    if (!(await rateLimit(`delete-account-${userId}`, 5, 15 * 60 * 1000))) {
+      return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+    }
+
     const body = await req.json();
     const { password } = body;
 
-    if (!password) {
+    if (!password || typeof password !== "string") {
       return NextResponse.json({ error: "Password is required to confirm deletion" }, { status: 400 });
     }
 
@@ -29,13 +36,37 @@ export async function DELETE(req: Request) {
     }
 
     // Verify password before deletion
-    const isValid = await bcrypt.compare(password, user.password);
+    const isValid = user.password ? await bcrypt.compare(password, user.password) : false;
     if (!isValid) {
       return NextResponse.json({ error: "Incorrect password" }, { status: 403 });
     }
 
     // If user is OWNER, also mark tenant as DELETED
     if (user.role === "OWNER" && user.tenant_id) {
+      // Never delete a store that is still being billed: stop the Razorpay subscription first, and abort if that fails.
+      const tenant = await db.collection("tenants").findOne(
+        { _id: new ObjectId(user.tenant_id) },
+        { projection: { subscription: 1, subscription_checkout: 1 } }
+      );
+      if (isBillingConfigured()) {
+        for (const sub of [tenant?.subscription, tenant?.subscription_checkout]) {
+          if (!sub?.id || ["cancelled", "completed", "expired"].includes(sub.status)) continue;
+          try {
+            await getRazorpay().subscriptions.cancel(sub.id, false);
+          } catch (err: any) {
+            const description = String(err?.error?.description ?? "");
+            // Already ended on Razorpay's side is fine; anything else must stop the deletion
+            if (!/cancel|complet|expir/i.test(description)) {
+              console.error("Could not cancel subscription during account deletion:", err);
+              return NextResponse.json(
+                { error: "We couldn't cancel your subscription, so your account was not deleted. Please try again or contact support." },
+                { status: 502 }
+              );
+            }
+          }
+        }
+      }
+
       await db.collection("tenants").updateOne(
         { _id: new ObjectId(user.tenant_id) },
         { 
@@ -53,7 +84,7 @@ export async function DELETE(req: Request) {
 
     // Log the deletion action using a safe string for action type bypass
     await logAction({
-      action: "ERROR" as any, 
+      action: "ACCOUNT_DELETED",
       userId: userId,
       details: { 
         message: "User account deleted",

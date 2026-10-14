@@ -6,6 +6,11 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL").optional(),
   NEXT_PUBLIC_API_URL: z.string().optional(),
+  // Razorpay subscriptions (billing is disabled until the key pair is set)
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  RAZORPAY_PLAN_ID: z.string().optional(),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
 
@@ -24,6 +29,10 @@ if (!_env.success) {
       RESEND_API_KEY: process.env.RESEND_API_KEY,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
+      RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+      RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+      RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
+      RAZORPAY_PLAN_ID: process.env.RAZORPAY_PLAN_ID,
       NODE_ENV: (process.env.NODE_ENV === "production" ? "production" : process.env.NODE_ENV === "test" ? "test" : "development"),
     };
   } else {

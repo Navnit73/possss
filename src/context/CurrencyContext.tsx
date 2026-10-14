@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useCallback, useSyncExternalStore } from "react";
+import { useSession } from "next-auth/react";
 import { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount } from "@/lib/currency";
 
 export { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount };
@@ -8,56 +9,62 @@ export { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount };
 interface CurrencyContextType {
   currency: string;
   currencySymbol: string;
-  setCurrency: (newCurrency: string) => void;
+  setCurrency: (newCurrency: string, persistToDb?: boolean) => void;
   refreshCurrency: () => Promise<void>;
   formatCurrency: (amount: number | string | null | undefined) => string;
 }
 
+const STORAGE_KEY = "pos_tenant_currency";
+const DEFAULT_CURRENCY = "USD";
+
 const CurrencyContext = createContext<CurrencyContextType>({
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   currencySymbol: "$",
   setCurrency: () => {},
   refreshCurrency: async () => {},
   formatCurrency: (amount) => formatCurrencyAmount(amount, "$"),
 });
 
+const CHANGE_EVENT = "pos_currency_changed";
+
+// localStorage is the client-side source of truth; read via useSyncExternalStore so the
+// server render (USD) and first client render agree, and other tabs stay in sync.
+function readStoredCurrency(): string {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && saved.trim()) return saved.trim().toUpperCase();
+  } catch {}
+  return DEFAULT_CURRENCY;
+}
+
+function writeStoredCurrency(value: string | null) {
+  try {
+    if (value) localStorage.setItem(STORAGE_KEY, value.trim().toUpperCase());
+    else localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: value }));
+  } catch {
+    // Handle localStorage quota or disabled error
+  }
+}
+
+function subscribeToCurrency(onChange: () => void) {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) onChange();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(CHANGE_EVENT, onChange);
+  };
+}
+
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [currency, setCurrencyState] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("pos_tenant_currency");
-        if (saved && saved.trim()) return saved.trim().toUpperCase();
-      } catch {
-        // Handle localStorage error
-      }
-    }
-    return "USD";
-  });
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
+  const tenantStatus = (session?.user as any)?.tenant_status;
 
-  const updateCurrency = useCallback((newCurr: string, persistToDb = true) => {
-    if (!newCurr) return;
-    const normalized = newCurr.trim().toUpperCase();
-    setCurrencyState(normalized);
-
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("pos_tenant_currency", normalized);
-        window.dispatchEvent(new CustomEvent("pos_currency_changed", { detail: normalized }));
-      } catch {
-        // Handle localStorage quota or disabled error
-      }
-    }
-
-    if (persistToDb) {
-      fetch("/api/account/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currency: normalized }),
-      }).catch(() => {
-        // Quietly fail network persistence
-      });
-    }
-  }, []);
+  const currency = useSyncExternalStore(subscribeToCurrency, readStoredCurrency, () => DEFAULT_CURRENCY);
 
   const refreshCurrency = useCallback(async () => {
     try {
@@ -66,63 +73,44 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         const serverCurr = data.tenant?.currency || data.user?.currency_preference;
         if (serverCurr) {
-          updateCurrency(serverCurr, false);
+          writeStoredCurrency(serverCurr);
         }
       }
     } catch {
-      // Quietly ignore network failures on initial load
+      // Quietly ignore network failures
     }
-  }, [updateCurrency]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    // 1. Check server on initial mount
-    const sync = async () => {
-      try {
-        const res = await fetch("/api/account/profile");
-        if (res.ok && isMounted) {
-          const data = await res.json();
-          const serverCurr = data.tenant?.currency || data.user?.currency_preference;
-          if (serverCurr) {
-            const normalized = serverCurr.trim().toUpperCase();
-            setCurrencyState(normalized);
-            if (typeof window !== "undefined") {
-              try {
-                localStorage.setItem("pos_tenant_currency", normalized);
-              } catch {}
-            }
-          }
-        }
-      } catch {
-        // Ignore initial sync failure
-      }
-    };
-    sync();
-
-    // 2. Listen for currency updates across components/tabs
-    const handleCurrencyChange = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail && isMounted) {
-        setCurrencyState(customEvent.detail.toString().toUpperCase());
-      }
-    };
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "pos_tenant_currency" && e.newValue && isMounted) {
-        setCurrencyState(e.newValue.toUpperCase());
-      }
-    };
-
-    window.addEventListener("pos_currency_changed", handleCurrencyChange);
-    window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("pos_currency_changed", handleCurrencyChange);
-      window.removeEventListener("storage", handleStorageChange);
-    };
   }, []);
+
+  const updateCurrency = useCallback((newCurr: string, persistToDb = true) => {
+    if (!newCurr) return;
+    const previous = readStoredCurrency();
+    writeStoredCurrency(newCurr);
+
+    if (persistToDb) {
+      fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency: newCurr.trim().toUpperCase() }),
+      })
+        .then((res) => {
+          // Don't leave the UI showing a currency that was never saved
+          if (!res.ok) writeStoredCurrency(previous);
+        })
+        .catch(() => writeStoredCurrency(previous));
+    }
+  }, []);
+
+  // Re-sync whenever the signed-in user (or their store's onboarding state) changes.
+  // The provider lives in the root layout, so a mount-only sync would miss client-side logins.
+  useEffect(() => {
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      // Don't carry one account's currency over to the next person on this device
+      writeStoredCurrency(null);
+      return;
+    }
+    refreshCurrency();
+  }, [status, userId, tenantStatus, refreshCurrency]);
 
   const currencySymbol = getCurrencySymbol(currency);
 
@@ -138,7 +126,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       value={{
         currency,
         currencySymbol,
-        setCurrency: (code: string) => updateCurrency(code, true),
+        setCurrency: updateCurrency,
         refreshCurrency,
         formatCurrency,
       }}

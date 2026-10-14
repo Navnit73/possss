@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -26,7 +27,14 @@ export default function RegisterPage() {
     setError("");
     try {
       await axios.post("/api/auth/register", data);
-      router.push("/auth/login?registered=true");
+
+      // Sign straight in so the owner lands in onboarding instead of retyping credentials.
+      const res = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+      });
+      router.push(res?.error ? "/auth/login?registered=true" : "/onboarding/create-store");
     } catch (err: any) {
       setError(err.response?.data?.error || "An unexpected error occurred");
     } finally {

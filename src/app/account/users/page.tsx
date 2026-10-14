@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { useSession } from "next-auth/react";
 import Swal from "sweetalert2";
 import { Plus, Users, Search, Trash2, Edit2, Shield, X, Eye, EyeOff, UserPlus, Filter, RefreshCw, CheckCircle2 } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { Button } from "@/components/ui/Button";
 
 export default function UsersPage() {
+  const { data: session } = useSession();
+  const isOwnerViewer = (session?.user as any)?.role === "OWNER";
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,21 +42,20 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    try {
-      const [usersRes, rolesRes] = await Promise.all([
-        axios.get("/api/users"),
-        axios.get("/api/roles")
-      ]);
-      setUsers(usersRes.data || []);
-      setRoles(rolesRes.data || []);
-      if (rolesRes.data.length > 0 && !newUser.role_id) {
-        setNewUser(prev => ({ ...prev, role_id: rolesRes.data[0]._id }));
-      }
-    } catch (err) {
-      console.error("Failed to fetch data", err);
-    } finally {
-      setIsLoading(false);
+    // allSettled: a viewer with USERS:VIEW but no ROLES:VIEW must still see the staff list
+    const [usersRes, rolesRes] = await Promise.allSettled([
+      axios.get("/api/users"),
+      axios.get("/api/roles")
+    ]);
+    if (usersRes.status === "fulfilled") setUsers(usersRes.value.data || []);
+    else console.error("Failed to fetch users", usersRes.reason);
+
+    if (rolesRes.status === "fulfilled") {
+      const fetchedRoles = rolesRes.value.data || [];
+      setRoles(fetchedRoles);
+      setNewUser(prev => (!prev.role_id && fetchedRoles.length > 0 ? { ...prev, role_id: fetchedRoles[0]._id } : prev));
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -382,14 +384,16 @@ export default function UsersPage() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditModal(u)}
-                            className="h-8 px-2.5 text-xs font-medium"
-                          >
-                            <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                          </Button>
+                          {(!isOwner || isOwnerViewer) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(u)}
+                              className="h-8 px-2.5 text-xs font-medium"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                            </Button>
+                          )}
                           {!isOwner && (
                             <Button
                               variant="ghost"

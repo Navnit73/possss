@@ -7,6 +7,7 @@ import { handleApiError } from "@/lib/errorHandler";
 import { logAuditDirectly } from "@/lib/auditLogger";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 
 function toObjectId(id: any): ObjectId | null {
   if (!id) return null;
@@ -37,10 +38,14 @@ export async function GET(req: Request) {
     let tenant = null;
     const tenantObjId = toObjectId(user.tenant_id);
     if (tenantObjId) {
-      tenant = await db.collection("tenants").findOne({ _id: tenantObjId });
+      // Billing identifiers stay server-side; every staff member can read this profile.
+      tenant = await db.collection("tenants").findOne(
+        { _id: tenantObjId },
+        { projection: { subscription: 0, subscription_checkout: 0 } }
+      );
     }
 
-    return NextResponse.json({ user, tenant }, { status: 200 });
+    return NextResponse.json({ user, tenant }, { status: 200, headers: { "Cache-Control": "private, no-store" } });
   } catch (error: any) {
     return await handleApiError(error, "GET /api/account/profile");
   }
@@ -102,9 +107,13 @@ export async function PUT(req: Request) {
       const businessSchema = z.object({
         business_name: z.string().min(2, "Business name is required"),
         country: z.string().optional(),
-        currency: z.string().optional(),
-        timezone: z.string().optional(),
-        address: z.string().optional(),
+        currency: z.string().trim().toUpperCase()
+          .refine((code) => SUPPORTED_CURRENCIES.some((c) => c.code === code), "Unsupported currency")
+          .optional(),
+        timezone: z.string().refine((tz) => {
+          try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; }
+        }, "Invalid timezone").optional(),
+        address: z.string().max(500).optional(),
       });
       const validatedTenant = businessSchema.parse(body.tenant);
       
@@ -114,7 +123,10 @@ export async function PUT(req: Request) {
         { _id: tenantObjId },
         { $set: { ...validatedTenant, updated_at: new Date() } }
       );
-      updatedTenant = await db.collection("tenants").findOne({ _id: tenantObjId });
+      updatedTenant = await db.collection("tenants").findOne(
+        { _id: tenantObjId },
+        { projection: { subscription: 0, subscription_checkout: 0 } }
+      );
 
       // Audit Log for tenant details
       await logAuditDirectly({
@@ -149,6 +161,9 @@ export async function PATCH(req: Request) {
     if (!currency) {
       return NextResponse.json({ error: "Currency code is required" }, { status: 400 });
     }
+    if (!SUPPORTED_CURRENCIES.some((c) => c.code === currency)) {
+      return NextResponse.json({ error: "Unsupported currency" }, { status: 400 });
+    }
 
     const db = client.db("pos");
     const userDb = await db.collection("users").findOne({ _id: userObjId });
@@ -156,6 +171,10 @@ export async function PATCH(req: Request) {
 
     const tenantObjId = toObjectId(userDb.tenant_id);
     if (tenantObjId) {
+      // Store currency is a business setting — same rule as PUT's tenant update
+      if (userDb.role !== "OWNER") {
+        return NextResponse.json({ error: "Forbidden: Only store owners can change the store currency" }, { status: 403 });
+      }
       await db.collection("tenants").updateOne(
         { _id: tenantObjId },
         { $set: { currency, updated_at: new Date() } }

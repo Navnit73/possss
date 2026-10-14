@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SUPPORTED_CURRENCIES } from "./currency";
 
 // --- Auth Validations ---
 
@@ -19,6 +20,13 @@ export const createUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters long"),
   role: z.string(), // "CUSTOM"
   role_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Role"),
+});
+
+export const updateUserSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters"),
+  email: z.string().trim().toLowerCase().email("Valid email address is required"),
+  password: z.string().optional(),
+  role_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid role selected").optional().or(z.literal("")),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -47,7 +55,10 @@ export const createStoreSchema = z.object({
 
 export const businessDetailsSchema = z.object({
   country: z.string().min(2, "Country is required"),
-  currency: z.string().min(3, "Currency code is required"),
+  currency: z.string().trim().toUpperCase().refine(
+    (code) => SUPPORTED_CURRENCIES.some((c) => c.code === code),
+    "Please select a supported currency"
+  ),
   timezone: z.string().min(2, "Timezone is required"),
 });
 
@@ -299,6 +310,8 @@ export const saleItemSchema = z.object({
 });
 
 export const saleSchema = z.object({
+  /** Lets the browser safely retry a checkout (timeout, double click) without billing twice. */
+  idempotency_key: z.string().min(8).max(64).optional(),
   customer_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid customer ID").optional(),
   discount: z.number().finite().min(0),
   payment_method: z.enum(["CASH", "CARD", "UPI", "OTHER"]),
@@ -332,14 +345,19 @@ export interface Sale {
 
 // --- Roles & Permissions Validations ---
 
+export const PERMISSION_MODULES = [
+  "POS", "CUSTOMERS", "PRODUCTS", "INVENTORY", "SALES", "REPORTS", "USERS", "ROLES", "SETTINGS", "AUDIT_LOGS",
+] as const;
+export const PERMISSION_ACTIONS = ["VIEW", "CREATE", "EDIT", "DELETE"] as const;
+
 export const permissionSchema = z.object({
-  module: z.string(),
-  action: z.string(),
+  module: z.enum(PERMISSION_MODULES),
+  action: z.enum(PERMISSION_ACTIONS),
 });
 
 export const roleSchema = z.object({
-  name: z.string().min(2, "Role name is required"),
-  description: z.string().optional(),
+  name: z.string().trim().min(2, "Role name is required").max(60, "Role name is too long"),
+  description: z.string().max(300).optional(),
   permissions: z.array(permissionSchema).default([]),
 });
 

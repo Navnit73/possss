@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { roleSchema } from "@/lib/validations";
-import { checkPermission } from "@/lib/rbac";
+import { canGrantPermissions, checkPermission } from "@/lib/rbac";
+import { escapeRegExp } from "@/lib/utils";
 import { handleApiError } from "@/lib/errorHandler";
 import { logAuditDirectly } from "@/lib/auditLogger";
 import { headers } from "next/headers";
@@ -38,12 +39,17 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = roleSchema.parse(body);
 
+    // Staff can't hand out powers they don't have themselves (otherwise ROLES:CREATE is a path to full access)
+    if (!canGrantPermissions(session, validatedData.permissions)) {
+      return NextResponse.json({ error: "You can only grant permissions that you hold yourself." }, { status: 403 });
+    }
+
     const db = client.db("pos");
     
-    // Check if role name exists in tenant
+    // Check if role name exists in tenant (names are user input, so escape them before building a regex)
     const existing = await db.collection("roles").findOne({ 
       tenant_id: tenantId, 
-      name: { $regex: new RegExp(`^${validatedData.name.trim()}$`, "i") } 
+      name: { $regex: `^${escapeRegExp(validatedData.name)}$`, $options: "i" } 
     });
 
     if (existing) {

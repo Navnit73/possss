@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
-import { createStoreSchema, businessDetailsSchema, subscriptionSchema } from "@/lib/validations";
+import { createStoreSchema, businessDetailsSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
 import { logAction } from "@/lib/logger";
 import { handleApiError } from "@/lib/errorHandler";
@@ -53,6 +53,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only account owners can create a store" }, { status: 403 });
     }
     if (user.tenant_id) {
+      // Owner left onboarding part-way and was sent back to step 1: just rename the pending store.
+      const resumed = await db.collection("tenants").updateOne(
+        { _id: new ObjectId(user.tenant_id), status: "PENDING" },
+        { $set: { business_name, updated_at: new Date() } }
+      );
+      if (resumed.matchedCount === 1) {
+        return NextResponse.json({ tenant_id: user.tenant_id, message: "Store updated" }, { status: 200 });
+      }
       return NextResponse.json({ error: "This account already belongs to a store" }, { status: 409 });
     }
     
@@ -65,11 +73,15 @@ export async function POST(req: Request) {
 
     const result = await db.collection("tenants").insertOne(newTenant);
     
-    // Link tenant to user
-    await db.collection("users").updateOne(
-      { _id: new ObjectId(session.user.id) },
+    // Link tenant to user, only if a concurrent request (double submit) hasn't already linked one
+    const linked = await db.collection("users").updateOne(
+      { _id: new ObjectId(session.user.id), tenant_id: { $in: [null, ""] } },
       { $set: { tenant_id: result.insertedId.toString() } }
     );
+    if (linked.modifiedCount === 0) {
+      await db.collection("tenants").deleteOne({ _id: result.insertedId });
+      return NextResponse.json({ error: "This account already belongs to a store" }, { status: 409 });
+    }
 
     await logAction({
       action: "STORE_CREATED",
@@ -110,9 +122,8 @@ export async function PUT(req: Request) {
       updateData = { ...validated };
       auditAction = "BUSINESS_DETAILS_UPDATED";
     } else if (step === "subscription") {
-      const validated = subscriptionSchema.parse(data);
-      updateData = { ...validated, status: "ACTIVE" };
-      auditAction = "SUBSCRIPTION_ACTIVATED";
+      // Activation happens only after a verified Razorpay payment (see /api/account/subscription/verify).
+      return NextResponse.json({ error: "Subscriptions are activated by completing payment." }, { status: 400 });
     } else {
       return NextResponse.json({ error: "Invalid step" }, { status: 400 });
     }

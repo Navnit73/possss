@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, isValid } from "date-fns";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -87,7 +87,11 @@ export default function ActivityPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
+  // Only the latest request may update the table (a slow earlier response must not overwrite newer filters)
+  const requestId = useRef(0);
+
   const fetchLogs = useCallback(async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError("");
     try {
@@ -102,14 +106,16 @@ export default function ActivityPage() {
       const res = await fetch(`/api/account/activity?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load activity logs");
+      if (id !== requestId.current) return;
 
       setLogs(data.logs || []);
       setTotalPages(data.pages || 1);
       setTotalRecords(data.total || 0);
     } catch (err: any) {
+      if (id !== requestId.current) return;
       setError(err.message || "Failed to load activity logs");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   }, [page, actionFilter, moduleFilter, debouncedSearch]);
 
@@ -258,6 +264,7 @@ export default function ActivityPage() {
               <option value="DELETE">Deletes</option>
               <option value="LOGIN">Auth / Logins</option>
               <option value="PASSWORD">Password Events</option>
+              <option value="SUBSCRIPTION">Subscription Events</option>
               <option value="ERROR">System Errors</option>
             </Select>
 
@@ -274,6 +281,8 @@ export default function ActivityPage() {
               <option value="USERS">Staff & Users</option>
               <option value="ROLES">Permissions & Roles</option>
               <option value="SETTINGS">Settings</option>
+              <option value="BILLING">Billing & Subscription</option>
+              <option value="SECURITY">Security</option>
             </Select>
 
             {hasActiveFilters && (
@@ -324,7 +333,7 @@ export default function ActivityPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {logs.map((log) => (
-                  <tr key={log._id || Math.random()} className="hover:bg-muted/30 transition-colors group">
+                  <tr key={log._id} className="hover:bg-muted/30 transition-colors group">
                     {/* Timestamp */}
                     <td className="p-4 whitespace-nowrap">
                       <p className="font-medium text-sm text-foreground">

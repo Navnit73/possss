@@ -8,81 +8,19 @@ import { z } from "zod";
 import { businessDetailsSchema } from "@/lib/validations";
 import { SplitLayout } from "@/components/auth/SplitLayout";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { useCurrency } from "@/context/CurrencyContext";
+import { COUNTRIES, TIMEZONES } from "@/lib/regions";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 
 type FormValues = z.infer<typeof businessDetailsSchema>;
-
-interface CountryOption {
-  name: string;
-  defaultCurrency: string;
-  defaultTimezone: string;
-}
-
-const COUNTRIES: CountryOption[] = [
-  { name: "United States", defaultCurrency: "USD", defaultTimezone: "America/New_York" },
-  { name: "India", defaultCurrency: "INR", defaultTimezone: "Asia/Kolkata" },
-  { name: "United Kingdom", defaultCurrency: "GBP", defaultTimezone: "Europe/London" },
-  { name: "Canada", defaultCurrency: "CAD", defaultTimezone: "America/Toronto" },
-  { name: "Australia", defaultCurrency: "AUD", defaultTimezone: "Australia/Sydney" },
-  { name: "United Arab Emirates", defaultCurrency: "AED", defaultTimezone: "Asia/Dubai" },
-  { name: "Saudi Arabia", defaultCurrency: "SAR", defaultTimezone: "Asia/Riyadh" },
-  { name: "Germany", defaultCurrency: "EUR", defaultTimezone: "Europe/Berlin" },
-  { name: "France", defaultCurrency: "EUR", defaultTimezone: "Europe/Paris" },
-  { name: "Singapore", defaultCurrency: "SGD", defaultTimezone: "Asia/Singapore" },
-  { name: "New Zealand", defaultCurrency: "NZD", defaultTimezone: "Pacific/Auckland" },
-  { name: "Japan", defaultCurrency: "JPY", defaultTimezone: "Asia/Tokyo" },
-  { name: "Switzerland", defaultCurrency: "CHF", defaultTimezone: "Europe/Zurich" },
-  { name: "South Africa", defaultCurrency: "ZAR", defaultTimezone: "Africa/Johannesburg" },
-  { name: "Nigeria", defaultCurrency: "NGN", defaultTimezone: "Africa/Lagos" },
-  { name: "Kenya", defaultCurrency: "KES", defaultTimezone: "Africa/Nairobi" },
-  { name: "Brazil", defaultCurrency: "BRL", defaultTimezone: "America/Sao_Paulo" },
-  { name: "Mexico", defaultCurrency: "MXN", defaultTimezone: "America/Mexico_City" },
-  { name: "Philippines", defaultCurrency: "PHP", defaultTimezone: "Asia/Manila" },
-  { name: "Pakistan", defaultCurrency: "PKR", defaultTimezone: "Asia/Karachi" },
-  { name: "Bangladesh", defaultCurrency: "BDT", defaultTimezone: "Asia/Dhaka" },
-  { name: "Ethiopia", defaultCurrency: "ETB", defaultTimezone: "Africa/Addis_Ababa" },
-];
-
-const TIMEZONES = [
-  { value: "Asia/Kolkata", label: "India - IST (Asia/Kolkata)" },
-  { value: "America/New_York", label: "US - Eastern (America/New_York)" },
-  { value: "America/Chicago", label: "US - Central (America/Chicago)" },
-  { value: "America/Denver", label: "US - Mountain (America/Denver)" },
-  { value: "America/Los_Angeles", label: "US - Pacific (America/Los_Angeles)" },
-  { value: "America/Anchorage", label: "US - Alaska (America/Anchorage)" },
-  { value: "Pacific/Honolulu", label: "US - Hawaii (Pacific/Honolulu)" },
-  { value: "Europe/London", label: "UK - London (Europe/London)" },
-  { value: "America/Toronto", label: "Canada - Eastern (America/Toronto)" },
-  { value: "America/Vancouver", label: "Canada - Pacific (America/Vancouver)" },
-  { value: "Australia/Sydney", label: "Australia - Sydney (Australia/Sydney)" },
-  { value: "Australia/Melbourne", label: "Australia - Melbourne (Australia/Melbourne)" },
-  { value: "Australia/Perth", label: "Australia - Perth (Australia/Perth)" },
-  { value: "Asia/Dubai", label: "UAE - Dubai (Asia/Dubai)" },
-  { value: "Asia/Riyadh", label: "Saudi Arabia - Riyadh (Asia/Riyadh)" },
-  { value: "Europe/Berlin", label: "Germany - Berlin (Europe/Berlin)" },
-  { value: "Europe/Paris", label: "France - Paris (Europe/Paris)" },
-  { value: "Asia/Singapore", label: "Singapore (Asia/Singapore)" },
-  { value: "Pacific/Auckland", label: "New Zealand - Auckland (Pacific/Auckland)" },
-  { value: "Asia/Tokyo", label: "Japan - Tokyo (Asia/Tokyo)" },
-  { value: "Europe/Zurich", label: "Switzerland - Zurich (Europe/Zurich)" },
-  { value: "Africa/Johannesburg", label: "South Africa - Johannesburg (Africa/Johannesburg)" },
-  { value: "Africa/Lagos", label: "Nigeria - Lagos (Africa/Lagos)" },
-  { value: "Africa/Nairobi", label: "Kenya - Nairobi (Africa/Nairobi)" },
-  { value: "America/Sao_Paulo", label: "Brazil - Sao Paulo (America/Sao_Paulo)" },
-  { value: "America/Mexico_City", label: "Mexico - Mexico City (America/Mexico_City)" },
-  { value: "Asia/Manila", label: "Philippines - Manila (Asia/Manila)" },
-  { value: "Asia/Karachi", label: "Pakistan - Karachi (Asia/Karachi)" },
-  { value: "Asia/Dhaka", label: "Bangladesh - Dhaka (Asia/Dhaka)" },
-  { value: "Africa/Addis_Ababa", label: "Ethiopia - Addis Ababa (Africa/Addis_Ababa)" },
-  { value: "UTC", label: "UTC (Coordinated Universal Time)" },
-];
 
 export default function BusinessDetailsPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingInitial, setIsFetchingInitial] = useState(true);
+  const { setCurrency } = useCurrency();
 
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(businessDetailsSchema),
@@ -132,6 +70,8 @@ export default function BusinessDetailsPage() {
     setError("");
     try {
       await axios.put("/api/onboarding", { step: "business-details", data });
+      // Already saved on the tenant above; just update the in-app currency without a second write.
+      setCurrency(data.currency, false);
       router.push("/onboarding/subscription");
     } catch (err: any) {
       setError(err.response?.data?.error || "An unexpected error occurred");

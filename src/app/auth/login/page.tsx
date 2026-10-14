@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -12,10 +12,23 @@ import { SplitLayout } from "@/components/auth/SplitLayout";
 
 type LoginForm = z.infer<typeof loginSchema>;
 
+// Matches the codes thrown by CustomAuthError in src/auth.ts.
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+  rate_limited: "Too many login attempts. Please wait a minute and try again.",
+  missing_fields: "Email and password are required.",
+  invalid_credentials: "Invalid email or password.",
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  // Read without useSearchParams so the page doesn't need a Suspense boundary
+  const justRegistered = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).get("registered") === "true",
+    () => false
+  );
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema)
@@ -32,11 +45,7 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        if (res.error === "CredentialsSignin") {
-          setError("Invalid email or password.");
-        } else {
-          setError(res.error);
-        }
+        setError(LOGIN_ERROR_MESSAGES[res.code ?? ""] ?? "Invalid email or password.");
       } else {
         router.push("/dashboard"); // Middleware will handle redirecting to onboarding if necessary
       }
@@ -50,6 +59,7 @@ export default function LoginPage() {
   return (
     <SplitLayout title="Welcome back" subtitle="Enter your credentials to access your terminal.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {justRegistered && !error && <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">Account created. Please sign in to continue.</div>}
         {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
         
         <div className="space-y-2">

@@ -39,6 +39,8 @@ async function setupIndexes() {
     // 5. Products collection
     await db.collection("products").createIndex({ tenant_id: 1 });
     await db.collection("products").createIndex({ tenant_id: 1, status: 1 });
+    // Exact SKU lookups at the POS
+    await db.collection("products").createIndex({ tenant_id: 1, sku: 1 }, { partialFilterExpression: { sku: { $type: "string" } } });
     await db.collection("products").createIndex({ tenant_id: 1, barcode: 1 }, { unique: true, partialFilterExpression: { barcode: { $type: "string" } } });
     
     // Drop existing text index if it has different definition before creating new one (safeguard)
@@ -62,6 +64,8 @@ async function setupIndexes() {
     await db.collection("sales").createIndex({ tenant_id: 1 });
     await db.collection("sales").createIndex({ tenant_id: 1, invoice_no: 1 }, { unique: true });
     await db.collection("sales").createIndex({ tenant_id: 1, created_at: -1 });
+    // A retried checkout must never create a second sale
+    await db.collection("sales").createIndex({ tenant_id: 1, idempotency_key: 1 }, { unique: true, partialFilterExpression: { idempotency_key: { $type: "string" } } });
 
     // 9. Sale Items collection
     await db.collection("sale_items").createIndex({ sale_id: 1 });
@@ -83,6 +87,17 @@ async function setupIndexes() {
     await db.collection("audit_logs").createIndex({ tenant_id: 1, timestamp: -1 });
     await db.collection("audit_logs").createIndex({ tenant_id: 1, action: 1, timestamp: -1 });
     await db.collection("audit_logs").createIndex({ tenant_id: 1, module: 1, timestamp: -1 });
+
+    // Legacy/application logs (logAction) are keyed by tenantId
+    await db.collection("logs").createIndex({ tenantId: 1, timestamp: -1 });
+
+    // Billing
+    await db.collection("payments").createIndex({ tenant_id: 1, created_at: -1 });
+    await db.collection("payments").createIndex({ razorpay_payment_id: 1 }, { unique: true, partialFilterExpression: { razorpay_payment_id: { $type: "string" } } });
+    await db.collection("tenants").createIndex({ "subscription.id": 1 }, { sparse: true });
+    await db.collection("tenants").createIndex({ "subscription_checkout.id": 1 }, { sparse: true });
+    // Webhook de-duplication ids only need to live as long as Razorpay retries (days)
+    await db.collection("webhook_events").createIndex({ created_at: 1 }, { expireAfterSeconds: 7 * 24 * 60 * 60 });
 
     console.log("MongoDB indexes setup completed successfully.");
   } catch (error) {

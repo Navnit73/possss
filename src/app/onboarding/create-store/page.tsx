@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,9 +16,18 @@ export default function CreateStorePage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(createStoreSchema)
   });
+
+  // Prefill when resuming an unfinished onboarding
+  useEffect(() => {
+    axios.get("/api/onboarding")
+      .then((res) => {
+        if (res.data?.tenant?.business_name) reset({ business_name: res.data.tenant.business_name });
+      })
+      .catch(() => {});
+  }, [reset]);
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);

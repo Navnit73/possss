@@ -23,7 +23,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const db = client.db("pos");
     const { id } = params;
 
-    let saleQuery: any = { tenant_id: tenantId };
+    const saleQuery: any = { tenant_id: tenantId };
     if (ObjectId.isValid(id)) {
       saleQuery._id = new ObjectId(id);
     } else {

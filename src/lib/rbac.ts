@@ -2,10 +2,27 @@ import { Session } from "next-auth";
 import { Role, Permission } from "./validations";
 import { NextResponse } from "next/server";
 
-export function checkRole(session: Session | null, allowedRoles: Role[]): NextResponse | null {
+interface GuardOptions {
+  /** Billing/subscription endpoints must stay reachable when the store's subscription has lapsed. */
+  allowLapsed?: boolean;
+}
+
+function subscriptionLockedResponse(session: Session | null, options?: GuardOptions): NextResponse | null {
+  if (!options?.allowLapsed && (session?.user as any)?.subscription_lapsed) {
+    return NextResponse.json(
+      { error: "Your subscription is inactive. The store owner needs to renew it under Account → Subscription." },
+      { status: 402 }
+    );
+  }
+  return null;
+}
+
+export function checkRole(session: Session | null, allowedRoles: Role[], options?: GuardOptions): NextResponse | null {
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const locked = subscriptionLockedResponse(session, options);
+  if (locked) return locked;
 
   const userRole = (session.user as any).role as Role;
 
@@ -27,10 +44,12 @@ function getEquivalentActions(action: string): string[] {
   return [upper];
 }
 
-export function checkPermission(session: Session | null, module: string, action: string): NextResponse | null {
+export function checkPermission(session: Session | null, module: string, action: string, options?: GuardOptions): NextResponse | null {
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const locked = subscriptionLockedResponse(session, options);
+  if (locked) return locked;
 
   const userRole = (session.user as any).role as Role;
 
@@ -50,11 +69,14 @@ export function checkPermission(session: Session | null, module: string, action:
 
 export function checkPermissionAny(
   session: Session | null,
-  requiredPermissions: Array<{ module: string; action: string }>
+  requiredPermissions: Array<{ module: string; action: string }>,
+  options?: GuardOptions
 ): NextResponse | null {
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const locked = subscriptionLockedResponse(session, options);
+  if (locked) return locked;
 
   const userRole = (session.user as any).role as Role;
 
@@ -85,4 +107,9 @@ export function hasPermissionSync(session: Session | null, module: string, actio
   const permissions = (session.user as any).permissions as Permission[] || [];
   const acceptedActions = getEquivalentActions(action);
   return permissions.some(p => p.module === module && acceptedActions.includes(p.action.toUpperCase()));
+}
+
+/** True when the user already holds every one of these permissions (owners hold everything). */
+export function canGrantPermissions(session: Session | null, permissions: Array<{ module: string; action: string }>): boolean {
+  return permissions.every((p) => hasPermissionSync(session, p.module, p.action));
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { headers } from "next/headers";
@@ -63,7 +63,20 @@ export function withAuditLog(
             timestamp: new Date()
           };
           
-          await client.db("pos").collection("audit_logs").insertOne(logEntry);
+          // Written after the response is sent so audited endpoints (like checkout) don't wait on a second database write.
+          const write = async () => {
+            try {
+              await client.db("pos").collection("audit_logs").insertOne(logEntry);
+            } catch (error) {
+              console.error("Failed to write audit log:", error);
+            }
+          };
+          try {
+            after(write);
+          } catch {
+            // Not inside a request scope (scripts/tests): just write it now
+            await write();
+          }
         }
       }
       return response;

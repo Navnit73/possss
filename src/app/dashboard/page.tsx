@@ -3,19 +3,7 @@
 import Swal from "sweetalert2";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  Calendar,
-  Package,
-  AlertTriangle,
-  TrendingUp,
-  DollarSign,
-  Activity,
-  ArrowUpRight,
-  ShoppingCart,
-  Clock,
-  Filter,
-  Loader2,
-} from "lucide-react";
+import { Calendar, Filter, Loader2 } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -31,7 +19,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { PageHeader } from "@/components/ui/PageHeader";
 import Link from "next/link";
 import { useCurrency } from "@/context/CurrencyContext";
 
@@ -52,27 +39,28 @@ export default function DashboardPage() {
     endDate: "",
   });
 
-  const fetchDashboard = async () => {
-    setIsLoading(true);
-    try {
-      const res = await axios.get("/api/dashboard", {
+  useEffect(() => {
+    // Abort the previous request so a slow, stale response can't overwrite newer filter results
+    const controller = new AbortController();
+    axios
+      .get("/api/dashboard", {
         params: {
           dateRange: activeFilters.dateRange,
           startDate: activeFilters.startDate,
           endDate: activeFilters.endDate,
         },
+        signal: controller.signal,
+      })
+      .then((res) => setData(res.data))
+      .catch((err) => {
+        if (axios.isCancel(err)) return;
+        console.error("Failed to load dashboard data", err);
+        Swal.fire("Error", err.response?.data?.error || "Failed to load dashboard metrics", "error");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoading(false);
       });
-      setData(res.data);
-    } catch (err) {
-      console.error("Failed to load dashboard data", err);
-      Swal.fire("Error", "Failed to load dashboard metrics", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDashboard();
+    return () => controller.abort();
   }, [activeFilters]);
 
   const handleApplyFilter = (e?: React.FormEvent) => {
@@ -87,6 +75,7 @@ export default function DashboardPage() {
       return;
     }
 
+    setIsLoading(true);
     setActiveFilters({
       dateRange,
       startDate,
@@ -209,7 +198,7 @@ export default function DashboardPage() {
               className="p-6 hover:bg-zinc-50 transition-colors block"
             >
               <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">
-                Today's Sales
+                Today&apos;s Sales
               </p>
               <h3 className="text-3xl font-mono text-amber-600 font-bold">
                 {formatCurrency(data.metrics.todaySales)}

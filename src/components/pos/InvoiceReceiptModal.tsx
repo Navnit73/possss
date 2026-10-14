@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { X, Printer, FileText, ExternalLink, CheckCircle2, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -11,7 +11,6 @@ interface InvoiceReceiptModalProps {
 }
 
 export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProps) {
-  const { formatCurrency } = useCurrency();
   const pdfUrl = `/api/pos/invoices/${saleId}/pdf`;
   const jsonUrl = `/api/pos/invoices/${saleId}`;
 
@@ -19,44 +18,47 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     let createdBlobUrl: string | null = null;
+    const controller = new AbortController();
 
-    const fetchData = async () => {
-      setIsLoading(true);
-      setHasError(false);
-
-      try {
-        const [pdfRes, jsonRes] = await Promise.all([
-          axios.get(pdfUrl, { responseType: "blob" }),
-          axios.get(jsonUrl)
-        ]);
-
+    // The on-screen receipt only needs the JSON, so it appears immediately...
+    axios.get(jsonUrl, { signal: controller.signal })
+      .then((res) => {
         if (isMounted) {
-          const blob = new Blob([pdfRes.data], { type: "application/pdf" });
-          createdBlobUrl = URL.createObjectURL(blob);
-          setPdfBlobUrl(createdBlobUrl);
-          setInvoiceData(jsonRes.data);
+          setInvoiceData(res.data);
+          setHasError(false);
         }
-      } catch (err) {
-        console.error("Failed to load receipt PDF or data", err);
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) return;
+        console.error("Failed to load receipt data", err);
         if (isMounted) setHasError(true);
-      } finally {
+      })
+      .finally(() => {
         if (isMounted) setIsLoading(false);
-      }
-    };
+      });
 
-    fetchData();
+    // ...while the slower PDF (used for printing / "Open PDF") is generated in the background.
+    axios.get(pdfUrl, { responseType: "blob", signal: controller.signal })
+      .then((res) => {
+        if (!isMounted) return;
+        createdBlobUrl = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+        setPdfBlobUrl(createdBlobUrl);
+      })
+      .catch((err) => {
+        if (!axios.isCancel(err)) console.error("Failed to load receipt PDF", err);
+      });
 
     return () => {
       isMounted = false;
-      if (createdBlobUrl) {
-        URL.revokeObjectURL(createdBlobUrl);
-      }
+      controller.abort();
+      if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
     };
-  }, [saleId, pdfUrl, jsonUrl]);
+  }, [saleId, pdfUrl, jsonUrl, attempt]);
 
   const handlePrint = () => {
     if (pdfBlobUrl) {
@@ -64,11 +66,33 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
       if (printWindow) {
         printWindow.focus();
         setTimeout(() => printWindow.print(), 300);
+        return;
       }
-    } else {
-      window.print();
     }
+    // PDF not ready yet (or popup blocked): print the on-page receipt instead
+    window.print();
   };
+
+  // Keyboard: P prints, Esc / N closes and returns to the next sale (Enter is left alone: it confirms the sale, and a double-tap must not dismiss the receipt)
+  const printRef = useRef(handlePrint);
+  useEffect(() => {
+    printRef.current = handlePrint;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key === "escape" || key === "n") {
+        e.preventDefault();
+        onClose();
+      } else if (key === "p") {
+        e.preventDefault();
+        printRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const sale = invoiceData?.sale;
   const items = invoiceData?.items || [];
@@ -76,7 +100,7 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
   const customer = invoiceData?.customer;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto font-sans animate-in fade-in duration-200 print:p-0 print:bg-white print:static print:h-auto">
+    <div role="dialog" aria-modal="true" aria-label="Sale receipt" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto font-sans animate-in fade-in duration-200 print:p-0 print:bg-white print:static print:h-auto">
       <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col h-[90vh] max-h-[850px] overflow-hidden print:border-0 print:shadow-none print:w-auto print:max-w-none print:h-auto print:rounded-none">
         
         {/* Modal Header (Hidden on print) */}
@@ -105,7 +129,7 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
               className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              Print Receipt
+              Print Receipt <kbd className="ml-1 text-[10px] opacity-80 font-mono">P</kbd>
             </button>
             <a
               href={pdfUrl}
@@ -119,7 +143,8 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
             <button
               onClick={onClose}
               className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-2 rounded-xl transition-colors cursor-pointer"
-              title="Close modal"
+              title="Close (Esc)"
+              aria-label="Close receipt"
             >
               <X className="w-5 h-5" />
             </button>
@@ -129,24 +154,22 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
         {/* Modal Body */}
         <div className="flex-1 bg-slate-100/70 p-4 sm:p-6 overflow-y-auto flex items-center justify-center relative print:p-0 print:bg-white print:overflow-visible">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
+            <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3" role="status">
               <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
-              <span className="text-xs font-bold text-slate-600">Generating receipt preview...</span>
+              <span className="text-xs font-bold text-slate-600">Loading receipt...</span>
             </div>
-          ) : pdfBlobUrl ? (
-            /* PDF Object Embedded View (Hidden on window.print if fallback used) */
-            <div className="w-full h-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden flex flex-col print:hidden">
-              <object
-                data={pdfBlobUrl}
-                type="application/pdf"
-                className="w-full h-full border-0 bg-white"
+          ) : hasError ? (
+            <div className="flex flex-col items-center justify-center p-12 gap-3 text-center" role="alert">
+              <p className="text-sm font-bold text-rose-600">The sale was saved, but the receipt couldn&apos;t be loaded.</p>
+              <button
+                onClick={() => { setIsLoading(true); setAttempt((n) => n + 1); }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl cursor-pointer"
               >
-                <HTMLReceiptFallback sale={sale} items={items} tenant={tenant} customer={customer} />
-              </object>
+                Try again
+              </button>
             </div>
           ) : (
-            /* Clean HTML Thermal Receipt Fallback */
-            <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-md p-6 overflow-y-auto print:border-0 print:shadow-none print:p-0">
+            <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-md p-2 overflow-y-auto print:hidden">
               <HTMLReceiptFallback sale={sale} items={items} tenant={tenant} customer={customer} />
             </div>
           )}
@@ -161,14 +184,14 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
         <div className="px-6 py-4 border-t border-slate-100 flex justify-between items-center bg-white shrink-0 print:hidden">
           <p className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            Ready for 80mm POS Thermal Printers.
+            Press <kbd className="font-mono font-bold">P</kbd> to print, <kbd className="font-mono font-bold">Esc</kbd> for the next sale.
           </p>
           <div className="flex gap-2.5">
             <button
               onClick={onClose}
               className="px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer border border-slate-200"
             >
-              Close
+              Close <kbd className="ml-1 text-[10px] text-slate-400 font-mono">Esc</kbd>
             </button>
             <button
               onClick={handlePrint}

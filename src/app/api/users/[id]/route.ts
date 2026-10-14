@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkPermission } from "@/lib/rbac";
+import { canGrantPermissions, checkPermission } from "@/lib/rbac";
+import { updateUserSchema } from "@/lib/validations";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Request, context: any, audit: AuditContext) => {
@@ -23,15 +24,7 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
       return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
     }
 
-    const body = await req.json();
-    const { name, email, password, role_id } = body;
-
-    if (!name || name.trim().length < 2) {
-      return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
-    }
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ error: "Valid email address is required" }, { status: 400 });
-    }
+    const { name, email, password, role_id } = updateUserSchema.parse(await req.json());
 
     const db = client.db("pos");
     const targetUser = await db.collection("users").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
@@ -39,35 +32,46 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const isOwnerCaller = (session?.user as any)?.role === "OWNER";
+    // Without this, anyone with USERS:EDIT could reset the owner's email/password and take over the store.
+    if (targetUser.role === "OWNER" && !isOwnerCaller) {
+      return NextResponse.json({ error: "Only the store owner can edit the owner account." }, { status: 403 });
+    }
+
     // Check email uniqueness if email is changed
-    if (email.toLowerCase().trim() !== targetUser.email.toLowerCase()) {
-      const emailCheck = await db.collection("users").findOne({ email: email.toLowerCase().trim() });
+    if (email !== targetUser.email.toLowerCase()) {
+      const emailCheck = await db.collection("users").findOne({ email });
       if (emailCheck) {
         return NextResponse.json({ error: "Another user already exists with this email" }, { status: 400 });
       }
     }
 
     const updateFields: any = {
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
+      name,
+      email,
       updated_at: new Date()
     };
 
     // Password update if provided
-    if (password && password.trim().length >= 8) {
-      updateFields.password = await bcrypt.hash(password.trim(), 12);
-    } else if (password && password.trim().length > 0 && password.trim().length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+    const newPassword = password?.trim() ?? "";
+    if (newPassword.length > 0) {
+      if (newPassword.length < 8) {
+        return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+      }
+      updateFields.password = await bcrypt.hash(newPassword, 12);
     }
 
     // Role update if role_id provided and not editing OWNER
-    if (role_id && targetUser.role !== "OWNER") {
-      if (!ObjectId.isValid(role_id)) {
-        return NextResponse.json({ error: "Invalid role selected" }, { status: 400 });
+    if (role_id && targetUser.role !== "OWNER" && role_id !== targetUser.role_id) {
+      if (id === (session?.user as any)?.id && !isOwnerCaller) {
+        return NextResponse.json({ error: "You can't change your own role." }, { status: 403 });
       }
       const role = await db.collection("roles").findOne({ _id: new ObjectId(role_id), tenant_id: tenantId });
       if (!role) {
         return NextResponse.json({ error: "Selected role not found" }, { status: 400 });
+      }
+      if (!canGrantPermissions(session, role.permissions ?? [])) {
+        return NextResponse.json({ error: "You can't assign a role with more permissions than you have." }, { status: 403 });
       }
       updateFields.role_id = role_id;
     }

@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
+import { LAPSED_ALLOWED_PREFIXES } from './lib/billing';
 
 export const authConfig = {
   trustHost: true,
@@ -15,6 +16,7 @@ export const authConfig = {
         token.permissions = (user as any).permissions || [];
         token.tenant_id = (user as any).tenant_id;
         token.tenant_status = (user as any).tenant_status;
+        token.subscription_lapsed = (user as any).subscription_lapsed;
       }
       return token;
     },
@@ -25,6 +27,7 @@ export const authConfig = {
         (session.user as any).permissions = token.permissions || [];
         (session.user as any).tenant_id = token.tenant_id;
         (session.user as any).tenant_status = token.tenant_status;
+        (session.user as any).subscription_lapsed = Boolean(token.subscription_lapsed);
       }
       return session;
     },
@@ -54,6 +57,15 @@ export const authConfig = {
         // Enforce onboarding check
         if ((isOnDashboard || isOnPos || isOnAccount) && tenantStatus !== 'ACTIVE') {
           return Response.redirect(new URL('/onboarding/create-store', nextUrl));
+        }
+
+        // Lapsed subscription: only billing/profile pages stay reachable until the owner renews
+        if (
+          (isOnDashboard || isOnPos || isOnAccount) &&
+          (auth.user as any).subscription_lapsed &&
+          !LAPSED_ALLOWED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+        ) {
+          return Response.redirect(new URL(hasPermission('SETTINGS', 'VIEW') ? '/account/subscription' : '/account/profile', nextUrl));
         }
 
         if (isOnOnboarding && tenantStatus === 'ACTIVE') {

@@ -11,6 +11,7 @@ export type AuditLogAction =
   | "SUBSCRIPTION_ACTIVATED"
   | "PRODUCT_UPDATED"
   | "STAFF_USER_CREATED"
+  | "ACCOUNT_DELETED"
   | "ERROR";
 
 interface LogEntry {

@@ -13,12 +13,23 @@ export default function BillingPage() {
     fetchPayments();
   }, []);
 
+  const openReceipt = async (paymentId: string) => {
+    try {
+      const res = await fetch(`/api/account/billing/receipt?payment=${encodeURIComponent(paymentId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      setError(err.message || "Could not open receipt");
+    }
+  };
+
   const fetchPayments = async () => {
     try {
       const res = await fetch("/api/account/billing");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setPayments(data);
+      setPayments(Array.isArray(data) ? data : []);
     } catch (err: any) {
       setError(err.message || "Failed to load billing history");
     } finally {
@@ -32,7 +43,7 @@ export default function BillingPage() {
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing History</h1>
-        <p className="text-muted-foreground">View and download your past subscription invoices.</p>
+        <p className="text-muted-foreground">Your subscription payments and receipts.</p>
       </div>
 
       {error && (
@@ -73,18 +84,27 @@ export default function BillingPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 font-medium">
-                    ${payment.amount.toLocaleString()}
+                    {new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency || "USD" }).format(payment.amount)}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-500">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                      payment.status === "failed" ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"
+                    }`}>
                       {payment.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 text-sm font-medium">
-                      <Download className="w-4 h-4" />
-                      PDF
-                    </button>
+                    {payment.has_receipt && payment.payment_id ? (
+                      <button
+                        onClick={() => openReceipt(payment.payment_id)}
+                        className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 text-sm font-medium"
+                      >
+                        <Download className="w-4 h-4" />
+                        Receipt
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                 </tr>
               ))

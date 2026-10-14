@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { registerSchema } from "@/lib/validations";
@@ -39,16 +39,28 @@ export async function POST(req: Request) {
       created_at: new Date(),
     };
 
-    const result = await db.collection("users").insertOne(newUser);
+    let result;
+    try {
+      result = await db.collection("users").insertOne(newUser);
+    } catch (insertError: any) {
+      // Two concurrent sign-ups with the same email both pass the findOne check; the unique index catches the second.
+      if (insertError?.code === 11000) {
+        return NextResponse.json({ error: "User already exists" }, { status: 400 });
+      }
+      throw insertError;
+    }
 
-    await logAction({
-      action: "USER_REGISTERED",
-      userId: result.insertedId.toString(),
-      details: { email: newUser.email, role: newUser.role }
+    const userId = result.insertedId.toString();
+    // Audit log + welcome email run after the response is sent so they don't slow sign-up
+    // (and the email isn't dropped when the function instance is frozen).
+    after(async () => {
+      await logAction({
+        action: "USER_REGISTERED",
+        userId,
+        details: { email: newUser.email, role: newUser.role }
+      });
+      await sendWelcomeEmail(newUser.email, newUser.name);
     });
-
-    // Send welcome email asynchronously
-    sendWelcomeEmail(newUser.email, newUser.name);
 
     return NextResponse.json({ message: "User registered successfully" }, { status: 201 });
   } catch (error: any) {

@@ -4,18 +4,23 @@ import client from "./lib/mongodb"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { CredentialsSignin } from "next-auth"
 import bcrypt from "bcryptjs"
-import { ObjectId } from "mongodb"
 import { authConfig } from "./auth.config"
 import { rateLimit } from "./lib/rateLimit"
 import { logAuditDirectly } from "./lib/auditLogger"
+import { after } from "next/server"
+import { refreshTokenAccess, resolveAccess } from "./lib/sessionAccess"
 
+// Only `code` reaches the client (signIn() returns it as `res.code`); the message is server-side only.
 class CustomAuthError extends CredentialsSignin {
-  code = "custom_error";
-  constructor(message?: string) {
+  constructor(code: string, message?: string) {
     super(message);
+    this.code = code;
     this.message = message || "Invalid credentials";
   }
 }
+
+// Compared against when the user doesn't exist so response time doesn't reveal which emails are registered.
+const DUMMY_PASSWORD_HASH = "$2b$12$JUKjv4CknG.mBLY7bLM.SeZrRQv9A9RqVhpnQlxiCOoaZBYu20qam";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -29,54 +34,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
-          throw new CustomAuthError("Email and password are required");
+          throw new CustomAuthError("missing_fields", "Email and password are required");
         }
 
         // Rate limit by email to prevent brute force (5 attempts per minute)
         const email = String(credentials.email).trim().toLowerCase();
         const identifier = `login-${email}`;
         if (!(await rateLimit(identifier, 5, 60 * 1000))) {
-          throw new CustomAuthError("Too many login attempts. Please try again later.");
+          throw new CustomAuthError("rate_limited", "Too many login attempts. Please try again later.");
         }
 
         const db = client.db("pos");
         const user = await db.collection("users").findOne({ email });
 
-        if (!user || !user.password) {
-          throw new CustomAuthError("Invalid email or password");
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user?.password || DUMMY_PASSWORD_HASH
+        );
+
+        if (!user || !user.password || !isValid) {
+          throw new CustomAuthError("invalid_credentials", "Invalid email or password");
         }
 
-        const isValid = await bcrypt.compare(credentials.password as string, user.password);
-
-        if (!isValid) {
-          throw new CustomAuthError("Invalid email or password");
-        }
-
-        let tenantStatus = null;
-        if (user.tenant_id) {
-          const tenant = await db.collection("tenants").findOne({ _id: new ObjectId(user.tenant_id) });
-          if (tenant) {
-            tenantStatus = tenant.status;
-          }
-        }
-
-        let permissions: { module: string, action: string }[] = [];
-        if (user.role_id) {
-          const customRole = await db.collection("roles").findOne({ _id: new ObjectId(user.role_id) });
-          if (customRole && customRole.permissions) {
-            permissions = customRole.permissions;
-          }
+        const access = await resolveAccess(db, user);
+        if (access.tenant_status === "DELETED") {
+          // Staff of a deleted store must not be able to sign in
+          throw new CustomAuthError("invalid_credentials", "Invalid email or password");
         }
 
         return {
           id: user._id.toString(),
           email: user.email,
           name: user.name,
-          role: user.role,
-          role_id: user.role_id || null,
-          permissions: permissions,
-          tenant_id: user.tenant_id || null,
-          tenant_status: tenantStatus,
+          ...access,
         };
       }
     })
@@ -85,7 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
@@ -93,34 +83,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.permissions = (user as any).permissions;
         token.tenant_id = (user as any).tenant_id;
         token.tenant_status = (user as any).tenant_status;
+        token.subscription_lapsed = (user as any).subscription_lapsed;
+        token.checkedAt = Date.now();
+        return token;
       }
-      
-      // Securely fetch updated status from DB when update() is called
-      if (trigger === "update") {
-        const db = client.db("pos");
-        const userDb = await db.collection("users").findOne({ _id: new ObjectId(token.id as string) });
-        if (userDb) {
-          token.role = userDb.role;
-          token.role_id = userDb.role_id?.toString() || null;
-          
-          if (userDb.role_id) {
-            const customRole = await db.collection("roles").findOne({ _id: new ObjectId(userDb.role_id) });
-            if (customRole && customRole.permissions) {
-              token.permissions = customRole.permissions;
-            }
-          }
-        }
-        
-        if (userDb && userDb.tenant_id) {
-          token.tenant_id = userDb.tenant_id;
-          const tenant = await db.collection("tenants").findOne({ _id: new ObjectId(userDb.tenant_id) });
-          if (tenant) {
-            token.tenant_status = tenant.status;
-          }
-        }
-      }
-      
-      return token;
+
+      return refreshTokenAccess(token, client.db("pos"), trigger === "update");
     },
     async session({ session, token }) {
       if (session.user) {
@@ -130,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (session.user as any).permissions = token.permissions || [];
         (session.user as any).tenant_id = token.tenant_id;
         (session.user as any).tenant_status = token.tenant_status;
+        (session.user as any).subscription_lapsed = Boolean(token.subscription_lapsed);
       }
       return session;
     }
@@ -137,12 +106,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async signIn({ user }) {
       if (user && (user as any).tenant_id) {
-        await logAuditDirectly({
+        // Don't hold the login response open for an audit write.
+        after(() => logAuditDirectly({
           tenantId: (user as any).tenant_id,
           userId: user.id,
           action: "LOGIN",
           module: "AUTH",
-        });
+        }));
       }
     },
     async signOut(params: any) {

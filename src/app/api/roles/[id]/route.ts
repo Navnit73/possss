@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { roleSchema } from "@/lib/validations";
 import { ObjectId } from "mongodb";
-import { checkPermission } from "@/lib/rbac";
+import { canGrantPermissions, checkPermission } from "@/lib/rbac";
+import { escapeRegExp } from "@/lib/utils";
 import { handleApiError } from "@/lib/errorHandler";
 import { logAuditDirectly } from "@/lib/auditLogger";
 import { headers } from "next/headers";
@@ -32,6 +33,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const existing = await db.collection("roles").findOne({ _id: roleId, tenant_id: tenantId });
     if (!existing) {
       return NextResponse.json({ error: "Role not found" }, { status: 404 });
+    }
+
+    if (!canGrantPermissions(session, validatedData.permissions)) {
+      return NextResponse.json({ error: "You can only grant permissions that you hold yourself." }, { status: 403 });
+    }
+
+    const duplicate = await db.collection("roles").findOne({
+      tenant_id: tenantId,
+      _id: { $ne: roleId },
+      name: { $regex: `^${escapeRegExp(validatedData.name)}$`, $options: "i" },
+    }, { projection: { _id: 1 } });
+    if (duplicate) {
+      return NextResponse.json({ error: "Role with this name already exists" }, { status: 400 });
     }
 
     await db.collection("roles").updateOne(

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useSession } from "next-auth/react";
 import { SUPPORTED_CURRENCIES, CurrencyInfo } from "@/lib/currency";
 import { ChevronDown, Search, Check, X, Coins } from "lucide-react";
 import clsx from "clsx";
@@ -17,6 +18,9 @@ export function CurrencyDropdown({
   className,
 }: CurrencyDropdownProps) {
   const { currency, setCurrency } = useCurrency();
+  const { data: session } = useSession();
+  // Only owners can change the store currency (enforced by PATCH /api/account/profile)
+  const canChange = (session?.user as any)?.role === "OWNER";
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -81,14 +85,15 @@ export function CurrencyDropdown({
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => canChange && setIsOpen(!isOpen)}
+        disabled={!canChange}
         className={clsx(
-          "group flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border shadow-2xs cursor-pointer select-none shrink-0",
+          "group flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border shadow-2xs cursor-pointer select-none shrink-0 disabled:cursor-default",
           isDark
             ? "bg-slate-800/90 hover:bg-slate-750 text-white border-slate-700 hover:border-emerald-500/50 focus-visible:ring-2 focus-visible:ring-emerald-500"
             : "bg-surface hover:bg-muted text-foreground border-border hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20"
         )}
-        title={`Current Currency: ${activeCurrency.name} (${activeCurrency.symbol}) - Click to change`}
+        title={`Current Currency: ${activeCurrency.name} (${activeCurrency.symbol})${canChange ? " - Click to change" : ""}`}
         aria-label="Change Store Currency"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -105,13 +110,13 @@ export function CurrencyDropdown({
         >
           {activeCurrency.symbol}
         </span>
-        <ChevronDown
+        {canChange && <ChevronDown
           className={clsx(
             "w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform duration-200 shrink-0",
             isOpen && "rotate-180",
             isDark ? "text-slate-400 group-hover:text-white" : "text-muted-foreground group-hover:text-foreground"
           )}
-        />
+        />}
       </button>
 
       {/* Dropdown Menu */}

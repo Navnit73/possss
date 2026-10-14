@@ -9,36 +9,14 @@ import { z } from "zod";
 import { useCurrency } from "@/context/CurrencyContext";
 
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { COUNTRIES, TIMEZONES } from "@/lib/regions";
 
-const COUNTRIES = [
-  { label: "United States", value: "United States" },
-  { label: "India", value: "India" },
-  { label: "Ethiopia", value: "Ethiopia" },
-  { label: "United Kingdom", value: "United Kingdom" },
-  { label: "Canada", value: "Canada" },
-  { label: "Australia", value: "Australia" },
-];
+const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ label: c.name, value: c.name }));
 
 const CURRENCIES = SUPPORTED_CURRENCIES.map((c) => ({
   label: `${c.code} - ${c.name} (${c.symbol})`,
   value: c.code,
 }));
-
-const TIMEZONES = [
-  { label: "US - Eastern Time", value: "America/New_York" },
-  { label: "US - Central Time", value: "America/Chicago" },
-  { label: "US - Mountain Time", value: "America/Denver" },
-  { label: "US - Pacific Time", value: "America/Los_Angeles" },
-  { label: "Canada - Eastern Time", value: "America/Toronto" },
-  { label: "Canada - Pacific Time", value: "America/Vancouver" },
-  { label: "UK - London", value: "Europe/London" },
-  { label: "Australia - Sydney", value: "Australia/Sydney" },
-  { label: "Australia - Melbourne", value: "Australia/Melbourne" },
-  { label: "Australia - Perth", value: "Australia/Perth" },
-  { label: "Ethiopia - Addis Ababa (EAT)", value: "Africa/Addis_Ababa" },
-  { label: "India - IST", value: "Asia/Kolkata" },
-  { label: "UTC", value: "UTC" },
-];
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -110,7 +88,7 @@ export default function ProfilePage() {
           address: data.tenant.address || "",
         });
         if (data.tenant.currency) {
-          setCurrency(data.tenant.currency);
+          setCurrency(data.tenant.currency, false);
         }
       }
     } catch (err: any) {
@@ -147,14 +125,15 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
 
-      if (tenantForm.currency) {
-        setCurrency(tenantForm.currency);
+      // PUT above already saved it on the tenant (owners only)
+      if (parsedTenant?.currency) {
+        setCurrency(parsedTenant.currency, false);
       }
 
       setSuccess("Profile and store information updated successfully!");
     } catch (err: any) {
       if (err instanceof z.ZodError) {
-        setError((err as any).errors[0].message);
+        setError(err.issues[0]?.message ?? "Please check the form and try again");
       } else {
         setError(err.message || "Failed to save profile");
       }
@@ -307,7 +286,7 @@ export default function ProfilePage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Country</label>
                 <SearchableSelect
-                  options={COUNTRIES}
+                  options={COUNTRY_OPTIONS}
                   value={tenantForm.country}
                   onChange={val => setTenantForm({...tenantForm, country: val})}
                   placeholder="Select Country"

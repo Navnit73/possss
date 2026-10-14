@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { createUserSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
-import { checkPermission } from "@/lib/rbac";
+import { canGrantPermissions, checkPermission } from "@/lib/rbac";
+import { ObjectId } from "mongodb";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request) {
@@ -43,10 +44,12 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
     const db = client.db("pos");
     
     // Check if role exists
-    const { ObjectId } = require("mongodb");
     const role = await db.collection("roles").findOne({ _id: new ObjectId(validatedData.role_id), tenant_id: tenantId });
     if (!role) {
       return NextResponse.json({ error: "Invalid role selected" }, { status: 400 });
+    }
+    if (!canGrantPermissions(session, role.permissions ?? [])) {
+      return NextResponse.json({ error: "You can't assign a role with more permissions than you have." }, { status: 403 });
     }
 
     // Check if user exists across all tenants (emails must be unique)
