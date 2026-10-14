@@ -7,12 +7,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createStoreSchema } from "@/lib/validations";
 import { SplitLayout } from "@/components/auth/SplitLayout";
+import { useSession } from "next-auth/react";
 import axios from "axios";
 
 type FormValues = z.infer<typeof createStoreSchema>;
 
 export default function CreateStorePage() {
   const router = useRouter();
+  const { update } = useSession();
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,6 +36,9 @@ export default function CreateStorePage() {
     setError("");
     try {
       await axios.post("/api/onboarding", data);
+      // The session was issued before this store existed; re-read it so it carries the new tenant_id
+      // (otherwise the subscription step is rejected with 401).
+      await update({});
       router.push("/onboarding/business-details");
       return; // stay disabled while navigating
     } catch (err: any) {

@@ -7,6 +7,9 @@ import { handleApiError } from "@/lib/errorHandler";
 import { checkRole } from "@/lib/rbac";
 import { logAuditDirectly } from "@/lib/auditLogger";
 import { getRazorpay } from "@/lib/razorpay";
+import { PLAN } from "@/lib/billing";
+import { sendSubscriptionCancelledEmail } from "@/lib/mail";
+import { runAfterResponse } from "@/lib/runAfterResponse";
 
 const manageSchema = z.object({ action: z.enum(["cancel", "resume"]) });
 
@@ -28,6 +31,7 @@ export async function POST(req: Request) {
     if (!sub?.id) return NextResponse.json({ error: "No subscription found for this store." }, { status: 404 });
 
     const razorpay = getRazorpay();
+    let cancelledEmailEndsAt: Date | null | undefined;
 
     if (action === "cancel") {
       if (sub.cancel_requested || sub.status === "cancelled") {
@@ -39,6 +43,7 @@ export async function POST(req: Request) {
       // A subscription that has never been charged has no paid period to run out, so it ends immediately.
       const atCycleEnd = sub.status === "active" || sub.status === "pending";
       await razorpay.subscriptions.cancel(sub.id, atCycleEnd);
+      cancelledEmailEndsAt = atCycleEnd && sub.current_end ? new Date(sub.current_end) : null;
       await tenants.updateOne(
         { _id: tenant!._id },
         { $set: atCycleEnd ? { "subscription.cancel_requested": true } : { "subscription.status": "cancelled", "subscription.cancel_requested": false } }
@@ -57,6 +62,20 @@ export async function POST(req: Request) {
       module: "BILLING",
       after: { subscription_id: sub.id },
     });
+
+    if (action === "cancel" && cancelledEmailEndsAt !== undefined) {
+      const email = session?.user?.email;
+      const name = session?.user?.name ?? undefined;
+      if (email) {
+        runAfterResponse(async () => {
+          try {
+            await sendSubscriptionCancelledEmail(email, name, PLAN.name, cancelledEmailEndsAt);
+          } catch (err) {
+            console.error("Failed to send subscription cancelled email:", err);
+          }
+        });
+      }
+    }
 
     return NextResponse.json({ message: action === "cancel" ? "Subscription will not renew." : "Subscription will continue to renew." });
   } catch (error: any) {

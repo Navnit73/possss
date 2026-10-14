@@ -15,7 +15,7 @@ export default function SubscriptionPage() {
 
   const onActivated = async () => {
     // Re-read the store status from the database so the proxy lets us through to the dashboard
-    await update();
+    await update({});
     router.push("/dashboard");
     router.refresh();
   };

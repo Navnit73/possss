@@ -5,6 +5,7 @@ import {
   renderWelcomeEmail,
   renderPasswordResetEmail,
   renderSignInNotificationEmail,
+  renderSubscriptionCancelledEmail,
 } from './emailTemplates';
 
 /**
@@ -113,20 +114,19 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<Sen
 }
 
 /**
- * Sends a password reset email containing a secure, time-limited token link.
- * Does NOT log the raw token or link in server logs.
+ * Sends a password reset email containing a time-limited one-time code.
+ * Does NOT log the raw OTP in server logs.
  */
 export async function sendPasswordResetEmail(
   email: string,
-  token: string,
+  otp: string,
   name?: string
 ): Promise<SendAuthEmailResult> {
   const { subject, html, text } = renderPasswordResetEmail({
     email,
-    token,
+    otp,
     name,
-    appUrl: getAppUrl(),
-    expiresInMinutes: 15,
+    expiresInMinutes: 10,
   });
 
   return await sendAuthEmail({
@@ -160,6 +160,26 @@ export async function sendSignInNotificationEmail(
     html,
     text,
   });
+}
+
+/**
+ * Confirms to the account owner that their subscription was cancelled.
+ */
+export async function sendSubscriptionCancelledEmail(
+  email: string,
+  name: string | undefined,
+  planName: string,
+  accessEndsAt?: Date | null
+): Promise<SendAuthEmailResult> {
+  const { subject, html, text } = renderSubscriptionCancelledEmail({
+    email,
+    name,
+    appUrl: getAppUrl(),
+    planName,
+    accessEndsAt,
+  });
+
+  return await sendAuthEmail({ to: email, subject, html, text });
 }
 
 /**

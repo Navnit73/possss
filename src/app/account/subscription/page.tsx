@@ -59,7 +59,7 @@ export default function SubscriptionPage() {
   const onActivated = async () => {
     await load();
     // Clears the "locked" flag on this session so the rest of the app opens up immediately
-    await update();
+    await update({});
     router.refresh();
   };
 

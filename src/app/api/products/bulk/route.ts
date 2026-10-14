@@ -4,7 +4,7 @@ import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
-import { productSchema } from "@/lib/validations";
+import { productSchema, categorySchema, manufacturerSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 
 function escapeRegExp(string: string) {
@@ -137,10 +137,30 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
         errors.push(`Row ${rowNum}: category_name and manufacturer_name are required.`);
         continue;
       }
+      // These names create new records, so hold them to the same rules as the category/manufacturer forms
+      if (!categorySchema.safeParse({ name: catName }).success) {
+        errors.push(`Row ${rowNum} [category_name]: must be 2-100 characters.`);
+        continue;
+      }
+      if (!manufacturerSchema.safeParse({ name: mfgName }).success) {
+        errors.push(`Row ${rowNum} [manufacturer_name]: must be 2-120 characters.`);
+        continue;
+      }
+
+      const statusStr = rawItem.status?.toString().trim().toUpperCase();
+      if (statusStr && statusStr !== "ACTIVE" && statusStr !== "INACTIVE") {
+        errors.push(`Row ${rowNum} [status]: must be ACTIVE or INACTIVE.`);
+        continue;
+      }
 
       const barcodeStr = rawItem.barcode?.toString().trim() || undefined;
 
       if (barcodeStr) {
+        // Excel turns long numeric barcodes into 1.23457E+11 and the original digits are lost for good
+        if (/^\d+(\.\d+)?e[+-]?\d+$/i.test(barcodeStr)) {
+          errors.push(`Row ${rowNum}: Barcode '${barcodeStr}' looks like Excel scientific notation. Format the barcode column as Text and re-export the CSV.`);
+          continue;
+        }
         if (existingBarcodesSet.has(barcodeStr)) {
           errors.push(`Row ${rowNum}: Barcode '${barcodeStr}' already exists in database.`);
           continue;
@@ -163,7 +183,7 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
       }
 
       const itemToValidate = {
-        name: rawItem.name?.toString().trim(),
+        name: rawItem.name?.toString().trim() ?? "",
         generic_name: rawItem.generic_name?.toString().trim() || undefined,
         brand: rawItem.brand?.toString().trim() || undefined,
         category_id: PLACEHOLDER_ID,
@@ -180,13 +200,13 @@ export const POST = withAuditLog("BULK_CREATE_PRODUCTS", "PRODUCTS", async (req:
         storage_conditions: rawItem.storage_conditions?.toString().trim() || undefined,
         pregnancy_category: rawItem.pregnancy_category?.toString().trim() || undefined,
         requires_prescription,
-        unit_of_measure: rawItem.unit_of_measure?.toString().trim(),
+        unit_of_measure: rawItem.unit_of_measure?.toString().trim() ?? "",
         package_type: rawItem.package_type?.toString().trim() || undefined,
         package_size: numericCell(rawItem.package_size, undefined),
         rack_number: rawItem.rack_number?.toString().trim() || undefined,
         minimum_stock: numericCell(rawItem.minimum_stock, 0),
         tax_rate: numericCell(rawItem.tax_rate, 0),
-        status: rawItem.status?.toString().trim().toUpperCase() === "INACTIVE" ? "INACTIVE" : "ACTIVE"
+        status: statusStr === "INACTIVE" ? "INACTIVE" : "ACTIVE"
       };
 
       try {

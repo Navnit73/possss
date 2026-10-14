@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const { email } = forgotPasswordSchema.parse({
       email: typeof body?.email === "string" ? body.email.trim().toLowerCase() : body?.email,
     });
-    const genericResponse = NextResponse.json({ message: "If an account exists, a reset link has been sent." }, { status: 200 });
+    const genericResponse = NextResponse.json({ message: "If an account exists, a verification code has been sent." }, { status: 200 });
 
     // Per-address limit too, so rotating IPs can't flood one inbox (same response, so it doesn't reveal anything)
     if (!(await rateLimit(`forgot-pw-email-${email}`, 3, 60 * 60 * 1000))) {
@@ -36,14 +36,14 @@ export async function POST(req: Request) {
     }
 
     // Generate secure token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    const resetTokenExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes from now
+    const resetToken = crypto.randomInt(0, 1_000_000).toString().padStart(6, "0");
+    const hashedToken = crypto.createHash('sha256').update(`${email}:${resetToken}`).digest('hex');
+    const resetTokenExpiry = Date.now() + (10 * 60 * 1000); // 10 minutes from now
 
     // Save hashed token to user document
     await db.collection("users").updateOne(
       { _id: user._id },
-      { $set: { resetToken: hashedToken, resetTokenExpiry } }
+      { $set: { resetToken: hashedToken, resetTokenExpiry, resetTokenAttempts: 0 } }
     );
 
     // Send the email (unhashed token) after responding, so response time doesn't reveal which emails are registered

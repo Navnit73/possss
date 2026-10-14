@@ -308,18 +308,16 @@ Medishelf Pharmacy Management • https://app.medishelf.co
 
 export interface PasswordResetEmailData {
   email: string;
-  token: string;
+  otp: string;
   name?: string;
-  appUrl: string;
   expiresInMinutes?: number;
 }
 
 export function renderPasswordResetEmail(data: PasswordResetEmailData): { subject: string; html: string; text: string } {
-  const { email, token, name, appUrl, expiresInMinutes = 15 } = data;
+  const { email, otp, name, expiresInMinutes = 10 } = data;
   const displayName = name?.trim() ? name.trim() : "there";
-  const resetUrl = `${appUrl.replace(/\/+$/, "")}/auth/reset-password?token=${encodeURIComponent(token)}`;
-  const subject = "Reset your Medishelf password";
-  const preheader = `A password reset was requested for your Medishelf account. This link expires in ${expiresInMinutes} minutes.`;
+  const subject = "Your Medishelf password reset code";
+  const preheader = `Your verification code is ${otp}. It expires in ${expiresInMinutes} minutes.`;
 
   const bodyHtml = `
     <p style="margin: 0 0 16px 0;">
@@ -328,30 +326,16 @@ export function renderPasswordResetEmail(data: PasswordResetEmailData): { subjec
     <p style="margin: 0 0 16px 0;">
       We received a request to reset the password for your Medishelf account associated with <strong>${escapeHtml(email)}</strong>.
     </p>
-    <p style="margin: 0 0 20px 0;">
-      Click the secure button below to set a new password. For your security, this link will expire in <strong>${expiresInMinutes} minutes</strong> and can only be used once.
+    <p style="margin: 0 0 12px 0;">
+      Enter this code on the reset page. It expires in <strong>${expiresInMinutes} minutes</strong> and can only be used once.
     </p>
-
-    <!-- Security Warning Box -->
-    <div style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 16px; margin: 20px 0;">
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-        <tr>
-          <td style="vertical-align: top; width: 22px; padding-right: 8px; font-size: 16px; line-height: 1;">⚠️</td>
-          <td style="vertical-align: top; color: #92400E; font-size: 13px; line-height: 1.5;">
-            <strong>Did not request this?</strong> If you did not make this request, you can safely ignore this email. Your existing password will remain unchanged and your account remains secure.
-          </td>
-        </tr>
-      </table>
+    <div style="text-align: center; margin: 20px 0; padding: 16px; background-color: #FFF7ED; border: 1px solid #FED7AA; border-radius: 8px;">
+      <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #EA580C; font-family: 'Courier New', monospace;">${escapeHtml(otp)}</span>
     </div>
-  `;
 
-  const secondaryNoteHtml = `
-    <p style="margin: 0 0 6px 0;">
-      Button not working? Copy and paste this URL into your browser:
-    </p>
-    <p style="margin: 0; word-break: break-all;">
-      <a href="${escapeHtml(resetUrl)}" style="color: #EA580C; text-decoration: underline;">${escapeHtml(resetUrl)}</a>
-    </p>
+    <div style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 16px; margin: 20px 0; color: #92400E; font-size: 13px; line-height: 1.5;">
+      <strong>Did not request this?</strong> You can safely ignore this email. Your password will remain unchanged. Never share this code with anyone.
+    </div>
   `;
 
   const html = renderEmailLayout({
@@ -360,25 +344,21 @@ export function renderPasswordResetEmail(data: PasswordResetEmailData): { subjec
     badgeBgColor: "#FEF2F2",
     badgeTextColor: "#DC2626",
     badgeBorderColor: "#FECACA",
-    title: "Password Reset Request",
+    title: "Password Reset Code",
     bodyHtml,
-    ctaText: "Reset My Password",
-    ctaUrl: resetUrl,
-    secondaryNoteHtml,
   });
 
   const text = `
-Password Reset Request
+Password Reset Code
 =======================================
 
 Hello ${displayName},
 
 We received a request to reset your Medishelf account password (${email}).
 
-Click or copy this secure link to set a new password (valid for ${expiresInMinutes} minutes):
-${resetUrl}
+Your verification code (valid for ${expiresInMinutes} minutes): ${otp}
 
-If you did not request a password reset, you can safely ignore this email. Your account remains completely secure.
+If you did not request this, you can safely ignore this email. Never share this code with anyone.
 
 ---
 Medishelf Pharmacy Management • https://app.medishelf.co
@@ -486,6 +466,80 @@ If this was you, you can safely ignore this notification.
 
 If you did NOT sign in, please secure your account immediately by resetting your password:
 ${securityUrl}
+
+---
+Medishelf Pharmacy Management • https://app.medishelf.co
+© ${new Date().getFullYear()} Medishelf. All rights reserved.
+  `.trim();
+
+  return { subject, html, text };
+}
+
+
+/* =========================================================================
+   4. SUBSCRIPTION CANCELLED EMAIL
+   ========================================================================= */
+
+export interface SubscriptionCancelledEmailData {
+  email: string;
+  name?: string;
+  appUrl: string;
+  planName: string;
+  /** When access ends; null/undefined means it ended immediately. */
+  accessEndsAt?: Date | null;
+}
+
+export function renderSubscriptionCancelledEmail(data: SubscriptionCancelledEmailData): { subject: string; html: string; text: string } {
+  const { email, name, appUrl, planName, accessEndsAt } = data;
+  const displayName = name?.trim() ? name.trim() : "there";
+  const manageUrl = `${appUrl.replace(/\/+$/, "")}/account/subscription`;
+  const endDate = accessEndsAt
+    ? accessEndsAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const subject = "Your Medishelf subscription has been cancelled";
+  const accessLine = endDate
+    ? `Your ${planName} plan will not renew. You'll keep full access until <strong>${escapeHtml(endDate)}</strong>.`
+    : `Your ${planName} plan has been cancelled and will not renew.`;
+  const accessLineText = endDate
+    ? `Your ${planName} plan will not renew. You'll keep full access until ${endDate}.`
+    : `Your ${planName} plan has been cancelled and will not renew.`;
+
+  const bodyHtml = `
+    <p style="margin: 0 0 16px 0;">
+      Hello <strong>${escapeHtml(displayName)}</strong>,
+    </p>
+    <p style="margin: 0 0 16px 0;">
+      We've received your request to cancel the subscription for <strong>${escapeHtml(email)}</strong>.
+    </p>
+    <p style="margin: 0 0 16px 0;">${accessLine}</p>
+    <p style="margin: 0 0 16px 0;">
+      Changed your mind? You can keep your subscription any time before it ends from your account.
+    </p>
+  `;
+
+  const html = renderEmailLayout({
+    preheader: endDate ? `Your plan will not renew. Access continues until ${endDate}.` : "Your plan has been cancelled.",
+    badgeText: "Billing",
+    badgeBgColor: "#FFF7ED",
+    badgeTextColor: "#C2410C",
+    badgeBorderColor: "#FED7AA",
+    title: "Subscription Cancelled",
+    bodyHtml,
+    ctaText: "Manage Subscription",
+    ctaUrl: manageUrl,
+  });
+
+  const text = `
+Subscription Cancelled
+=======================================
+
+Hello ${displayName},
+
+We've received your request to cancel the subscription for ${email}.
+
+${accessLineText}
+
+Changed your mind? Keep your subscription here: ${manageUrl}
 
 ---
 Medishelf Pharmacy Management • https://app.medishelf.co

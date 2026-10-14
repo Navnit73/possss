@@ -89,6 +89,8 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
     if (e.target.files && e.target.files.length > 0) {
       processSelectedFile(e.target.files[0]);
     }
+    // Allow re-selecting the same file after removing it or fixing it on disk
+    e.target.value = "";
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -108,6 +110,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
     e.stopPropagation();
     setIsDragOver(false);
 
+    if (isUploading) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processSelectedFile(e.dataTransfer.files[0]);
     }
@@ -122,7 +125,8 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header) => header.trim(),
+      // Tolerate "Category Name", "CATEGORY_NAME" and a UTF-8 BOM from Excel
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[\s-]+/g, "_"),
       complete: async (results) => {
         const { data, meta, errors: parseErrors } = results;
 
@@ -169,6 +173,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
           }
 
           setIsSuccess(true);
+          onSuccessRef.current = true;
           
           Swal.fire({
             icon: "success",
@@ -185,7 +190,9 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
         } catch (err: any) {
           console.error("Bulk upload failed", err);
           if (err.response?.data?.details) {
-             setErrors(err.response.data.details);
+             const { details, total_errors } = err.response.data;
+             const hidden = typeof total_errors === "number" ? total_errors - details.length : 0;
+             setErrors(hidden > 0 ? [...details, `…and ${hidden} more error(s). Fix these and upload again.`] : details);
           } else {
              setErrors([err.response?.data?.error || "An unexpected error occurred during upload."]);
           }
