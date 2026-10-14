@@ -123,7 +123,7 @@ export default function LoginPage() {
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
-              className="press cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-ink-48 hover:text-ink"
+              className="press cursor-pointer absolute right-4 top-1/2 -translate-y-1/2 text-ink-48"
             >
               {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
             </button>
