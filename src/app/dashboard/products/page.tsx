@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
 import Link from "next/link";
 import { Plus, Package, Search, Eye, Edit } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
@@ -13,38 +12,27 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/Table";
+import { InfiniteListFooter } from "@/components/ui/InfiniteListFooter";
 import { cn } from "@/lib/utils";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get("/api/products");
-        setProducts(Array.isArray(res.data) ? res.data : []);
-      } catch (err: any) {
-        console.error("Failed to fetch products", err);
-        setError(err.response?.data?.error || "Failed to load products");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [search]);
 
-    fetchProducts();
-  }, []);
-
-  const term = search.trim().toLowerCase();
-  const filteredProducts = products.filter(p => 
-    !term ||
-    (p.name || "").toLowerCase().includes(term) || 
-    (p.generic_name && String(p.generic_name).toLowerCase().includes(term)) ||
-    (p.barcode && String(p.barcode).toLowerCase().includes(term)) ||
-    (p.sku && String(p.sku).toLowerCase().includes(term))
-  );
+  const {
+    items: products, total, hasMore, isLoading, isLoadingMore, error, loadMore, sentinelRef,
+  } = useInfiniteList<any>("/api/products", {
+    params: { q: debouncedSearch || undefined },
+    errorMessage: "Failed to load products",
+  });
 
   return (
     <PageShell>
@@ -80,7 +68,7 @@ export default function ProductsPage() {
           <div className="p-6">
             <TableSkeleton columns={8} rows={6} />
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <EmptyState
             icon={Package}
             title="No products found"
@@ -109,10 +97,12 @@ export default function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProducts.map((p) => (
+              {products.map((p) => (
                 <TableRow key={p._id}>
                   <TableCell>
-                    <p className="font-semibold text-ink">{p.name}</p>
+                    <Link href={`/dashboard/products/${p._id}`} className="font-semibold text-primary hover:underline">
+                      {p.name}
+                    </Link>
                     {p.generic_name && <p className="text-fine-print text-ink-48">{p.generic_name}</p>}
                   </TableCell>
                   <TableCell>
@@ -167,6 +157,18 @@ export default function ProductsPage() {
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {!isLoading && products.length > 0 && (
+          <InfiniteListFooter
+            sentinelRef={sentinelRef}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            loaded={products.length}
+            total={total}
+            noun="products"
+            onLoadMore={loadMore}
+          />
         )}
       </Card>
     </PageShell>

@@ -60,7 +60,6 @@ export async function GET(req: Request) {
           { projection, maxTimeMS: 3_000 }
         ).limit(CANDIDATE_POOL).toArray();
 
-    // Best matches first: exact barcode/SKU > name starts with query > name contains > brand, then A–Z
     const lower = query.toLowerCase();
     const scoreOf = (p: any) => {
       if (!lower) return 0;
@@ -74,19 +73,15 @@ export async function GET(req: Request) {
     };
     const unique = new Map<string, any>();
     for (const p of [...exactMatches, ...keywordMatches]) unique.set(p._id.toString(), p);
-    const found = [...unique.values()]
-      .map((p) => ({ p, score: scoreOf(p) }))
-      .sort((a, b) => b.score - a.score || String(a.p.name).localeCompare(String(b.p.name)))
-      .slice(0, MAX_RESULTS)
-      .map(({ p }) => p);
+    const candidates = [...unique.values()];
+    if (candidates.length === 0) return NextResponse.json([]);
 
-    if (found.length === 0) return NextResponse.json([]);
-
-    // One indexed query for all the products' stock (tenant_id + product_id + qty_available) instead of a $lookup per product.
+    // One indexed query for all the candidates' stock (tenant_id + product_id + qty_available) instead of a $lookup per product.
+    // Fetched for the whole candidate pool (not just the top MAX_RESULTS) so in-stock products can be ranked first.
     // cost_price is deliberately NOT returned: cashiers must not see what the store paid.
     const batches = await db.collection("batches")
       .find(
-        { tenant_id: tenantId, product_id: { $in: found.map((p) => p._id.toString()) }, qty_available: { $gt: 0 } },
+        { tenant_id: tenantId, product_id: { $in: candidates.map((p) => p._id.toString()) }, qty_available: { $gt: 0 } },
         { projection: { product_id: 1, batch_number: 1, qty_available: 1, selling_price: 1, expiry_date: 1, rack_number: 1 } }
       )
       .toArray();
@@ -98,7 +93,7 @@ export async function GET(req: Request) {
       byProduct.set(batch.product_id, list);
     }
 
-    const result = found.map((product) => {
+    const result = candidates.map((product) => {
       const all = byProduct.get(product._id.toString()) ?? [];
       const sellable = all
         .filter((b) => !isExpired(b.expiry_date, today))
@@ -111,7 +106,14 @@ export async function GET(req: Request) {
       return { ...product, batches: sellable, expired_batches: all.length - sellable.length };
     });
 
-    return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
+    // Sellable stock first, then best match: exact barcode/SKU > name starts with query > name contains > brand, then A–Z
+    const ranked = result
+      .map((p) => ({ p, inStock: p.batches.length > 0 ? 1 : 0, score: scoreOf(p) }))
+      .sort((a, b) => b.inStock - a.inStock || b.score - a.score || String(a.p.name).localeCompare(String(b.p.name)))
+      .slice(0, MAX_RESULTS)
+      .map(({ p }) => p);
+
+    return NextResponse.json(ranked, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: any) {
     return await handleApiError(error, "GET /api/pos/search");
   }

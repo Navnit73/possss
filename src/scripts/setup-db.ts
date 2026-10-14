@@ -49,6 +49,7 @@ async function setupIndexes() {
     // 5. Products collection
     await db.collection("products").createIndex({ tenant_id: 1 });
     await db.collection("products").createIndex({ tenant_id: 1, status: 1 });
+    await db.collection("products").createIndex({ tenant_id: 1, name: 1, _id: 1 }); // Products page: sorted pagination
     // Exact SKU lookups at the POS
     await db.collection("products").createIndex({ tenant_id: 1, sku: 1 }, { partialFilterExpression: { sku: { $type: "string" } } });
     await db.collection("products").createIndex({ tenant_id: 1, barcode: 1 }, { unique: true, partialFilterExpression: { barcode: { $type: "string" } } });

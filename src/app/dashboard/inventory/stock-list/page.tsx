@@ -33,6 +33,10 @@ import { format } from "date-fns";
 const isBatchExpired = (expiry: unknown, today: string) =>
   typeof expiry === "string" && expiry.trim() !== "" && expiry < today;
 
+// Fixed-width first column so the tree trunk lines up with the chevron (px-4 + 2.5rem/2 = left-9)
+const PRODUCT_GRID = "grid grid-cols-[2.5rem_minmax(0,4fr)_minmax(0,3fr)_minmax(0,2fr)_minmax(0,2fr)] gap-4";
+const BATCH_GRID = "grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1.25fr)_minmax(0,1fr)] gap-4";
+
 export default function StockListPage() {
   const { formatCurrency } = useCurrency();
   const [batches, setBatches] = useState<any[]>([]);
@@ -276,12 +280,12 @@ export default function StockListPage() {
           <div className="overflow-x-auto">
           <div className="min-w-[760px] text-caption text-ink">
             {/* Table Header */}
-            <div className="grid grid-cols-12 gap-4 px-4 h-11 items-center text-caption font-semibold text-ink-48 border-b border-hairline">
-              <div className="col-span-1"></div>
-              <div className="col-span-4">Product name</div>
-              <div className="col-span-3">Category</div>
-              <div className="col-span-2 text-right">Total stock</div>
-              <div className="col-span-2 text-center">Status</div>
+            <div className={cn(PRODUCT_GRID, "px-4 h-11 items-center text-caption font-semibold text-ink-48 border-b border-hairline")}>
+              <div></div>
+              <div>Product name</div>
+              <div>Category</div>
+              <div className="text-right">Total stock</div>
+              <div className="text-center">Status</div>
             </div>
 
             {/* Grouped Rows */}
@@ -290,6 +294,7 @@ export default function StockListPage() {
               const isExpanded = expandedProducts.has(pId);
               const minStock = Number(group.product?.minimum_stock || 0);
               const isLowStock = group.sellableQty <= minStock;
+              const batchCount = group.batches.length;
 
               return (
                 <div key={pId} className="flex flex-col border-b border-divider-soft last:border-0">
@@ -299,7 +304,8 @@ export default function StockListPage() {
                     tabIndex={0}
                     aria-expanded={isExpanded}
                     className={cn(
-                      "grid grid-cols-12 gap-4 px-4 py-3 items-center cursor-pointer",
+                      PRODUCT_GRID,
+                      "relative px-4 py-3 items-center cursor-pointer",
                       isExpanded && "bg-parchment"
                     )}
                     onClick={() => toggleExpand(pId)}
@@ -310,19 +316,26 @@ export default function StockListPage() {
                       }
                     }}
                   >
-                    <div className="col-span-1 flex justify-center text-ink-48">
+                    {/* Tree trunk: starts just below the chevron and runs into the batch rows */}
+                    {isExpanded && (
+                      <div className="absolute left-9 top-[calc(50%+12px)] bottom-0 w-px bg-primary-focus" aria-hidden="true" />
+                    )}
+                    <div className="flex justify-center text-ink-48">
                       {isExpanded ? <ChevronDown className="size-5" aria-hidden="true" /> : <ChevronRight className="size-5" aria-hidden="true" />}
                     </div>
-                    <div className="col-span-4 text-body font-semibold text-ink flex items-center gap-2">
-                      {group.product?.name || "Unknown Product"}
+                    <div className="text-body font-semibold text-ink flex items-center gap-2 min-w-0">
+                      <span className="truncate">{group.product?.name || "Unknown Product"}</span>
                       {group.product?.strength && (
                         <Badge variant="outline">{group.product.strength}</Badge>
                       )}
+                      <span className="text-fine-print font-normal text-ink-48 whitespace-nowrap">
+                        {batchCount} {batchCount === 1 ? "batch" : "batches"}
+                      </span>
                     </div>
-                    <div className="col-span-3 text-ink-48">
+                    <div className="text-ink-48 truncate">
                       {group.product?.category?.name || "Uncategorized"}
                     </div>
-                    <div className="col-span-2 text-right text-body font-semibold tabular text-ink flex items-center justify-end gap-2">
+                    <div className="text-right text-body font-semibold tabular text-ink flex items-center justify-end gap-2">
                       {group.totalQty.toLocaleString()}
                       {isLowStock && (
                         <span title={`Low Stock (Min: ${minStock})`}>
@@ -330,68 +343,81 @@ export default function StockListPage() {
                         </span>
                       )}
                     </div>
-                    <div className="col-span-2 flex justify-center">
+                    <div className="flex justify-center">
                       <Badge variant={isLowStock ? "destructive" : "success"}>
                         {isLowStock ? 'Low Stock' : 'In Stock'}
                       </Badge>
                     </div>
                   </div>
 
-                  {/* Batches Child Rows */}
+                  {/* Batches Child Rows (tree branches) */}
                   {isExpanded && (
-                    <div className="bg-parchment pb-3">
-                      {/* Child Table Header */}
-                      <div className="grid grid-cols-12 gap-4 px-4 py-2 text-caption font-semibold text-ink-48">
-                        <div className="col-span-1 relative">
-                          <div className="absolute left-1/2 top-0 w-px bg-hairline -translate-x-1/2 h-full"></div>
+                    <div className="bg-parchment pb-4">
+                      {/* Child Table Header — trunk passes straight through */}
+                      <div className="relative pl-[72px] pr-4 pt-1">
+                        <div className="absolute left-9 top-0 bottom-0 w-px bg-primary-focus" aria-hidden="true" />
+                        <div className={cn(BATCH_GRID, "px-4 py-1.5 border border-transparent text-fine-print font-semibold uppercase tracking-wide text-ink-48")}>
+                          <div>Batch #</div>
+                          <div>Supplier</div>
+                          <div>Expiry</div>
+                          <div>Rack</div>
+                          <div className="text-right">Cost</div>
+                          <div className="text-right">Price</div>
+                          <div className="text-right">Qty</div>
                         </div>
-                        <div className="col-span-2">Batch #</div>
-                        <div className="col-span-2">Supplier</div>
-                        <div className="col-span-2">Expiry</div>
-                        <div className="col-span-2">Rack</div>
-                        <div className="col-span-1 text-right">Cost</div>
-                        <div className="col-span-1 text-right">Price</div>
-                        <div className="col-span-1 text-right">Qty</div>
                       </div>
 
-                      {/* Child Rows */}
                       {group.batches.map((batch: any, index: number) => {
                         const isLast = index === group.batches.length - 1;
+                        const isExpired = isBatchExpired(batch.expiry_date, todayStr);
 
                         return (
-                          <div key={batch._id} className="grid grid-cols-12 gap-4 px-4 py-2 text-caption text-ink">
-                            
-                            {/* Visual Tree Node Column */}
-                            <div className="col-span-1 relative flex items-center min-h-9">
-                              <div className={cn("absolute left-1/2 top-0 w-px bg-hairline -translate-x-1/2", isLast ? "h-1/2" : "h-full")}></div>
-                              <div className="absolute left-1/2 top-1/2 w-[calc(50%+16px)] h-px bg-hairline"></div>
-                            </div>
-
-                            <div className="col-span-2 flex items-center pl-2">
-                              <span className="font-mono text-fine-print text-ink-80 bg-canvas border border-hairline px-2.5 py-1 rounded-xs">
-                                {batch.batch_number}
-                              </span>
-                            </div>
-                            <div className="col-span-2 text-ink-48 truncate flex items-center">
-                              {batch.supplier || "-"}
-                            </div>
-                            <div className="col-span-2 text-ink-80 tabular flex items-center gap-2">
-                              {batch.expiry_date || "-"}
-                              {isBatchExpired(batch.expiry_date, todayStr) && (
-                                <Badge variant="destructive" className="bg-canvas">Expired</Badge>
+                          <div key={batch._id} className="relative pl-[72px] pr-4 pt-2">
+                            {/* Branch: vertical trunk segment + elbow into this batch node */}
+                            {!isLast && (
+                              <div className="absolute left-9 top-0 bottom-0 w-px bg-primary-focus" aria-hidden="true" />
+                            )}
+                            <div
+                              className={cn(
+                                "absolute left-9 top-0 w-9 h-[calc(50%+4px)] border-b border-primary-focus",
+                                isLast && "border-l rounded-bl-md"
                               )}
-                            </div>
-                            <div className="col-span-2 text-ink-80 flex items-center">
-                              {group.product?.rack_number || "-"}
-                            </div>
-                            <div className="col-span-1 text-right tabular flex items-center justify-end text-ink-48">
-                              {formatCurrency(batch.cost_price)}
-                            </div>
-                            <div className="col-span-1 text-right tabular font-semibold flex items-center justify-end text-ink">
-                              {formatCurrency(batch.selling_price)}
-                            </div>
-                            <div className="col-span-1 text-right tabular font-semibold flex items-center justify-end text-ink">
-                              {batch.qty_available}
+                              aria-hidden="true"
+                            />
+
+                            <div
+                              className={cn(
+                                BATCH_GRID,
+                                "relative px-4 py-2.5 items-center rounded-sm border bg-canvas text-caption text-ink",
+                                isExpired ? "border-destructive/40" : "border-hairline"
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <span className="font-mono text-fine-print text-ink-80 bg-parchment px-2 py-0.5 rounded-xs">
+                                  {batch.batch_number}
+                                </span>
+                              </div>
+                              <div className="text-ink-48 truncate">
+                                {batch.supplier || "-"}
+                              </div>
+                              <div className="text-ink-80 tabular flex items-center gap-2">
+                                {batch.expiry_date || "-"}
+                                {isExpired && (
+                                  <Badge variant="destructive">Expired</Badge>
+                                )}
+                              </div>
+                              <div className="text-ink-80">
+                                {group.product?.rack_number || "-"}
+                              </div>
+                              <div className="text-right tabular text-ink-48">
+                                {formatCurrency(batch.cost_price)}
+                              </div>
+                              <div className="text-right tabular font-semibold text-ink">
+                                {formatCurrency(batch.selling_price)}
+                              </div>
+                              <div className="text-right tabular font-semibold text-ink">
+                                {batch.qty_available}
+                              </div>
                             </div>
                           </div>
                         );

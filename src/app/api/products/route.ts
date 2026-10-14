@@ -7,6 +7,10 @@ import { ObjectId } from "mongodb";
 import { checkPermission } from "@/lib/rbac";
 import { logAction } from "@/lib/logger";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
+import { escapeRegExp } from "@/lib/utils";
+
+const MAX_PAGE_SIZE = 200;
+const MAX_SEARCH_TOKENS = 6;
 
 export async function GET(req: Request) {
   try {
@@ -18,10 +22,32 @@ export async function GET(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = client.db("pos");
-    
+
+    // Pagination is opt-in (?limit=&offset=&q=) so callers that need the full catalog (e.g. Add Stock) still get a plain array.
+    const params = new URL(req.url).searchParams;
+    const paginated = params.has("limit");
+    const limit = Math.min(Math.max(parseInt(params.get("limit") || "100", 10) || 100, 1), MAX_PAGE_SIZE);
+    const offset = Math.max(parseInt(params.get("offset") || "0", 10) || 0, 0);
+    const query = (params.get("q") || "").trim().slice(0, 100);
+
+    // Every word must match somewhere ("para 500" finds "Paracetamol 500mg")
+    const match: Record<string, any> = { tenant_id: tenantId };
+    if (query) {
+      match.$and = query.split(/\s+/).filter(Boolean).slice(0, MAX_SEARCH_TOKENS).map((token) => {
+        const re = { $regex: escapeRegExp(token), $options: "i" };
+        return { $or: [{ name: re }, { generic_name: re }, { brand: re }, { barcode: re }, { sku: re }] };
+      });
+    }
+
+    // Page first, then join — so the lookups only run for the rows actually returned
+    const pageStages = paginated
+      ? [{ $sort: { name: 1, _id: 1 } }, { $skip: offset }, { $limit: limit }]
+      : [];
+
     // Aggregation to join category and manufacturer names
-    const products = await db.collection("products").aggregate([
-      { $match: { tenant_id: tenantId } },
+    const productsPromise = db.collection("products").aggregate([
+      { $match: match },
+      ...pageStages,
       {
         $addFields: {
           category_obj_id: { 
@@ -85,8 +111,11 @@ export async function GET(req: Request) {
         }
       }
     ]).toArray();
-    
-    return NextResponse.json(products);
+
+    if (!paginated) return NextResponse.json(await productsPromise);
+
+    const [items, total] = await Promise.all([productsPromise, db.collection("products").countDocuments(match)]);
+    return NextResponse.json({ items, total, offset, limit, hasMore: offset + items.length < total });
   } catch (error: any) {
     return await handleApiError(error, "GET /api/products");
   }
