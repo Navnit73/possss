@@ -29,7 +29,7 @@ export async function fetchDailyReportData(tenantId: string, date: Date, timezon
   const db = client.db("pos");
   const tz = resolveTimezone(timezone);
 
-  let tenantName = "Pharmacy POS";
+  let tenantName = "Medishelf POS";
   let currencySymbol = "$";
 
   if (tenantId && ObjectId.isValid(tenantId)) {
@@ -172,7 +172,7 @@ export async function generateDailyReportPdf(data: DailyReportData): Promise<Buf
       doc.on('error', err => reject(err));
 
       const sym = data.currencySymbol || "$";
-      const storeTitle = data.tenantName || "Pharmacy POS";
+      const storeTitle = data.tenantName || "Medishelf POS";
       // The store's calendar day, not the server's
       const dateStr = formatInTimeZone(data.date, data.timezone, 'EEEE, MMMM dd, yyyy');
 

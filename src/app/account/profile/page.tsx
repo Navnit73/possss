@@ -151,7 +151,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <PageShell className="max-w-[980px]">
+      <PageShell>
         <div className="space-y-2">
           <Skeleton className="h-9 w-56" />
           <Skeleton className="h-5 w-80" />
@@ -164,7 +164,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <PageShell className="max-w-[980px]">
+    <PageShell>
       <PageHeader
         title="Account Profile"
         description="Manage your user profile credentials, contact information, and store business settings."

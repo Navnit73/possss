@@ -152,8 +152,9 @@ export function SearchableSelect({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         data-invalid={ariaInvalid || undefined}
+        data-field=""
         className={cn(
-          "flex min-h-11 w-full items-center justify-between rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 data-invalid:border-destructive",
+          "flex min-h-11 w-full items-center justify-between rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 focus-visible:border-primary-focus data-invalid:border-destructive",
           !selectedOption && "text-ink-48"
         )}
       >

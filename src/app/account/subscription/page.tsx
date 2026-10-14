@@ -94,7 +94,7 @@ export default function SubscriptionPage() {
 
   if (loading) {
     return (
-      <PageShell className="max-w-[980px]">
+      <PageShell>
         <div role="status" className="flex items-center gap-2 text-caption text-ink-48">
           <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Loading subscription…
         </div>
@@ -104,14 +104,17 @@ export default function SubscriptionPage() {
 
   const sub = info?.subscription;
   const isPaid = !!sub && PAID_STATUSES.includes(sub.status as any);
-  const needsPlan = !sub || (info?.lapsed ?? false) || sub.status === "created";
+  // A cancelled plan can't be resumed on Razorpay, so it gets a fresh checkout (billing starts when the paid time runs out)
+  const needsPlan = !sub || (info?.lapsed ?? false) || sub.status === "created" || sub.status === "cancelled";
+  const resubscribing = !!sub && sub.status !== "created" && needsPlan;
+  const resubscribeBeforeEnd = sub?.status === "cancelled" && !info?.lapsed;
   const statusInfo = sub ? STATUS_LABELS[sub.status] ?? { label: sub.status, className: "text-ink-48" } : null;
   const nextDate = formatDate(sub?.charge_at ?? sub?.current_end ?? null);
   const endDate = formatDate(sub?.current_end ?? null);
 
   return (
-    <PageShell className="max-w-[980px]">
-      <PageHeader title="Subscription" description="Manage your pharmacy POS plan and billing." />
+    <PageShell>
+      <PageHeader title="Subscription" description="Manage your Medishelf POS plan and billing." />
 
       {error && (
         <Alert variant="destructive">
@@ -174,8 +177,15 @@ export default function SubscriptionPage() {
           {info.can_manage ? (
             <div className="pt-6 border-t border-divider-soft space-y-3">
               {needsPlan && info.configured && (
-                <div className="max-w-sm">
-                  <SubscribeButton label={`Subscribe — $${info.plan.amount}/month`} onActivated={onActivated} onError={setError} />
+                <div className="max-w-sm space-y-2">
+                  <SubscribeButton
+                    label={`${resubscribing ? "Subscribe again" : "Subscribe"} — $${info.plan.amount}/month`}
+                    onActivated={onActivated}
+                    onError={setError}
+                  />
+                  {resubscribeBeforeEnd && endDate && (
+                    <p className="text-caption text-ink-48">You won&apos;t be charged until your current period ends on {endDate}.</p>
+                  )}
                 </div>
               )}
               {isPaid && !sub?.cancel_requested && (

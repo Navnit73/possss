@@ -93,7 +93,7 @@ export default function SecurityPage() {
   };
 
   return (
-    <PageShell className="max-w-[980px]">
+    <PageShell>
       <PageHeader
         title="Security Settings"
         description="Manage your account authentication credentials, password strength, and security preferences."

@@ -3,10 +3,11 @@ import { cn } from "@/lib/utils"
 
 /**
  * search-input grammar applied to every text field: white canvas, 1px hairline,
- * full pill, body 17px, 44px tall, 12×20 padding. Invalid state uses the destructive tone.
+ * full pill, body 17px, 44px tall, 12×20 padding. Focus turns the border Focus Blue with a flush
+ * 1px outline (2px ring, no gap). Invalid state uses the destructive tone.
  */
 export const fieldClasses =
-  "flex min-h-11 w-full rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink placeholder:text-ink-48 disabled:cursor-not-allowed disabled:opacity-40 aria-invalid:border-destructive file:border-0 file:bg-transparent file:text-caption file:font-semibold file:text-primary"
+  "flex min-h-11 w-full rounded-full border border-hairline bg-canvas px-5 py-2.5 text-body text-ink placeholder:text-ink-48 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:border-primary-focus aria-invalid:border-destructive file:border-0 file:bg-transparent file:text-caption file:font-semibold file:text-primary"
 
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}

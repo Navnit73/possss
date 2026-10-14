@@ -58,7 +58,7 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <PageShell className="max-w-[980px]">
+      <PageShell>
         <Card className="p-6">
           <TableSkeleton columns={5} rows={5} />
         </Card>
@@ -67,7 +67,7 @@ export default function BillingPage() {
   }
 
   return (
-    <PageShell className="max-w-[980px]">
+    <PageShell>
       <PageHeader title="Billing History" description="Your subscription payments and receipts." />
 
       {error && (

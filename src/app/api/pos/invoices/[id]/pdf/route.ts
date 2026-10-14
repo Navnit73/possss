@@ -223,7 +223,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         doc.moveDown(1.5);
         doc.fontSize(7).font("Helvetica").fillColor("#333333").text("Thank you for shopping with us!", startX, doc.y, { align: "center", width });
         doc.fontSize(6).fillColor("#777777").text("Please keep receipt for any returns or exchanges.", startX, doc.y + 2, { align: "center", width });
-        doc.fontSize(5).fillColor("#aaaaaa").text("Powered by Pharmacy POS", startX, doc.y + 3, { align: "center", width });
+        doc.fontSize(5).fillColor("#aaaaaa").text("Powered by Medishelf POS", startX, doc.y + 3, { align: "center", width });
 
         doc.end();
       } catch (err) {

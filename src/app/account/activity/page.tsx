@@ -615,7 +615,7 @@ export default function ActivityPage() {
             {/* Modal Footer */}
             <div className="pt-4 border-t border-hairline flex justify-between items-center gap-3">
               <span className="text-caption text-ink-48">
-                Pharmacy POS Security & Audit Logging
+                Medishelf POS Security & Audit Logging
               </span>
               <Button variant="outline" size="sm" onClick={() => setSelectedLog(null)}>
                 Close

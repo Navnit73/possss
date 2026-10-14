@@ -37,7 +37,7 @@ export default async function PosLayout({
 
           <span className="flex items-center gap-2 text-nav-link font-semibold text-on-dark">
             <Activity className="size-4 shrink-0" aria-hidden="true" />
-            <span className="hidden md:inline">Pharmacy POS</span>
+            <span className="hidden md:inline">Medishelf POS</span>
           </span>
         </div>
 

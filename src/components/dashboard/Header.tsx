@@ -20,7 +20,7 @@ export async function Header({
       <div className={`h-full flex items-center justify-between gap-4 px-4 sm:px-6 ${withMobileMenu ? "pl-14 lg:pl-6" : ""}`}>
         <Link href="/dashboard" className="flex items-center gap-2 text-nav-link font-semibold text-on-dark">
           <Activity className="size-4" aria-hidden="true" />
-          <span>Pharmacy POS</span>
+          <span>Medishelf POS</span>
         </Link>
 
         <div className="flex items-center gap-1 sm:gap-3">

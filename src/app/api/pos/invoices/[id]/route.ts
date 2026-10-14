@@ -88,7 +88,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         phone: tenant.phone || "",
         address: tenant.address || ""
       } : {
-        business_name: "Pharmacy POS",
+        business_name: "Medishelf POS",
         currency: "$"
       },
       customer: customer ? {

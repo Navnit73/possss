@@ -14,8 +14,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Healthy Care Pharmacy POS",
-  description: "Modern Point of Sale System for Pharmacies",
+  title: "Medishelf POS",
+  description: "Medishelf POS — modern point of sale and inventory for pharmacies",
 };
 
 export default function RootLayout({

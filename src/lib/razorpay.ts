@@ -44,8 +44,8 @@ export async function getPlanId(): Promise<string> {
     period: PLAN.interval,
     interval: 1,
     item: {
-      name: `Pharmacy POS ${PLAN.name}`,
-      description: "Pharmacy POS monthly subscription",
+      name: `Medishelf POS ${PLAN.name}`,
+      description: "Medishelf POS monthly subscription",
       amount: PLAN.amount,
       currency: PLAN.currency,
     },

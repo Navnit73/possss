@@ -555,7 +555,7 @@ export default function AuditLogsPage() {
             {/* Modal Footer */}
             <div className="pt-4 border-t border-hairline flex justify-between items-center gap-3">
               <span className="text-caption text-ink-48">
-                Pharmacy POS Audit Logging System
+                Medishelf POS Audit Logging System
               </span>
               <Button variant="outline" size="sm" onClick={() => setSelectedLog(null)}>
                 Close

@@ -75,9 +75,12 @@ export async function POST() {
     if (current && LIVE_STATUSES.includes(current.status) && !isSubscriptionLapsed(current)) {
       return NextResponse.json({ error: "This store already has an active subscription." }, { status: 409 });
     }
-    if (current?.status === "cancelled" && !isSubscriptionLapsed(current)) {
-      return NextResponse.json({ error: "Your plan is still active until the current period ends." }, { status: 409 });
-    }
+    // Resubscribing while a cancelled plan still has paid time left: start billing when that time runs out, so the
+    // owner isn't charged twice for the same days. Razorpay needs start_at in the future, so skip it near the end.
+    const paidUntil = current?.status === "cancelled" && !isSubscriptionLapsed(current) && current.current_end
+      ? new Date(current.current_end).getTime()
+      : 0;
+    const startAt = paidUntil > Date.now() + 10 * 60 * 1000 ? Math.floor(paidUntil / 1000) : undefined;
 
     const razorpay = getRazorpay();
 
@@ -86,7 +89,7 @@ export async function POST() {
     if (tenant.subscription_checkout?.id) {
       try {
         const existing = await razorpay.subscriptions.fetch(tenant.subscription_checkout.id);
-        if (existing.status === "created") subscriptionId = existing.id;
+        if (existing.status === "created" && (existing.start_at || undefined) === startAt) subscriptionId = existing.id;
       } catch {
         // Unknown to Razorpay (e.g. keys changed) — fall through and create a new one
       }
@@ -98,6 +101,7 @@ export async function POST() {
         total_count: PLAN.totalCount,
         quantity: 1,
         customer_notify: 1,
+        ...(startAt && { start_at: startAt }),
         notes: { tenant_id: String(tenantId), user_id: String(userId), business_name: String(tenant.business_name ?? "") },
       });
       subscriptionId = created.id;

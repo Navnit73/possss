@@ -82,7 +82,7 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
       const rzp = new window.Razorpay!({
         key: checkout.key_id,
         subscription_id: checkout.subscription_id,
-        name: "Pharmacy POS",
+        name: "Medishelf POS",
         description: `${PLAN.name} plan — ${PLAN_PRICE_LABEL} / month`,
         prefill: checkout.prefill,
         theme: { color: colors.primary },

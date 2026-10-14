@@ -52,13 +52,18 @@ export async function POST(req: Request) {
     const result = await applySubscriptionEntity(db, entity as any, fetchedAt);
 
     // Webhooks may be slow or unreachable (e.g. localhost); record the first payment now. It's idempotent.
-    try {
-      const payment = await razorpay.payments.fetch(body.razorpay_payment_id);
-      if (payment.status === "captured" || payment.status === "authorized") {
-        await recordPayment(db, String(tenantId), entity.id, payment as any);
+    // A subscription with a future start_at (resubscribing before the old period ended) only took an
+    // authorisation payment, not a plan charge, so there is nothing to record yet.
+    const deferredStart = Number(entity.start_at) * 1000 > Date.now();
+    if (!deferredStart) {
+      try {
+        const payment = await razorpay.payments.fetch(body.razorpay_payment_id);
+        if (payment.status === "captured" || payment.status === "authorized") {
+          await recordPayment(db, String(tenantId), entity.id, payment as any);
+        }
+      } catch (err) {
+        console.error("Could not fetch payment details for verification:", err);
       }
-    } catch (err) {
-      console.error("Could not fetch payment details for verification:", err);
     }
 
     const paid = PAID_STATUSES.includes(result.status as any) && result.applied;

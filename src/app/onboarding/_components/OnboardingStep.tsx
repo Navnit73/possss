@@ -23,7 +23,7 @@ export function OnboardingStep({
       <div className="w-full max-w-[980px] mx-auto px-4 sm:px-6 py-12 lg:py-20">
         <div className="flex items-center justify-center gap-2 text-ink mb-12">
           <Activity className="size-5" aria-hidden="true" />
-          <span className="text-body font-semibold">Pharmacy POS</span>
+          <span className="text-body font-semibold">Medishelf POS</span>
         </div>
 
         <div className="w-full max-w-md mx-auto">

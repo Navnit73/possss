@@ -193,10 +193,22 @@ h1, h2, h3 {
   box-shadow: var(--shadow-product) !important;
 }
 
-/* Focus: 2px solid Focus Blue outline on every interactive element (button-primary-focus) */
+/* Focus: 2px solid Focus Blue outline on every interactive element (button-primary-focus).
+   The build emits these unlayered (an @layer wrapper here gets dropped), so they beat Tailwind utilities —
+   the exceptions below are written here rather than as utility classes. */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--color-primary-focus);
   outline-offset: 2px;
+}
+/* Text fields and field-like triggers: the border turns Focus Blue (fieldClasses) and a 1px outline sits
+   flush on it, giving one clean 2px ring instead of a ring floating 2px outside a pill. */
+:where(input:not([type="checkbox"], [type="radio"]), select, textarea, [data-field]):focus-visible {
+  outline-width: 1px;
+  outline-offset: 0;
+}
+/* Elements that draw their own focus state (e.g. inputs inside a bordered wrapper, scroll-clipped search boxes) */
+:where(.outline-none):focus-visible {
+  outline: none;
 }
 
 /* Press: transform scale(0.95) — the system-wide micro-interaction */
