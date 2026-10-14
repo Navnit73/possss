@@ -7,11 +7,24 @@ import { z } from "zod";
 import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
+// SALE is deliberately not allowed here: sales must go through POS so they carry an invoice;
+// a manual "SALE" movement would pollute the ledger and any sales figures derived from it.
 const adjustSchema = z.object({
   batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid Batch ID"),
-  movement_type: z.enum(["SALE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
-  quantity: z.coerce.number().refine(val => val !== 0, "Quantity cannot be zero"),
-  notes: z.string().optional(),
+  movement_type: z.enum(["DAMAGE", "RETURN", "ADJUSTMENT"]),
+  quantity: z.coerce.number()
+    .refine(val => Number.isFinite(val), "Quantity must be a number")
+    .refine(val => val !== 0, "Quantity cannot be zero")
+    .refine(val => Math.abs(val) <= 1_000_000, "Quantity is too large"),
+  notes: z.string().max(500, "Notes must be 500 characters or fewer").optional(),
+}).superRefine((data, ctx) => {
+  // Keep the sign consistent with the movement type so the ledger stays meaningful.
+  if (data.movement_type === "DAMAGE" && data.quantity > 0) {
+    ctx.addIssue({ code: "custom", path: ["quantity"], message: "Damage must reduce stock (use a negative quantity)" });
+  }
+  if (data.movement_type === "RETURN" && data.quantity < 0) {
+    ctx.addIssue({ code: "custom", path: ["quantity"], message: "Return must add stock (use a positive quantity)" });
+  }
 });
 
 export const POST = withAuditLog("INVENTORY_ADJUSTMENT", "INVENTORY", async (req: Request, context: any, audit: AuditContext) => {

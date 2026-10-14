@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getEmailHistory } from "@/lib/emailLog";
-import { hasPermissionSync } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
+import { checkReportSettingsAccess } from "@/lib/reports/settingsAccess";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await auth();
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!hasPermissionSync(session, "SETTINGS", "VIEW") && !["OWNER", "MANAGER"].includes((session?.user as any)?.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const accessError = checkReportSettingsAccess(session, "VIEW");
+    if (accessError) return accessError;
 
     const history = await getEmailHistory(tenantId);
     return NextResponse.json({ history });

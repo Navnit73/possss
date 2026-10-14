@@ -42,8 +42,12 @@ export interface ApplyResult {
  *   which is also what moves a brand-new store from PENDING to ACTIVE.
  * - Updates for the current subscription are mirrored as-is.
  * - Anything else (an abandoned or superseded subscription) is ignored.
+ *
+ * `observedAt` is when this snapshot of the entity was taken (event creation time for webhook payloads, fetch time
+ * for API reads). Razorpay doesn't guarantee webhook order, so an older snapshot never overwrites a newer one
+ * (e.g. a late "activated" must not undo a "halted").
  */
-export async function applySubscriptionEntity(db: Db, entity: RazorpaySubscriptionEntity): Promise<ApplyResult> {
+export async function applySubscriptionEntity(db: Db, entity: RazorpaySubscriptionEntity, observedAt: Date = new Date()): Promise<ApplyResult> {
   const tenants = db.collection("tenants");
 
   const tenant = await tenants.findOne({ $or: [{ "subscription.id": entity.id }, { "subscription_checkout.id": entity.id }] });
@@ -55,7 +59,7 @@ export async function applySubscriptionEntity(db: Db, entity: RazorpaySubscripti
   const isCurrent = tenant.subscription?.id === entity.id;
   const isCheckout = tenant.subscription_checkout?.id === entity.id;
 
-  const next: TenantSubscription & { updated_at: Date } = {
+  const next: TenantSubscription & { updated_at: Date; synced_at: Date } = {
     id: entity.id,
     plan_id: entity.plan_id ?? tenant.subscription?.plan_id,
     status,
@@ -66,10 +70,24 @@ export async function applySubscriptionEntity(db: Db, entity: RazorpaySubscripti
     // A pending "cancel at cycle end" survives until Razorpay actually cancels; a paused/resumed state clears it only via resume.
     cancel_requested: isCurrent ? Boolean(tenant.subscription?.cancel_requested) && status !== "cancelled" : false,
     updated_at: new Date(),
+    synced_at: observedAt,
   };
 
   if (isCurrent) {
-    await tenants.updateOne({ _id: tenant._id }, { $set: { subscription: next, updated_at: new Date() } });
+    const res = await tenants.updateOne(
+      {
+        _id: tenant._id,
+        "subscription.id": entity.id,
+        $or: [{ "subscription.synced_at": { $exists: false } }, { "subscription.synced_at": { $lte: observedAt } }],
+      },
+      { $set: { subscription: next, updated_at: new Date() } }
+    );
+    if (res.matchedCount === 0) {
+      // Stale snapshot: keep the newer state that is already stored and report it
+      const fresh = await tenants.findOne({ _id: tenant._id }, { projection: { subscription: 1 } });
+      const freshStatus = fresh?.subscription?.id === entity.id ? (fresh.subscription.status as SubscriptionStatus) : null;
+      return { tenantId: tenant._id.toString(), applied: freshStatus !== null, status: freshStatus };
+    }
     return { tenantId: tenant._id.toString(), applied: true, status };
   }
 
@@ -77,7 +95,9 @@ export async function applySubscriptionEntity(db: Db, entity: RazorpaySubscripti
     const $set: Record<string, unknown> = { subscription: next, updated_at: new Date() };
     // Only a store that is still being onboarded becomes ACTIVE here; suspended/deleted stores stay as they are.
     if (tenant.status === "PENDING") $set.status = "ACTIVE";
-    await tenants.updateOne({ _id: tenant._id }, { $set, $unset: { subscription_checkout: "" } });
+    // Conditional on the checkout still being pending so a concurrent webhook + verify promote it only once
+    const res = await tenants.updateOne({ _id: tenant._id, "subscription_checkout.id": entity.id }, { $set, $unset: { subscription_checkout: "" } });
+    if (res.matchedCount === 0) return applySubscriptionEntity(db, entity, observedAt);
     return { tenantId: tenant._id.toString(), applied: true, status };
   }
 

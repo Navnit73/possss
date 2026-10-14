@@ -15,7 +15,8 @@ const AVAILABLE_MODULES = [
   "REPORTS",
   "USERS",
   "ROLES",
-  "SETTINGS"
+  "SETTINGS",
+  "AUDIT_LOGS"
 ];
 
 const AVAILABLE_ACTIONS = ["VIEW", "CREATE", "EDIT", "DELETE"];
@@ -59,6 +60,7 @@ export default function PermissionsPage() {
   const [editingRole, setEditingRole] = useState<any>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchRoles();
@@ -81,6 +83,9 @@ export default function PermissionsPage() {
 
   const handleSaveRole = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setError("");
     try {
       const url = editingRole._id ? `/api/roles/${editingRole._id}` : "/api/roles";
       const method = editingRole._id ? "PUT" : "POST";
@@ -111,6 +116,8 @@ export default function PermissionsPage() {
       fetchRoles();
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -221,7 +228,7 @@ export default function PermissionsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
+        <div role="alert" className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{error}</span>
         </div>
@@ -240,6 +247,8 @@ export default function PermissionsPage() {
               </h2>
             </div>
             <button 
+              type="button"
+              aria-label="Close"
               onClick={() => setEditingRole(null)} 
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors"
             >
@@ -370,8 +379,9 @@ export default function PermissionsPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="font-semibold">
-                Save Role & Permissions
+              <Button type="submit" disabled={saving} className="font-semibold gap-2">
+                {saving && <RefreshCw className="w-4 h-4 animate-spin" />}
+                {saving ? "Saving..." : "Save Role & Permissions"}
               </Button>
             </div>
           </form>
@@ -447,7 +457,7 @@ export default function PermissionsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(role)}
-                            className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
                           >
                             <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
                           </Button>

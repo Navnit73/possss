@@ -85,6 +85,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.tenant_status = (user as any).tenant_status;
         token.subscription_lapsed = (user as any).subscription_lapsed;
         token.checkedAt = Date.now();
+        // Sessions that signed in before the user's last password change are ended (see refreshTokenAccess)
+        token.authAt = Date.now();
         return token;
       }
 

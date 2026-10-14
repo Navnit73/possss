@@ -60,20 +60,14 @@ export async function GET(req: Request) {
         }
       },
       {
+        // Equality join (localField/foreignField + tenant match) so the {tenant_id, product_id}
+        // batches index is used instead of an $expr scan per product
         $lookup: {
           from: "batches",
-          let: { productId: "$id_string" },
+          localField: "id_string",
+          foreignField: "product_id",
           pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$tenant_id", tenantId] },
-                    { $eq: ["$product_id", "$$productId"] }
-                  ]
-                }
-              }
-            },
+            { $match: { tenant_id: tenantId } },
             { $group: { _id: null, total_stock: { $sum: "$qty_available" } } }
           ],
           as: "stock"
@@ -108,6 +102,8 @@ export const POST = withAuditLog("CREATE_PRODUCT", "PRODUCTS", async (req: Reque
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
+    // Normalise the barcode so " 123" and "123" can't both exist
+    if (body && typeof body.barcode === "string") body.barcode = body.barcode.trim();
     const validatedData = productSchema.parse(body);
 
     const db = client.db("pos");
@@ -153,6 +149,10 @@ export const POST = withAuditLog("CREATE_PRODUCT", "PRODUCTS", async (req: Reque
 
     return NextResponse.json({ _id: result.insertedId, message: "Product created successfully" }, { status: 201 });
   } catch (error: any) {
+    // Unique {tenant_id, barcode} index caught a concurrent duplicate
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: "A product with this barcode already exists" }, { status: 409 });
+    }
     return await handleApiError(error, "POST /api/products");
   }
 });

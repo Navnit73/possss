@@ -1,7 +1,7 @@
 "use client";
 
 import Swal from "sweetalert2";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { format, subDays, isValid } from "date-fns";
 import { History, ArrowRight, Search, Download, ChevronLeft, ChevronRight, Filter, RefreshCw } from "lucide-react";
@@ -29,9 +29,14 @@ export default function StockHistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Filters - Default to last 30 days so users see history immediately
-  const todayStr = new Date().toISOString().split('T')[0];
-  const thirtyDaysAgoStr = subDays(new Date(), 30).toISOString().split('T')[0];
+  const [isExporting, setIsExporting] = useState(false);
+  // Only the latest list request may update state (prevents stale responses overwriting newer filters)
+  const listAbortRef = useRef<AbortController | null>(null);
+
+  // Filters - Default to last 30 days so users see history immediately.
+  // Local calendar dates (toISOString would give the UTC date, which is "yesterday" early morning east of UTC).
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const thirtyDaysAgoStr = format(subDays(new Date(), 30), "yyyy-MM-dd");
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -51,9 +56,20 @@ export default function StockHistoryPage() {
   }, [search]);
 
   const fetchMovements = async (exportMode = false) => {
+    let controller: AbortController | null = null;
+    if (exportMode) {
+      if (isExporting) return;
+      setIsExporting(true);
+    } else {
+      listAbortRef.current?.abort();
+      controller = new AbortController();
+      listAbortRef.current = controller;
+    }
     try {
-      if (!exportMode) setIsLoading(true);
-      setError("");
+      if (!exportMode) {
+        setIsLoading(true);
+        setError("");
+      }
       
       const params = {
         search: debouncedSearch,
@@ -64,22 +80,30 @@ export default function StockHistoryPage() {
         limit,
         export: exportMode
       };
-      const res = await axios.get("/api/inventory/movements", { params });
+      const res = await axios.get("/api/inventory/movements", { params, signal: controller?.signal });
       
       if (exportMode) {
         exportToCSV(res.data.data || []);
+        if (res.data.truncated) {
+          Swal.fire("Export Truncated", `Only the most recent ${res.data.maxExportRows} entries were exported. Narrow the date range to export the rest.`, "warning");
+        }
       } else {
         setMovements(res.data.data || []);
         setPagination(res.data.pagination || { total: 0, page: 1, limit: 20, totalPages: 1 });
       }
     } catch (err: any) {
+      if (axios.isCancel(err)) return;
       if (!exportMode) {
         setError(err.response?.data?.error || "Failed to load stock movement history");
       } else {
         Swal.fire("Export Failed", "Failed to export stock movement ledger to CSV", "error");
       }
     } finally {
-      if (!exportMode) setIsLoading(false);
+      if (exportMode) {
+        setIsExporting(false);
+      } else if (listAbortRef.current === controller) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -87,6 +111,8 @@ export default function StockHistoryPage() {
     fetchMovements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, type, startDate, endDate, debouncedSearch]); 
+
+  useEffect(() => () => listAbortRef.current?.abort(), []);
 
   const resetFilters = () => {
     setSearch("");
@@ -109,7 +135,8 @@ export default function StockHistoryPage() {
       "User": item.user?.name || "System",
       "Notes": item.notes || ""
     }));
-    const csv = Papa.unparse(csvData);
+    // escapeFormulae neutralises cells like "=HYPERLINK(...)" coming from user-entered notes/names (CSV injection)
+    const csv = Papa.unparse(csvData, { escapeFormulae: true });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -118,6 +145,7 @@ export default function StockHistoryPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Red if stock reduced, Green if stock added
@@ -149,9 +177,10 @@ export default function StockHistoryPage() {
           <Button 
             variant="outline" 
             onClick={() => fetchMovements(true)}
+            disabled={isExporting}
             className="cursor-pointer gap-2"
           >
-            <Download className="w-4 h-4" /> Export CSV
+            <Download className="w-4 h-4" /> {isExporting ? "Exporting..." : "Export CSV"}
           </Button>
         }
       />

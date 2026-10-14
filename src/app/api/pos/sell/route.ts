@@ -7,7 +7,7 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ClientSession, Db, ObjectId } from "mongodb";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 import { checkPermissionAny } from "@/lib/rbac";
-import { POS_TAX_RATE, lineAmount, round2 } from "@/lib/posMath";
+import { lineAmount, round2, totalsFromDiscount } from "@/lib/posMath";
 import { getStoreToday, isExpired } from "@/lib/storeTime";
 
 /** A problem with the sale itself (stock, expiry, discount…): reported to the cashier as a 400. */
@@ -62,7 +62,7 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
       const existing = await sales.findOne({ tenant_id: tenantId, idempotency_key: idempotencyKey }, { projection: { invoice_no: 1, total: 1, idempotency_fingerprint: 1 } });
       if (existing) {
         if (existing.idempotency_fingerprint !== fingerprint) {
-          return NextResponse.json({ error: "This checkout was already submitted with different items. Please start a new sale." }, { status: 409 });
+          return NextResponse.json({ error: "This checkout was already submitted with different details. It may have gone through — check Invoices before starting a new sale." }, { status: 409 });
         }
         return NextResponse.json({ success: true, sale_id: existing._id.toString(), invoice_no: existing.invoice_no, total: existing.total, duplicate: true });
       }
@@ -175,14 +175,10 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
         });
       }
 
-      const subtotal = round2(lineTotals.reduce((sum, a) => sum + a, 0));
-      const discount = round2(data.discount);
+      const { subtotal, discount, tax, total } = totalsFromDiscount(lineTotals, data.discount);
       if (discount > subtotal + 0.005) {
         throw new SaleError(`Discount (${discount}) cannot exceed subtotal (${subtotal})`);
       }
-      const afterDiscount = round2(subtotal - discount);
-      const tax = round2(afterDiscount * POS_TAX_RATE);
-      const total = round2(afterDiscount + tax);
 
       const sale: Record<string, unknown> = {
         tenant_id: tenantId,
@@ -232,6 +228,9 @@ export const POST = withAuditLog("SALE", "POS", async (req: Request, context: an
       // Two identical submissions raced: the unique idempotency index rejected the second — hand back the first sale.
       if (txErr?.code === 11000 && idempotencyKey) {
         const existing = await sales.findOne({ tenant_id: tenantId, idempotency_key: idempotencyKey });
+        if (existing && existing.idempotency_fingerprint !== fingerprint) {
+          return NextResponse.json({ error: "This checkout was already submitted with different details. It may have gone through — check Invoices before starting a new sale." }, { status: 409 });
+        }
         if (existing) {
           return NextResponse.json({ success: true, sale_id: existing._id.toString(), invoice_no: existing.invoice_no, total: existing.total, duplicate: true });
         }

@@ -85,8 +85,10 @@ export async function logAction(entry: LogEntry) {
   // 1. Output to Console for immediate feedback
   console.log(`[AUDIT] ${logData.action}`, logData.details || "");
 
-  // 2. Write to Local File
-  await writeToLocalFile(logData);
+  // 2. Write to Local File (dev only: in production it grows without rotation and the filesystem may be read-only)
+  if (process.env.NODE_ENV !== "production") {
+    await writeToLocalFile(logData);
+  }
 
   // 3. Write to MongoDB `logs` collection
   try {

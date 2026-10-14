@@ -48,24 +48,27 @@ export default function LoginPage() {
         setError(LOGIN_ERROR_MESSAGES[res.code ?? ""] ?? "Invalid email or password.");
       } else {
         router.push("/dashboard"); // Middleware will handle redirecting to onboarding if necessary
+        return; // keep the button disabled while navigating so it can't be submitted twice
       }
     } catch (err) {
       setError("An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (
     <SplitLayout title="Welcome back" subtitle="Enter your credentials to access your terminal.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {justRegistered && !error && <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md border border-green-200">Account created. Please sign in to continue.</div>}
-        {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
+        {justRegistered && !error && <div role="status" className="p-3 text-sm text-green-700 dark:text-green-400 bg-green-500/10 rounded-md border border-green-500/20">Account created. Please sign in to continue.</div>}
+        {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
         
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Email</label>
+          <label htmlFor="login-email" className="text-sm font-medium text-foreground">Email</label>
           <input 
             {...register("email")}
+            id="login-email"
+            autoComplete="email"
+            aria-invalid={!!errors.email}
             type="email"
             className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
             placeholder="pharmacist@example.com"
@@ -75,11 +78,14 @@ export default function LoginPage() {
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-foreground">Password</label>
+            <label htmlFor="login-password" className="text-sm font-medium text-foreground">Password</label>
             <Link href="/auth/forgot-password" className="text-sm text-primary hover:text-primary-hover font-medium">Forgot password?</Link>
           </div>
           <input 
             {...register("password")}
+            id="login-password"
+            autoComplete="current-password"
+            aria-invalid={!!errors.password}
             type="password"
             className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />

@@ -16,7 +16,9 @@ type ResetPasswordForm = z.infer<typeof formSchema>;
 function ResetPasswordFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  // Read once, then drop it from the address bar so the token doesn't linger in history,
+  // analytics/session-replay URLs or Referer headers.
+  const [token] = useState(() => searchParams.get("token"));
   
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -29,11 +31,15 @@ function ResetPasswordFormContent() {
     if (!token) {
       setStatus("error");
       setMessage("Invalid or missing reset token.");
+      return;
+    }
+    if (new URLSearchParams(window.location.search).has("token")) {
+      window.history.replaceState(null, "", window.location.pathname);
     }
   }, [token]);
 
   const onSubmit = async (data: ResetPasswordForm) => {
-    if (!token) return;
+    if (!token || status === "loading") return;
     setStatus("loading");
     try {
       await axios.post("/api/auth/reset-password", { ...data, token });
@@ -55,13 +61,21 @@ function ResetPasswordFormContent() {
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {status === "error" && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{message}</div>}
+          {status === "error" && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{message}</div>}
+          {status === "error" && (
+            <p className="text-sm text-muted-foreground">
+              Link expired? <Link href="/auth/forgot-password" className="text-primary hover:text-primary-hover font-medium">Request a new one</Link>
+            </p>
+          )}
           
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">New Password</label>
+            <label htmlFor="new-password" className="text-sm font-medium text-foreground">New Password</label>
             <input 
               {...register("password")}
+              id="new-password"
               type="password"
+              autoComplete="new-password"
+              aria-invalid={!!errors.password}
               disabled={!token || status === "loading"}
               className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors disabled:opacity-50"
             />

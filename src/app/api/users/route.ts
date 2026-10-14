@@ -39,7 +39,11 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const validatedData = createUserSchema.parse(body);
+    // Normalise before validating so " Alex@Store.com " is accepted and stored the same way login looks it up
+    const validatedData = createUserSchema.parse({
+      ...body,
+      email: typeof body?.email === "string" ? body.email.trim().toLowerCase() : body?.email,
+    });
 
     const db = client.db("pos");
     
@@ -72,7 +76,16 @@ export const POST = withAuditLog("STAFF_USER_CREATED", "USERS", async (req: Requ
       created_at: new Date(),
     };
 
-    const result = await db.collection("users").insertOne(newUser);
+    let result;
+    try {
+      result = await db.collection("users").insertOne(newUser);
+    } catch (insertError: any) {
+      // Concurrent creates with the same email both pass the findOne check; the unique index rejects the second.
+      if (insertError?.code === 11000) {
+        return NextResponse.json({ error: "User already exists with this email" }, { status: 400 });
+      }
+      throw insertError;
+    }
 
     audit.setAfter({ createdUserId: result.insertedId.toString(), email: newUser.email, role_id: newUser.role_id });
 

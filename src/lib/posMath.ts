@@ -20,9 +20,17 @@ export interface PosTotals {
   total: number;
 }
 
+/** Bill totals from line amounts and an absolute bill discount. The sell API bills exactly this. */
+export function totalsFromDiscount(lineAmounts: number[], discountAmount: number): PosTotals {
+  const subtotal = round2(lineAmounts.reduce((sum, a) => sum + a, 0));
+  const discount = round2(discountAmount);
+  // Round the taxable amount before applying tax, otherwise float noise (e.g. 1448.56 - 144.86) can shift the tax by a cent
+  const afterDiscount = round2(subtotal - discount);
+  const tax = round2(afterDiscount * POS_TAX_RATE);
+  return { subtotal, discount, tax, total: round2(afterDiscount + tax) };
+}
+
 export function computeTotals(lineAmounts: number[], billDiscountPct: number): PosTotals {
   const subtotal = round2(lineAmounts.reduce((sum, a) => sum + a, 0));
-  const discount = round2(subtotal * (billDiscountPct / 100));
-  const tax = round2((subtotal - discount) * POS_TAX_RATE);
-  return { subtotal, discount, tax, total: round2(subtotal - discount + tax) };
+  return totalsFromDiscount(lineAmounts, subtotal * (billDiscountPct / 100));
 }

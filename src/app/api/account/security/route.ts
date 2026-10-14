@@ -6,6 +6,7 @@ import { ObjectId } from "mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { logAuditDirectly } from "@/lib/auditLogger";
 import { headers } from "next/headers";
+import { rateLimit } from "@/lib/rateLimit";
 
 export async function PUT(req: Request) {
   try {
@@ -13,9 +14,14 @@ export async function PUT(req: Request) {
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // A hijacked session must not be able to brute-force the current password through this endpoint
+    if (!(await rateLimit(`change-password-${userId}`, 5, 15 * 60 * 1000))) {
+      return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+    }
+
     const { currentPassword, newPassword } = await req.json();
 
-    if (!currentPassword || !newPassword || newPassword.length < 8) {
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || !currentPassword || newPassword.length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters long" }, { status: 400 });
     }
 
@@ -24,6 +30,7 @@ export async function PUT(req: Request) {
     }
 
     const db = client.db("pos");
+    if (!ObjectId.isValid(userId)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const user = await db.collection("users").findOne({ _id: new ObjectId(userId) });
 
     if (!user || !user.password) {
@@ -39,7 +46,7 @@ export async function PUT(req: Request) {
 
     await db.collection("users").updateOne(
       { _id: new ObjectId(userId) },
-      { $set: { password: hashedPassword, updated_at: new Date() } }
+      { $set: { password: hashedPassword, password_changed_at: new Date(), updated_at: new Date() }, $unset: { resetToken: "", resetTokenExpiry: "" } }
     );
 
     // Record Security Audit Log

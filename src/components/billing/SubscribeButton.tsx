@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
-import { PAID_STATUSES } from "@/lib/billing";
+import { PAID_STATUSES, PLAN, PLAN_PRICE_LABEL } from "@/lib/billing";
 
 declare global {
   interface Window {
@@ -81,7 +81,7 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
         key: checkout.key_id,
         subscription_id: checkout.subscription_id,
         name: "Pharmacy POS",
-        description: "Pro plan — $49 / month",
+        description: `${PLAN.name} plan — ${PLAN_PRICE_LABEL} / month`,
         prefill: checkout.prefill,
         theme: { color: "#0f172a" },
         modal: {
@@ -127,6 +127,7 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
         type="button"
         onClick={start}
         disabled={busy}
+        aria-busy={busy}
         className={
           className ??
           "w-full bg-primary hover:bg-primary-hover text-primary-foreground font-medium py-2.5 rounded-md transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
@@ -135,6 +136,7 @@ export function SubscribeButton({ label, onActivated, onError, className }: Prop
         {busy && <Loader2 className="w-4 h-4 animate-spin" />}
         {busy ? status || "Please wait…" : label}
       </button>
+      <p className="sr-only" aria-live="polite">{busy ? status : ""}</p>
     </div>
   );
 }

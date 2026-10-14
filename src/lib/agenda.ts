@@ -1,31 +1,36 @@
 import { Agenda } from 'agenda';
 import { env } from './env';
 import { getAllEnabledReportSettings } from './settings';
-import { hasReportBeenSentToday, logEmailAttempt } from './emailLog';
+import { finishEmailAttempt, getReportAttemptSummary, startEmailAttempt } from './emailLog';
 import { fetchDailyReportData, generateDailyReportPdf } from './reports/generateDailyReport';
 import { sendDailyReportEmail } from './mail';
-import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { resolveTimezone } from './storeTime';
+
+const JOB_NAME = 'send-daily-sales-report';
+/** Failed sends are retried on later ticks, but only this many times per store per day. */
+const MAX_DAILY_FAILURES = 3;
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 let agenda: Agenda | null = null;
+
+type AgendaGlobal = typeof globalThis & { _agenda?: Agenda; _agendaStarted?: Promise<void> };
 
 function getAgendaInstance() {
   if (agenda) return agenda;
 
   if (env.NODE_ENV === "development") {
-    const globalWithAgenda = global as typeof globalThis & {
-      _agenda?: Agenda;
-    };
+    const globalWithAgenda = global as AgendaGlobal;
 
     if (!globalWithAgenda._agenda) {
-      globalWithAgenda._agenda = new Agenda({ 
+      globalWithAgenda._agenda = new Agenda({
         db: { address: env.MONGODB_URI, collection: 'agendaJobs' },
-        processEvery: '1 minute' 
+        processEvery: '1 minute'
       } as any);
     }
     agenda = globalWithAgenda._agenda;
   } else {
-    agenda = new Agenda({ 
+    agenda = new Agenda({
       db: { address: env.MONGODB_URI, collection: 'agendaJobs' },
       processEvery: '1 minute'
     } as any);
@@ -34,75 +39,73 @@ function getAgendaInstance() {
   return agenda;
 }
 
-export async function startAgenda() {
-  const instance = getAgendaInstance();
-  
-  // Define Jobs
-  instance.define('send-daily-sales-report', async (job: any) => {
-    console.log('[Agenda] Running daily sales report check...');
-    const now = new Date();
-    
-    // Fetch all tenants that have reports enabled
-    const settingsList = await getAllEnabledReportSettings();
-    
-    for (const store of settingsList) {
-      if (!store.reports || !store.reports.enabled || !store.reports.recipients.length) continue;
+/** Sends today's report for one store if its scheduled time has passed and it hasn't gone out yet. */
+async function processStore(store: Awaited<ReturnType<typeof getAllEnabledReportSettings>>[number], now: Date) {
+  const reports = store.reports;
+  if (!reports || !reports.enabled || !Array.isArray(reports.recipients) || !reports.recipients.length) return;
 
-      const { time, timezone, recipients } = store.reports;
-      
-      const currentTimeInTZ = formatInTimeZone(now, timezone || 'UTC', 'HH:mm');
-      
-      const [targetHour, targetMin] = time.split(':').map(Number);
-      const [currentHour, currentMin] = currentTimeInTZ.split(':').map(Number);
-      
-      const isTimePassed = (currentHour > targetHour) || (currentHour === targetHour && currentMin >= targetMin);
-      
-      if (isTimePassed) {
-        const dateStr = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
-        
-        const alreadySent = await hasReportBeenSentToday(store.tenant_id, 'DAILY_SALES', dateStr);
-        
-        if (!alreadySent) {
-          console.log(`[Agenda] Sending daily report for tenant ${store.tenant_id}`);
-          try {
-            const data = await fetchDailyReportData(store.tenant_id, now, timezone);
-            const pdfBuffer = await generateDailyReportPdf(data);
-            await sendDailyReportEmail(recipients, pdfBuffer, data, timezone);
-            
-            await logEmailAttempt({
-              tenant_id: store.tenant_id,
-              reportType: 'DAILY_SALES',
-              date: dateStr,
-              status: 'SUCCESS',
-              sentAt: new Date(),
-              recipients
-            });
-            
-          } catch (error: any) {
-            console.error(`[Agenda] Failed to send report for tenant ${store.tenant_id}:`, error);
-            await logEmailAttempt({
-              tenant_id: store.tenant_id,
-              reportType: 'DAILY_SALES',
-              date: dateStr,
-              status: 'FAILED',
-              sentAt: new Date(),
-              recipients,
-              error: error.message
-            });
-          }
+  const match = TIME_RE.exec(String(reports.time || ''));
+  if (!match) {
+    console.warn(`[Agenda] Skipping tenant ${store.tenant_id}: invalid report time "${reports.time}"`);
+    return;
+  }
+  const timezone = resolveTimezone(reports.timezone);
+  const targetMinutes = Number(match[1]) * 60 + Number(match[2]);
+  const [currentHour, currentMin] = formatInTimeZone(now, timezone, 'HH:mm').split(':').map(Number);
+  if (currentHour * 60 + currentMin < targetMinutes) return;
+
+  const dateStr = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+  const summary = await getReportAttemptSummary(store.tenant_id, 'DAILY_SALES', dateStr);
+  if (summary.sent || summary.inFlight || summary.failures >= MAX_DAILY_FAILURES) return;
+
+  const recipients = reports.recipients;
+  console.log(`[Agenda] Sending daily report for tenant ${store.tenant_id}`);
+  // Claimed before sending: if logging the result fails, the next tick still won't send a duplicate.
+  const attemptId = await startEmailAttempt({ tenant_id: store.tenant_id, reportType: 'DAILY_SALES', date: dateStr, recipients });
+  try {
+    const data = await fetchDailyReportData(store.tenant_id, now, timezone);
+    const pdfBuffer = await generateDailyReportPdf(data);
+    await sendDailyReportEmail(recipients, pdfBuffer, data, timezone);
+    await finishEmailAttempt(attemptId, 'SUCCESS');
+  } catch (error: any) {
+    console.error(`[Agenda] Failed to send report for tenant ${store.tenant_id}:`, error);
+    await finishEmailAttempt(attemptId, 'FAILED', error?.message);
+  }
+}
+
+export async function startAgenda() {
+  // Instrumentation can run more than once per process (dev reloads): start, define and schedule only once.
+  const g = global as AgendaGlobal;
+  if (g._agendaStarted) return g._agendaStarted;
+
+  g._agendaStarted = (async () => {
+    const instance = getAgendaInstance();
+
+    // concurrency 1 + agenda's job lock: one tick at a time across all app instances
+    instance.define(JOB_NAME, { concurrency: 1, lockLifetime: 10 * 60 * 1000 }, async () => {
+      const now = new Date();
+      const settingsList = await getAllEnabledReportSettings();
+
+      for (const store of settingsList) {
+        // One store's bad settings or failure must not stop the others
+        try {
+          await processStore(store, now);
+        } catch (error) {
+          console.error(`[Agenda] Report check failed for tenant ${store.tenant_id}:`, error);
         }
       }
-    }
+    });
+
+    await instance.start();
+    // every() upserts a single recurring job by name, so restarts and extra instances don't duplicate it
+    await instance.every('* * * * *', JOB_NAME);
+    console.log('[Agenda] Started successfully');
+  })().catch((error) => {
+    g._agendaStarted = undefined;
+    throw error;
   });
 
-  await instance.start();
-  const jobs = await instance.jobs({ name: 'send-daily-sales-report' });
-  if (jobs.length === 0) {
-    await instance.every('* * * * *', 'send-daily-sales-report'); 
-  }
-  console.log('[Agenda] Started successfully');
+  return g._agendaStarted;
 }
 
 export { agenda };
-
-

@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Save, Send, Loader2, X, Plus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Save, Send, Loader2, X, Plus, AlertCircle } from "lucide-react";
 import Swal from "sweetalert2";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,11 +50,6 @@ export default function ReportSettingsPage() {
   const [emailError, setEmailError] = useState("");
   const [history, setHistory] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchSettings();
-    fetchHistory();
-  }, []);
-
   const fetchHistory = async () => {
     try {
       const res = await fetch("/api/settings/reports/history");
@@ -70,22 +65,27 @@ export default function ReportSettingsPage() {
   const fetchSettings = async () => {
     try {
       const res = await fetch("/api/settings/reports");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.settings) {
-          setEnabled(data.settings.enabled ?? false);
-          setTime(data.settings.time || "18:00");
-          setTimezone(data.settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-          setFrequency(data.settings.frequency || "DAILY");
-          setRecipients(data.settings.recipients || []);
-        }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.settings) {
+        setEnabled(data.settings.enabled ?? false);
+        setTime(data.settings.time || "18:00");
+        setTimezone(data.settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+        setFrequency(data.settings.frequency || "DAILY");
+        setRecipients(data.settings.recipients || []);
       }
     } catch (error) {
       console.error("Failed to fetch report settings", error);
+      Swal.fire("Error", "Couldn't load your saved report settings. Reload before saving so they aren't overwritten.", "error");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSettings();
+    fetchHistory();
+  }, []);
 
   const validateAndAddRecipient = () => {
     const trimmed = newRecipient.trim();
@@ -119,7 +119,7 @@ export default function ReportSettingsPage() {
   };
 
   const handleSave = async () => {
-    let finalRecipients = [...recipients];
+    const finalRecipients = [...recipients];
     const pendingEmail = newRecipient.trim();
 
     if (pendingEmail) {
@@ -205,12 +205,12 @@ export default function ReportSettingsPage() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
       <PageHeader 
         title="Report Settings"
         description="Configure automated email reports for your store"
         actions={
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button 
               variant="outline" 
               onClick={handleTestEmail} 
@@ -272,7 +272,11 @@ export default function ReportSettingsPage() {
                 onChange={(e) => setTimezone(e.target.value)}
                 className="w-full"
               >
-                {TIMEZONE_OPTIONS.map((tz) => (
+                {/* Keep the saved / browser timezone selectable even when it isn't in the preset list */}
+                {(TIMEZONE_OPTIONS.some((tz) => tz.value === timezone)
+                  ? TIMEZONE_OPTIONS
+                  : [{ value: timezone, label: timezone }, ...TIMEZONE_OPTIONS]
+                ).map((tz) => (
                   <option key={tz.value} value={tz.value}>
                     {tz.label}
                   </option>

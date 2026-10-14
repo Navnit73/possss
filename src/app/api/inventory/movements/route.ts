@@ -4,6 +4,13 @@ import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
 import { ObjectId } from "mongodb";
+import { fromZonedTime } from "date-fns-tz";
+import { resolveTimezone } from "@/lib/storeTime";
+
+const MOVEMENT_TYPES = ["PURCHASE", "SALE", "DAMAGE", "RETURN", "ADJUSTMENT"];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Upper bound on a CSV export so one request can't pull the tenant's entire ledger into memory
+const MAX_EXPORT_ROWS = 10000;
 
 function getTenantIdQueries(tenantId: string) {
   if (!tenantId) return [tenantId];
@@ -32,8 +39,11 @@ export async function GET(req: Request) {
     const endDateStr = url.searchParams.get("endDate");
     
     // Pagination
-    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "20")));
+    // parseInt can yield NaN (e.g. ?page=abc) and Math.max(1, NaN) is NaN, which breaks $skip
+    const parsedPage = parseInt(url.searchParams.get("page") || "1", 10);
+    const parsedLimit = parseInt(url.searchParams.get("limit") || "20", 10);
+    const page = Number.isFinite(parsedPage) ? Math.max(1, parsedPage) : 1;
+    const limit = Number.isFinite(parsedLimit) ? Math.max(1, Math.min(100, parsedLimit)) : 20;
     const skip = (page - 1) * limit;
     const isExport = url.searchParams.get("export") === "true";
 
@@ -41,19 +51,27 @@ export async function GET(req: Request) {
     const matchStage: any = { tenant_id: { $in: tenantIds } };
 
     if (type && type !== "All") {
-      matchStage.movement_type = { $regex: new RegExp(`^${type}$`, "i") };
+      // Whitelist instead of building a regex from user input (regex injection / unindexed scan)
+      const normalizedType = type.toUpperCase();
+      if (!MOVEMENT_TYPES.includes(normalizedType)) {
+        return NextResponse.json({ error: "Invalid movement type" }, { status: 400 });
+      }
+      matchStage.movement_type = normalizedType;
     }
 
     if (startDateStr || endDateStr) {
+      // Interpret the picked calendar dates in the store's timezone, not the server's
+      const tenantDoc = ObjectId.isValid(tenantId)
+        ? await db.collection("tenants").findOne({ _id: new ObjectId(tenantId) }, { projection: { timezone: 1 } })
+        : null;
+      const tz = resolveTimezone(tenantDoc?.timezone);
       const dateQuery: any = {};
-      if (startDateStr) {
-        const start = new Date(startDateStr);
-        start.setHours(0, 0, 0, 0);
+      if (startDateStr && DATE_RE.test(startDateStr)) {
+        const start = fromZonedTime(`${startDateStr}T00:00:00.000`, tz);
         if (!isNaN(start.getTime())) dateQuery.$gte = start;
       }
-      if (endDateStr) {
-        const end = new Date(endDateStr);
-        end.setHours(23, 59, 59, 999);
+      if (endDateStr && DATE_RE.test(endDateStr)) {
+        const end = fromZonedTime(`${endDateStr}T23:59:59.999`, tz);
         if (!isNaN(end.getTime())) dateQuery.$lte = end;
       }
       if (Object.keys(dateQuery).length > 0) {
@@ -110,6 +128,7 @@ export async function GET(req: Request) {
           from: "products",
           localField: "product_obj_id",
           foreignField: "_id",
+          pipeline: [{ $project: { name: 1, strength: 1 } }],
           as: "product"
         }
       },
@@ -118,14 +137,17 @@ export async function GET(req: Request) {
           from: "batches",
           localField: "batch_obj_id",
           foreignField: "_id",
+          pipeline: [{ $project: { batch_number: 1, expiry_date: 1 } }],
           as: "batch"
         }
       },
       {
+        // Only expose the display name/email of the user, never the full user document
         $lookup: {
           from: "users",
           localField: "user_obj_id",
           foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1 } }],
           as: "user"
         }
       },
@@ -136,23 +158,25 @@ export async function GET(req: Request) {
         $project: {
           product_obj_id: 0,
           batch_obj_id: 0,
-          user_obj_id: 0,
-          "user.password": 0
+          user_obj_id: 0
         }
       }
     ];
 
     let items = [];
     let totalItemsCount = 0;
+    let truncated = false;
 
     if (isExport) {
       const exportPipeline = [
         { $match: matchStage },
         { $sort: { created_at: -1 } },
+        { $limit: MAX_EXPORT_ROWS },
         ...lookupStages
       ];
       items = await db.collection("stock_movements").aggregate(exportPipeline).toArray();
       totalItemsCount = items.length;
+      truncated = items.length >= MAX_EXPORT_ROWS;
     } else {
       // Perform Count and Early Slicing BEFORE heavy joins for max query speed
       const totalItemsCountResult = await db.collection("stock_movements").countDocuments(matchStage);
@@ -176,7 +200,8 @@ export async function GET(req: Request) {
         page,
         limit,
         totalPages: Math.ceil(totalItemsCount / limit)
-      }
+      },
+      ...(isExport ? { truncated, maxExportRows: MAX_EXPORT_ROWS } : {})
     });
 
   } catch (error: any) {

@@ -7,6 +7,10 @@ import { Upload, X, FileText, CheckCircle, AlertCircle, Download } from "lucide-
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 
+// Keep in sync with MAX_BULK_ROWS in /api/products/bulk
+const MAX_BULK_ROWS = 1000;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
 interface BulkUploadDialogProps {
   onClose: () => void;
   onSuccess: () => void;
@@ -21,6 +25,17 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
   const [successCount, setSuccessCount] = useState<number>(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  // Set when some products were saved, so closing the dialog still refreshes the product list
+  const onSuccessRef = useRef(false);
+
+  const handleClose = () => {
+    if (isUploading) return;
+    if (onSuccessRef.current) {
+      onSuccess();
+    } else {
+      onClose();
+    }
+  };
 
   const expectedHeaders = [
     "name", "category_name", "manufacturer_name", "unit_of_measure",
@@ -54,10 +69,15 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
   };
 
   const processSelectedFile = (selectedFile: File) => {
-    if (!selectedFile.name.endsWith(".csv") && !selectedFile.type.includes("csv")) {
+    if (!selectedFile.name.toLowerCase().endsWith(".csv") && !selectedFile.type.includes("csv")) {
       setErrors([
         "Please select a valid CSV file (.csv). If you are using Excel, click 'Save As' and select 'CSV (Comma delimited)' format."
       ]);
+      setFile(null);
+      return;
+    }
+    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+      setErrors([`File is too large (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB). Split it into smaller files.`]);
       setFile(null);
       return;
     }
@@ -94,7 +114,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
   };
 
   const handleUpload = () => {
-    if (!file) return;
+    if (!file || isUploading) return;
 
     setIsUploading(true);
     setErrors([]);
@@ -118,7 +138,8 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
         }
 
         if (parseErrors.length > 0) {
-          setErrors(parseErrors.map(e => `Row ${e.row}: ${e.message}`));
+          // Papa's row index is 0-based over data rows; +2 gives the spreadsheet row (header is row 1)
+          setErrors(parseErrors.map(e => typeof e.row === "number" ? `Row ${e.row + 2}: ${e.message}` : e.message));
           setIsUploading(false);
           return;
         }
@@ -129,9 +150,24 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
           return;
         }
 
+        if (data.length > MAX_BULK_ROWS) {
+          setErrors([`The file has ${data.length} rows. Upload at most ${MAX_BULK_ROWS} products per file.`]);
+          setIsUploading(false);
+          return;
+        }
+
         try {
           const res = await axios.post("/api/products/bulk", data);
           setSuccessCount(res.data.count);
+
+          // Partial success: some rows were skipped (e.g. barcode taken concurrently). Keep the dialog open to show them.
+          if (Array.isArray(res.data.details) && res.data.details.length > 0) {
+            setErrors([res.data.message, ...res.data.details]);
+            setFile(null);
+            onSuccessRef.current = true;
+            return;
+          }
+
           setIsSuccess(true);
           
           Swal.fire({
@@ -166,12 +202,19 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-background border border-border w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="bulk-upload-title"
+        className="bg-background border border-border w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]"
+      >
         <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-foreground">Bulk Upload Products</h2>
+          <h2 id="bulk-upload-title" className="text-xl font-semibold text-foreground">Bulk Upload Products</h2>
           <button 
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-secondary p-1.5 rounded-lg transition-colors"
+            onClick={handleClose}
+            disabled={isUploading}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground hover:bg-secondary p-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -197,6 +240,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
                     <li>If using Excel, save your file as <strong>CSV (Comma delimited) (.csv)</strong>.</li>
                     <li>Required fields: <code>name</code>, <code>category_name</code>, <code>manufacturer_name</code>, <code>unit_of_measure</code>.</li>
                     <li>Missing categories or manufacturers will be created automatically.</li>
+                    <li>Up to {MAX_BULK_ROWS} products per file.</li>
                   </ul>
                 </div>
               </div>
@@ -285,7 +329,7 @@ export function BulkUploadDialog({ onClose, onSuccess }: BulkUploadDialogProps) 
         {!isSuccess && (
           <div className="p-6 border-t border-border flex justify-end gap-3 bg-secondary/30">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isUploading}
               className="px-5 py-2 text-sm font-medium text-foreground hover:bg-secondary rounded-md transition-colors disabled:opacity-50"
             >

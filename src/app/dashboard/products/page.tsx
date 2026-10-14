@@ -11,14 +11,16 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const res = await axios.get("/api/products");
-        setProducts(res.data);
-      } catch (err) {
+        setProducts(Array.isArray(res.data) ? res.data : []);
+      } catch (err: any) {
         console.error("Failed to fetch products", err);
+        setError(err.response?.data?.error || "Failed to load products");
       } finally {
         setIsLoading(false);
       }
@@ -27,11 +29,13 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
+  const term = search.trim().toLowerCase();
   const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase()) || 
-    (p.generic_name && p.generic_name.toLowerCase().includes(search.toLowerCase())) ||
-    (p.barcode && p.barcode.includes(search)) ||
-    (p.sku && p.sku.includes(search))
+    !term ||
+    (p.name || "").toLowerCase().includes(term) || 
+    (p.generic_name && String(p.generic_name).toLowerCase().includes(term)) ||
+    (p.barcode && String(p.barcode).toLowerCase().includes(term)) ||
+    (p.sku && String(p.sku).toLowerCase().includes(term))
   );
 
   return (
@@ -49,6 +53,8 @@ export default function ProductsPage() {
           </Link>
         }
       />
+
+      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col ">
         <div className="p-4 border-b border-border bg-secondary/30">

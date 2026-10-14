@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { auth } from "@/auth";
-import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { checkPermission } from "@/lib/rbac";
+import { handleApiError } from "@/lib/errorHandler";
+import {
+  MAX_EXPORT_ROWS, categoryLookupStages, eachDay, getStoreTimezone, hourlySeries, paginationMeta, parsePagination,
+  parseSearch, productLookupStages, reportParamErrorResponse, resolveReportRange, round2, saleLineStages,
+} from "@/lib/reports/common";
 
-function escapeRegExp(string: string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const PAYMENT_METHODS = ["CASH", "CARD", "UPI", "OTHER"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,356 +20,120 @@ export async function GET(req: NextRequest) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const db = client.db("pos");
-    const url = new URL(req.url);
-
-    // Filters
-    const dateRange = url.searchParams.get("dateRange") || "30days";
-    const startDateParam = url.searchParams.get("startDate");
-    const endDateParam = url.searchParams.get("endDate");
-    const search = url.searchParams.get("search")?.trim() || "";
-    const paymentMethod = url.searchParams.get("paymentMethod") || "";
-    
-    // Pagination
-    const page = parseInt(url.searchParams.get("page") || "1");
-    const limit = parseInt(url.searchParams.get("limit") || "20");
-    const skip = (page - 1) * limit;
-    
-    // Export mode
-    const isExport = url.searchParams.get("export") === "true";
-
-    // 1. Determine Date Filter
-    let startDate: Date;
-    let endDate: Date;
-    const now = new Date();
-
-    if (dateRange === "custom" && startDateParam && endDateParam) {
-      startDate = startOfDay(parseISO(startDateParam));
-      endDate = endOfDay(parseISO(endDateParam));
-    } else {
-      switch (dateRange) {
-        case "today":
-          startDate = startOfDay(now);
-          endDate = endOfDay(now);
-          break;
-        case "yesterday":
-          startDate = startOfDay(subDays(now, 1));
-          endDate = endOfDay(subDays(now, 1));
-          break;
-        case "7days":
-          startDate = startOfDay(subDays(now, 6));
-          endDate = endOfDay(now);
-          break;
-        case "thisMonth":
-          startDate = startOfMonth(now);
-          endDate = endOfMonth(now);
-          break;
-        case "lastMonth":
-          startDate = startOfMonth(subMonths(now, 1));
-          endDate = endOfMonth(subMonths(now, 1));
-          break;
-        case "30days":
-        default:
-          startDate = startOfDay(subDays(now, 29));
-          endDate = endOfDay(now);
-          break;
-      }
+    const params = new URL(req.url).searchParams;
+    const search = parseSearch(params);
+    const paymentMethod = (params.get("paymentMethod") || "").toUpperCase();
+    if (paymentMethod && !PAYMENT_METHODS.includes(paymentMethod)) {
+      return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
     }
+    const { page, limit, skip, isExport } = parsePagination(params);
+    const tz = await getStoreTimezone(db, tenantId);
+    const range = resolveReportRange(params, tz);
 
-    // 2. Build Match Stage for Sales
+    // 1. Sales match (store-timezone calendar days, end exclusive)
     const saleMatch: any = {
       tenant_id: tenantId,
-      created_at: { $gte: startDate, $lte: endDate }
+      created_at: { $gte: range.start, $lt: range.end },
     };
+    if (paymentMethod) saleMatch.payment_method = paymentMethod;
+    if (search) saleMatch.invoice_no = { $regex: new RegExp(search, "i") };
 
-    if (paymentMethod) {
-      saleMatch.payment_method = paymentMethod;
-    }
-
-    if (search) {
-      const escapedSearch = escapeRegExp(search);
-      saleMatch.$or = [
-        { invoice_no: { $regex: new RegExp(escapedSearch, "i") } }
-      ];
-    }
-
-    // 3. Parallel Aggregations for Sales Metrics & Charts
-    const salesMetricsPipeline = [
+    // 2. Invoice-level figures: one pass over the matching sales
+    const salesFacetPipeline = [
       { $match: saleMatch },
       {
-        $group: {
-          _id: null,
-          total_revenue: { $sum: "$total" },
-          total_orders: { $sum: 1 },
-          total_tax: { $sum: "$tax" },
-          total_discount: { $sum: "$discount" }
-        }
-      }
-    ];
-
-    const dailyTrendPipeline = [
-      { $match: saleMatch },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
-            method: "$payment_method"
-          },
-          revenue: { $sum: "$total" },
-          orders: { $sum: 1 }
-        }
-      },
-      { $sort: { "_id.date": 1 } }
-    ];
-
-    const paymentTrendPipeline = [
-      { $match: saleMatch },
-      {
-        $group: {
-          _id: "$payment_method",
-          revenue: { $sum: "$total" },
-          count: { $sum: 1 }
-        }
-      }
-    ];
-
-    // Chart 1: Hourly Sales Rush Breakdown
-    const hourlyPipeline = [
-      { $match: saleMatch },
-      {
-        $group: {
-          _id: { $hour: "$created_at" },
-          revenue: { $sum: "$total" },
-          orders: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ];
-
-    // Chart 2: Customer Type Breakdown (Registered vs Walk-in)
-    const customerTypePipeline = [
-      { $match: saleMatch },
-      {
-        $group: {
-          _id: {
-            $cond: [
-              { $and: [{ $ne: ["$customer_id", null] }, { $ne: ["$customer_id", ""] }] },
-              "Registered Patient",
-              "Walk-in Customer"
-            ]
-          },
-          revenue: { $sum: "$total" },
-          count: { $sum: 1 }
-        }
-      }
-    ];
-
-    // Chart 3 & 4: Top 5 Products & Sales by Medicine Category
-    const itemsAggregationPipeline = [
-      { $match: saleMatch },
-      {
-        $lookup: {
-          from: "sale_items",
-          let: { saleId: { $toString: "$_id" } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }
+        $facet: {
+          metrics: [
+            {
+              $group: {
+                _id: null,
+                total_revenue: { $sum: "$total" },
+                total_orders: { $sum: 1 },
+                total_tax: { $sum: "$tax" },
+                total_discount: { $sum: "$discount" },
+              },
+            },
           ],
-          as: "items"
-        }
-      },
-      { $unwind: "$items" },
-      {
-        $lookup: {
-          from: "products",
-          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
+          daily: [
+            {
+              $group: {
+                _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$created_at", timezone: tz } }, method: "$payment_method" },
+                revenue: { $sum: "$total" },
+                orders: { $sum: 1 },
+              },
+            },
           ],
-          as: "product"
-        }
+          payments: [{ $group: { _id: "$payment_method", revenue: { $sum: "$total" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }],
+          hourly: [{ $group: { _id: { $hour: { date: "$created_at", timezone: tz } }, revenue: { $sum: "$total" }, orders: { $sum: 1 } } }],
+          customerType: [
+            {
+              $group: {
+                _id: {
+                  $cond: [
+                    { $and: [{ $ne: [{ $ifNull: ["$customer_id", null] }, null] }, { $ne: ["$customer_id", ""] }] },
+                    "Registered Patient",
+                    "Walk-in Customer",
+                  ],
+                },
+                revenue: { $sum: "$total" },
+                count: { $sum: 1 },
+              },
+            },
+          ],
+        },
       },
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          "product.category_obj_id": { 
-            $convert: { input: "$product.category_id", to: "objectId", onError: null, onNull: null } 
-          }
-        }
-      },
-      {
-        $lookup: {
-          from: "categories",
-          localField: "product.category_obj_id",
-          foreignField: "_id",
-          as: "category"
-        }
-      },
-      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+    ];
+
+    // 3. Line-level figures (products, categories, profit, qty) — one pass with tenant-scoped joins
+    const itemsFacetPipeline = [
+      { $match: saleMatch },
+      { $project: { created_at: 1, subtotal: 1, discount: 1 } },
+      ...saleLineStages(tenantId),
       {
         $facet: {
           topProducts: [
-            {
-              $group: {
-                _id: "$items.product_id",
-                product_name: { $first: { $ifNull: ["$product.name", "Unknown Medicine"] } },
-                qty_sold: { $sum: "$items.qty" },
-                revenue: {
-                  $sum: {
-                    $multiply: [
-                      { $multiply: ["$items.price", "$items.qty"] },
-                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
-                    ]
-                  }
-                },
-                profit: { $sum: { $ifNull: ["$items.profit", 0] } }
-              }
-            },
+            { $group: { _id: "$items.product_id", qty_sold: { $sum: "$items.qty" }, revenue: { $sum: "$line_net" } } },
             { $sort: { revenue: -1 } },
-            { $limit: 5 }
+            { $limit: 5 },
+            ...productLookupStages(tenantId, "$_id", ["name"]),
           ],
           categoryBreakdown: [
-            {
-              $group: {
-                _id: { $ifNull: ["$category.name", "General Health"] },
-                revenue: {
-                  $sum: {
-                    $multiply: [
-                      { $multiply: ["$items.price", "$items.qty"] },
-                      { $subtract: [1, { $divide: [{ $ifNull: ["$items.discount", 0] }, 100] }] }
-                    ]
-                  }
-                },
-                qty: { $sum: "$items.qty" }
-              }
-            },
-            { $sort: { revenue: -1 } }
+            { $group: { _id: "$items.product_id", revenue: { $sum: "$line_net" }, qty: { $sum: "$items.qty" } } },
+            ...productLookupStages(tenantId, "$_id", ["category_id"]),
+            ...categoryLookupStages(tenantId),
+            { $group: { _id: { $ifNull: ["$category_doc.name", "General Health"] }, revenue: { $sum: "$revenue" }, qty: { $sum: "$qty" } } },
+            { $sort: { revenue: -1 } },
           ],
-          dailyProfitTrend: [
+          dailyProfit: [
             {
               $group: {
-                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
-                profit: { $sum: { $ifNull: ["$items.profit", 0] } }
-              }
+                _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at", timezone: tz } },
+                profit: { $sum: "$line_profit" },
+              },
             },
-            { $sort: { _id: 1 } }
-          ]
-        }
-      }
+          ],
+          totals: [{ $group: { _id: null, total_qty: { $sum: "$items.qty" }, total_rows: { $sum: 1 } } }],
+        },
+      },
     ];
 
-    const [
-      metricsResult, 
-      trendResult, 
-      paymentResult,
-      hourlyResult,
-      customerTypeResult,
-      itemsFacetResult
-    ] = await Promise.all([
-      db.collection("sales").aggregate(salesMetricsPipeline).toArray(),
-      db.collection("sales").aggregate(dailyTrendPipeline).toArray(),
-      db.collection("sales").aggregate(paymentTrendPipeline).toArray(),
-      db.collection("sales").aggregate(hourlyPipeline).toArray(),
-      db.collection("sales").aggregate(customerTypePipeline).toArray(),
-      db.collection("sales").aggregate(itemsAggregationPipeline).toArray()
-    ]);
-
-    const metrics = metricsResult[0] || { total_revenue: 0, total_orders: 0, total_tax: 0, total_discount: 0 };
-    const avgOrderValue = metrics.total_orders > 0 ? metrics.total_revenue / metrics.total_orders : 0;
-    
-    // Process items facet results
-    const facet = itemsFacetResult[0] || { topProducts: [], categoryBreakdown: [], dailyProfitTrend: [] };
-    const profitMap = new Map<string, number>();
-    for (const p of facet.dailyProfitTrend) {
-      profitMap.set(p._id, p.profit);
-    }
-
-    // Group daily trend by date with payment method breakdowns & net profit
-    const trendMap = new Map<string, any>();
-    let maxDayRevenue = 0;
-    let bestDayDate = "N/A";
-
-    for (const item of trendResult) {
-      const date = item._id.date;
-      const method = (item._id.method || "OTHER").toString().toUpperCase();
-      if (!trendMap.has(date)) {
-        trendMap.set(date, { 
-          date, 
-          revenue: 0, 
-          orders: 0, 
-          cash: 0, 
-          card: 0, 
-          upi: 0, 
-          other: 0,
-          profit: profitMap.get(date) || 0 
-        });
-      }
-      const entry = trendMap.get(date);
-      entry.revenue += item.revenue;
-      entry.orders += item.orders;
-
-      if (method === "CASH") entry.cash += item.revenue;
-      else if (method === "CARD") entry.card += item.revenue;
-      else if (method === "UPI") entry.upi += item.revenue;
-      else entry.other += item.revenue;
-
-      if (entry.revenue > maxDayRevenue) {
-        maxDayRevenue = entry.revenue;
-        bestDayDate = date;
-      }
-    }
-
-    const dailyTrend = Array.from(trendMap.values());
-
-    // Format Hourly Rush Data (0 to 23 hours)
-    const hourlyMap = new Map<number, { hour: string; revenue: number; orders: number }>();
-    for (let h = 8; h <= 22; h++) {
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      const formattedHour = `${h % 12 === 0 ? 12 : h % 12} ${ampm}`;
-      hourlyMap.set(h, { hour: formattedHour, revenue: 0, orders: 0 });
-    }
-    for (const hItem of hourlyResult) {
-      const h = hItem._id;
-      if (hourlyMap.has(h)) {
-        const entry = hourlyMap.get(h)!;
-        entry.revenue = hItem.revenue;
-        entry.orders = hItem.orders;
-      }
-    }
-    const hourlyTrend = Array.from(hourlyMap.values());
-
-    // 4. Aggregate Sale Items for Table View
-    const itemsPipeline: any[] = [
+    // 4. Register table: sort + paginate before the product / batch joins so only one page is joined
+    const tablePipeline: any[] = [
       { $match: saleMatch },
-      {
-        $lookup: {
-          from: "sale_items",
-          let: { saleId: { $toString: "$_id" } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }
-          ],
-          as: "items"
-        }
-      },
-      { $unwind: "$items" },
-      {
-        $lookup: {
-          from: "products",
-          let: { prodId: { $convert: { input: "$items.product_id", to: "objectId", onError: null, onNull: null } } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$_id", "$$prodId"] } } }
-          ],
-          as: "product"
-        }
-      },
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      { $sort: { created_at: -1, _id: -1 } },
+      { $project: { invoice_no: 1, created_at: 1, payment_method: 1, discount: 1, tax: 1, total: 1, subtotal: 1 } },
+      ...saleLineStages(tenantId),
+      ...(isExport ? [{ $limit: MAX_EXPORT_ROWS }] : [{ $skip: skip }, { $limit: limit }]),
+      ...productLookupStages(tenantId, "$items.product_id", ["name"]),
+      { $addFields: { _bid: { $convert: { input: "$items.batch_id", to: "objectId", onError: null, onNull: null } } } },
       {
         $lookup: {
           from: "batches",
-          let: { batchId: { $convert: { input: "$items.batch_id", to: "objectId", onError: null, onNull: null } } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$_id", "$$batchId"] } } }
-          ],
-          as: "batch"
-        }
+          localField: "_bid",
+          foreignField: "_id",
+          pipeline: [{ $match: { tenant_id: tenantId } }, { $project: { batch_number: 1 } }],
+          as: "batch",
+        },
       },
       { $unwind: { path: "$batch", preserveNullAndEmptyArrays: true } },
       {
@@ -384,92 +150,108 @@ export async function GET(req: NextRequest) {
           sale_discount: "$discount",
           sale_tax: "$tax",
           sale_total: "$total",
-          profit: "$items.profit"
-        }
+          // Line profit after its share of the bill discount
+          profit: "$line_profit",
+        },
       },
-      { $sort: { created_at: -1 } }
     ];
 
-    let items = [];
-    let totalItemsCount = 0;
+    // section=table (paging) skips the chart aggregations; section=summary skips the register page.
+    const section = params.get("section");
+    const wantSummary = isExport ? false : section !== "table";
+    const wantTable = isExport || section !== "summary";
 
-    if (isExport) {
-      items = await db.collection("sales").aggregate(itemsPipeline).toArray();
-      totalItemsCount = items.length;
-    } else {
-      const paginatedPipeline = [
-        ...itemsPipeline,
-        { $skip: skip },
-        { $limit: limit }
-      ];
-      
-      const countPipeline = [
-        ...itemsPipeline,
-        { $count: "total" }
-      ];
-
-      const [itemsData, countData] = await Promise.all([
-        db.collection("sales").aggregate(paginatedPipeline).toArray(),
-        db.collection("sales").aggregate(countPipeline).toArray()
+    if (!wantSummary) {
+      const [tableRows, countRes] = await Promise.all([
+        db.collection("sales").aggregate(tablePipeline, { allowDiskUse: true }).toArray(),
+        isExport
+          ? Promise.resolve([])
+          : db.collection("sales").aggregate([
+              { $match: saleMatch },
+              { $project: { _sid: { $toString: "$_id" } } },
+              { $lookup: { from: "sale_items", localField: "_sid", foreignField: "sale_id", pipeline: [{ $project: { _id: 1 } }], as: "items" } },
+              { $group: { _id: null, n: { $sum: { $size: "$items" } } } },
+            ]).toArray(),
       ]);
-      
-      items = itemsData;
-      totalItemsCount = countData[0]?.total || 0;
+      const total = isExport ? tableRows.length : (countRes[0]?.n ?? 0);
+      return NextResponse.json({
+        table: {
+          data: tableRows.map((r: any) => ({ ...r, profit: round2(r.profit) })),
+          pagination: paginationMeta(total, page, limit),
+        },
+      }, { headers: { "Cache-Control": "private, no-store" } });
     }
-    
-    const qtyPipeline = [
-      { $match: saleMatch },
-      {
-        $lookup: {
-          from: "sale_items",
-          let: { saleId: { $toString: "$_id" } },
-          pipeline: [
-            { $match: { $expr: { $eq: ["$sale_id", "$$saleId"] } } }
-          ],
-          as: "items"
-        }
-      },
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: null,
-          total_qty: { $sum: "$items.qty" }
-        }
+
+    const [salesFacet, itemsFacet, tableRows] = await Promise.all([
+      db.collection("sales").aggregate(salesFacetPipeline).toArray(),
+      db.collection("sales").aggregate(itemsFacetPipeline, { allowDiskUse: true }).toArray(),
+      wantTable ? db.collection("sales").aggregate(tablePipeline, { allowDiskUse: true }).toArray() : Promise.resolve([]),
+    ]);
+
+    const sf = salesFacet[0] ?? { metrics: [], daily: [], payments: [], hourly: [], customerType: [] };
+    const itf = itemsFacet[0] ?? { topProducts: [], categoryBreakdown: [], dailyProfit: [], totals: [] };
+    const metrics = sf.metrics[0] || { total_revenue: 0, total_orders: 0, total_tax: 0, total_discount: 0 };
+    const avgOrderValue = metrics.total_orders > 0 ? metrics.total_revenue / metrics.total_orders : 0;
+
+    const profitMap = new Map<string, number>(itf.dailyProfit.map((p: any) => [p._id, p.profit]));
+
+    // Daily trend with payment method breakdown, one point per calendar day
+    const trendMap = new Map<string, any>();
+    for (const date of eachDay(range.fromStr, range.toStr)) {
+      trendMap.set(date, { date, revenue: 0, orders: 0, cash: 0, card: 0, upi: 0, other: 0, profit: round2(profitMap.get(date)) });
+    }
+    for (const item of sf.daily) {
+      const entry = trendMap.get(item._id.date);
+      if (!entry) continue;
+      const method = (item._id.method || "OTHER").toString().toUpperCase();
+      entry.revenue += item.revenue;
+      entry.orders += item.orders;
+      if (method === "CASH") entry.cash += item.revenue;
+      else if (method === "CARD") entry.card += item.revenue;
+      else if (method === "UPI") entry.upi += item.revenue;
+      else entry.other += item.revenue;
+    }
+    let maxDayRevenue = 0;
+    let bestDayDate = "N/A";
+    const dailyTrend = Array.from(trendMap.values()).map((e) => {
+      if (e.revenue > maxDayRevenue) {
+        maxDayRevenue = e.revenue;
+        bestDayDate = e.date;
       }
-    ];
-    const qtyResult = await db.collection("sales").aggregate(qtyPipeline).toArray();
-    const totalQtySold = qtyResult[0]?.total_qty || 0;
+      return { ...e, revenue: round2(e.revenue), cash: round2(e.cash), card: round2(e.card), upi: round2(e.upi), other: round2(e.other) };
+    });
+
+    const totals = itf.totals[0] ?? { total_qty: 0, total_rows: 0 };
+    const totalItemsCount = totals.total_rows;
 
     return NextResponse.json({
       metrics: {
-        totalRevenue: metrics.total_revenue,
+        // Invoice totals collected (incl. tax); tax and discounts are reported separately
+        totalRevenue: round2(metrics.total_revenue),
+        totalTax: round2(metrics.total_tax),
+        totalDiscount: round2(metrics.total_discount),
         totalOrders: metrics.total_orders,
-        avgOrderValue,
-        totalQtySold,
+        avgOrderValue: round2(avgOrderValue),
+        totalQtySold: totals.total_qty,
         bestDay: bestDayDate,
-        bestDayRevenue: maxDayRevenue,
+        bestDayRevenue: round2(maxDayRevenue),
       },
       charts: {
         dailyTrend,
-        paymentMethods: paymentResult.map((p: any) => ({ method: p._id, revenue: p.revenue, count: p.count })),
-        hourlyTrend,
-        customerType: customerTypeResult.map((c: any) => ({ name: c._id, revenue: c.revenue, count: c.count })),
-        topProducts: facet.topProducts.map((p: any) => ({ name: p.product_name, revenue: p.revenue, qty: p.qty_sold })),
-        categoryBreakdown: facet.categoryBreakdown.map((c: any) => ({ name: c._id, revenue: c.revenue, qty: c.qty }))
+        paymentMethods: sf.payments.map((p: any) => ({ method: p._id || "OTHER", revenue: round2(p.revenue), count: p.count })),
+        hourlyTrend: hourlySeries(sf.hourly),
+        customerType: sf.customerType.map((c: any) => ({ name: c._id, revenue: round2(c.revenue), count: c.count })),
+        topProducts: itf.topProducts.map((p: any) => ({ name: p.product?.name || "Unknown Medicine", revenue: round2(p.revenue), qty: p.qty_sold })),
+        categoryBreakdown: itf.categoryBreakdown.map((c: any) => ({ name: c._id, revenue: round2(c.revenue), qty: c.qty })),
       },
-      table: {
-        data: items,
-        pagination: {
-          total: totalItemsCount,
-          page,
-          limit,
-          totalPages: Math.ceil(totalItemsCount / limit)
-        }
-      }
-    });
-
+      ...(wantTable && {
+        table: {
+          data: tableRows.map((r: any) => ({ ...r, profit: round2(r.profit) })),
+          pagination: paginationMeta(totalItemsCount, page, limit),
+        },
+      }),
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: any) {
-    console.error("Sales Report API Error:", error);
-    return NextResponse.json({ error: error.message || "Failed to generate report" }, { status: 500 });
+    return reportParamErrorResponse(error) ?? (await handleApiError(error, "GET /api/reports/sales"));
   }
 }

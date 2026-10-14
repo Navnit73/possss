@@ -66,6 +66,10 @@ export async function POST() {
     if (!tenant || !["PENDING", "ACTIVE"].includes(tenant.status)) {
       return NextResponse.json({ error: "This store cannot be subscribed." }, { status: 409 });
     }
+    // Onboarding step 2 can't be skipped: paying activates the store, which needs its regional settings.
+    if (tenant.status === "PENDING" && !tenant.currency) {
+      return NextResponse.json({ error: "Please complete your business details before subscribing." }, { status: 409 });
+    }
 
     const current = tenant.subscription;
     if (current && LIVE_STATUSES.includes(current.status) && !isSubscriptionLapsed(current)) {

@@ -71,5 +71,7 @@ export function formatCurrencyAmount(amount: number | string | null | undefined,
   const num = Number(amount);
   const val = isNaN(num) ? 0 : num;
   const needsSpace = symbol.length > 1 && !symbol.includes("$");
-  return `${symbol}${needsSpace ? " " : ""}${val.toFixed(2)}`;
+  // Sign goes before the symbol ("-$5.00", not "$-5.00"); thousands are grouped for readability
+  const digits = Math.abs(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${val < 0 && digits !== "0.00" ? "-" : ""}${symbol}${needsSpace ? " " : ""}${digits}`;
 }

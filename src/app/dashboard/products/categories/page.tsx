@@ -24,7 +24,7 @@ export default function CategoriesPage() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CategoryForm>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<CategoryForm>({
     resolver: zodResolver(categorySchema),
   });
 
@@ -34,6 +34,7 @@ export default function CategoriesPage() {
       setCategories(res.data);
     } catch (err: any) {
       console.error(err);
+      setError(err.response?.data?.error || "Failed to load categories");
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +98,7 @@ export default function CategoriesPage() {
         }
       />
 
-      {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
+      {error && !isAdding && <div role="alert" className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
 
       {isAdding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -105,6 +106,8 @@ export default function CategoriesPage() {
             <h2 className="text-xl font-bold text-foreground mb-6">
               {editingId ? "Edit Category" : "New Category"}
             </h2>
+            {/* Shown inside the modal: the page-level banner is hidden behind the overlay */}
+            {error && <div role="alert" className="mb-4 p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-2">
                 <Label>Name *</Label>
@@ -131,7 +134,7 @@ export default function CategoriesPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSubmitting}>
                   {editingId ? "Update Category" : "Save Category"}
                 </Button>
               </div>
@@ -156,6 +159,7 @@ export default function CategoriesPage() {
             </p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-border bg-secondary/50">
@@ -182,6 +186,7 @@ export default function CategoriesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

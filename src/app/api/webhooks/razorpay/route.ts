@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import client from "@/lib/mongodb";
 import { logAuditDirectly } from "@/lib/auditLogger";
-import { verifyWebhookSignature } from "@/lib/razorpay";
+import { getRazorpay, verifyWebhookSignature } from "@/lib/razorpay";
 import { applySubscriptionEntity, recordPayment } from "@/lib/subscriptions";
 
 // Razorpay retries any non-2xx response, so only return an error when a retry could actually help.
@@ -38,7 +38,18 @@ export async function POST(req: Request) {
     const subscription = event?.payload?.subscription?.entity;
 
     if (name.startsWith("subscription.") && subscription?.id) {
-      const result = await applySubscriptionEntity(db, subscription);
+      // Webhooks can arrive out of order. Prefer the subscription's current state from Razorpay; if that read fails,
+      // fall back to the (signed) payload, stamped with the event time so it can't overwrite a newer state.
+      let entity = subscription;
+      let observedAt = new Date(Number(event?.created_at) > 0 ? Number(event.created_at) * 1000 : Date.now());
+      try {
+        const fetchedAt = new Date();
+        entity = await getRazorpay().subscriptions.fetch(subscription.id);
+        observedAt = fetchedAt;
+      } catch (err) {
+        console.error("Could not refresh subscription from Razorpay; using webhook payload:", err);
+      }
+      const result = await applySubscriptionEntity(db, entity, observedAt);
 
       const payment = event?.payload?.payment?.entity;
       if (name === "subscription.charged" && payment?.id && result.tenantId) {
@@ -50,7 +61,7 @@ export async function POST(req: Request) {
           tenantId: result.tenantId,
           action: `SUBSCRIPTION_${name.replace("subscription.", "").toUpperCase()}`,
           module: "BILLING",
-          after: { subscription_id: subscription.id, status: subscription.status, payment_id: payment?.id },
+          after: { subscription_id: subscription.id, status: entity.status, payment_id: payment?.id },
         });
       }
     }

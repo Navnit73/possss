@@ -103,7 +103,7 @@ export default function SubscriptionPage() {
   const endDate = formatDate(sub?.current_end ?? null);
 
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Subscription</h1>
         <p className="text-muted-foreground">Manage your pharmacy POS plan and billing.</p>

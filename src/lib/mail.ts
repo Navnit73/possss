@@ -4,6 +4,16 @@ const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const fromEmail = "Pharmacy POS <onboarding@resend.dev>"; 
 
+/** Escapes user-controlled text (store names, user names) before it goes into email HTML. */
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/** Single-line text for a subject header. */
+function headerText(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+}
+
 const baseStyles = `
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: #0F172A;
@@ -56,7 +66,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
       html: `
         <div style="${baseStyles}">
           <div style="${cardStyles}">
-            <h2 style="${headerStyles}">Welcome, ${name}!</h2>
+            <h2 style="${headerStyles}">Welcome, ${escapeHtml(name)}!</h2>
             <p>We are thrilled to have you onboard.</p>
             <p>Pharmacy POS is designed to bring clinical precision and retail efficiency to your workflow. Your next step is to set up your pharmacy details and start managing your inventory.</p>
             <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/login" style="${buttonStyles}">Go to Terminal</a>
@@ -73,7 +83,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
 }
 
 export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${encodeURIComponent(token)}`;
 
   if (!resend) {
     console.warn("⚠️ RESEND_API_KEY is not configured. Reset link for", email, "is:", resetLink);
@@ -110,6 +120,7 @@ export async function sendDailyReportEmail(
   pdfBuffer: Buffer, 
   data: { 
     date: Date; 
+    dateStr?: string;
     revenue: number; 
     transactions: number; 
     profit: number; 
@@ -119,12 +130,13 @@ export async function sendDailyReportEmail(
   timezone: string
 ) {
   if (!resend) {
-    console.warn("⚠️ RESEND_API_KEY is not configured. Skipping daily report email to:", recipients);
-    return;
+    // Throw rather than silently return, so callers don't log a report as delivered when nothing was sent
+    throw new Error("Email service is not configured (RESEND_API_KEY missing)");
   }
   try {
-    const sym = data.currencySymbol || "$";
-    const storeName = data.tenantName || "Pharmacy POS";
+    const sym = escapeHtml(data.currencySymbol || "$");
+    const rawStoreName = data.tenantName || "Pharmacy POS";
+    const storeName = escapeHtml(rawStoreName);
 
     const formattedDate = new Intl.DateTimeFormat('en-US', { 
       timeZone: timezone,
@@ -134,10 +146,10 @@ export async function sendDailyReportEmail(
       day: 'numeric' 
     }).format(data.date);
     
-    await resend.emails.send({
+    const { error: sendError } = await resend.emails.send({
       from: fromEmail,
       to: recipients,
-      subject: `${storeName}: Daily Sales Report (${formattedDate})`,
+      subject: headerText(`${rawStoreName}: Daily Sales Report (${formattedDate})`),
       html: `
         <div style="${baseStyles}">
           <div style="${cardStyles}">
@@ -151,7 +163,7 @@ export async function sendDailyReportEmail(
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin: 20px 0; border-collapse: separate; border-spacing: 8px;">
               <tr>
                 <td width="33%" style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; text-align: center;">
-                  <span style="display: block; font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: 0.5px; text-transform: uppercase;">Total Revenue</span>
+                  <span style="display: block; font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: 0.5px; text-transform: uppercase;">Net Sales (ex. tax)</span>
                   <span style="display: block; font-size: 16px; font-weight: 700; color: #0F172A; margin-top: 4px;">${sym}${data.revenue.toFixed(2)}</span>
                 </td>
                 <td width="33%" style="background-color: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 14px; text-align: center;">
@@ -179,11 +191,13 @@ export async function sendDailyReportEmail(
       `,
       attachments: [
         {
-          filename: `${storeName.replace(/[^a-zA-Z0-9]/g, '_')}_Daily_Report_${data.date.toISOString().split('T')[0]}.pdf`,
+          filename: `${rawStoreName.replace(/[^a-zA-Z0-9]/g, '_')}_Daily_Report_${data.dateStr || data.date.toISOString().split('T')[0]}.pdf`,
           content: pdfBuffer,
         }
       ]
     });
+    // The Resend SDK reports API failures in the result instead of throwing
+    if (sendError) throw new Error(sendError.message || "Email provider rejected the message");
   } catch (error) {
     console.error("Error sending daily report email:", error);
     throw error;

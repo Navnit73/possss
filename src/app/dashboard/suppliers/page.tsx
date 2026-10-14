@@ -12,14 +12,16 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchSuppliers = async () => {
       try {
         const res = await axios.get("/api/suppliers");
-        setSuppliers(res.data);
-      } catch (err) {
+        setSuppliers(Array.isArray(res.data) ? res.data : []);
+      } catch (err: any) {
         console.error("Failed to fetch suppliers", err);
+        setError(err.response?.data?.error || "Failed to load suppliers");
       } finally {
         setIsLoading(false);
       }
@@ -29,7 +31,7 @@ export default function SuppliersPage() {
   }, []);
 
   const filteredSuppliers = suppliers.filter(s => 
-    s.name.toLowerCase().includes(search.toLowerCase()) || 
+    (s.name || "").toLowerCase().includes(search.toLowerCase()) || 
     (s.email && s.email.toLowerCase().includes(search.toLowerCase())) ||
     (s.phone && s.phone.includes(search))
   );
@@ -49,6 +51,8 @@ export default function SuppliersPage() {
           </Link>
         }
       />
+
+      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col ">
         <div className="p-4 border-b border-border bg-secondary/30">

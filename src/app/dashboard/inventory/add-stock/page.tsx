@@ -10,9 +10,18 @@ import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import * as z from "zod";
+import { format } from "date-fns";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
-type BatchFormType = z.infer<typeof batchSchema>;
+// Mirrors the server-side receiving rules in /api/inventory/batches
+const receiveBatchSchema = batchSchema.extend({
+  batch_number: z.string().trim().min(1, "Batch number is required").max(64, "Batch number is too long"),
+  qty_available: z.coerce.number().finite().positive("Quantity received must be greater than zero").max(1_000_000, "Quantity is too large"),
+  cost_price: z.coerce.number().finite().min(0, "Cost price cannot be negative").default(0),
+  selling_price: z.coerce.number().finite().positive("Selling price must be greater than zero"),
+});
+
+type BatchFormType = z.infer<typeof receiveBatchSchema>;
 
 export default function AddStockPage() {
   const router = useRouter();
@@ -22,8 +31,8 @@ export default function AddStockPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<BatchFormType>({
-    resolver: zodResolver(batchSchema) as any,
+  const { register, handleSubmit, setValue, control, watch, formState: { errors } } = useForm<BatchFormType>({
+    resolver: zodResolver(receiveBatchSchema) as any,
     defaultValues: {
       product_id: "",
       qty_available: 0,
@@ -55,8 +64,9 @@ export default function AddStockPage() {
             if (found.selling_price !== undefined) setValue("selling_price", Number(found.selling_price));
           }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load data", err);
+        setError(err.response?.data?.error || "Failed to load products and suppliers");
       } finally {
         setIsLoading(false);
       }
@@ -78,7 +88,13 @@ export default function AddStockPage() {
     }
   };
 
+  const watchCost = Number(watch("cost_price") || 0);
+  const watchSelling = Number(watch("selling_price") || 0);
+  const sellingBelowCost = watchSelling > 0 && watchCost > 0 && watchSelling < watchCost;
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
   const onSubmit = async (data: BatchFormType) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
     try {
@@ -146,7 +162,7 @@ export default function AddStockPage() {
                 control={control}
                 render={({ field }) => (
                   <SearchableSelect
-                    options={suppliers.map((s: any) => ({ label: s.name, value: s.name }))}
+                    options={suppliers.map((s: any) => ({ label: s.name, value: s._id }))}
                     value={field.value || ""}
                     onChange={field.onChange}
                     placeholder="Search and select supplier..."
@@ -172,9 +188,11 @@ export default function AddStockPage() {
             <label className="text-sm font-medium text-foreground">Expiry Date</label>
             <input 
               type="date"
+              min={todayStr}
               {...register("expiry_date")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+            {errors.expiry_date && <p className="text-sm text-red-500 mt-1">{errors.expiry_date.message}</p>}
           </div>
 
           <div>
@@ -182,19 +200,26 @@ export default function AddStockPage() {
             <input 
               type="number"
               step="0.01"
+              min="0"
               {...register("cost_price")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+            {errors.cost_price && <p className="text-sm text-red-500 mt-1">{errors.cost_price.message}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Selling Price</label>
+            <label className="text-sm font-medium text-foreground">Selling Price *</label>
             <input 
               type="number"
               step="0.01"
+              min="0"
               {...register("selling_price")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
+            {errors.selling_price && <p className="text-sm text-red-500 mt-1">{errors.selling_price.message}</p>}
+            {!errors.selling_price && sellingBelowCost && (
+              <p className="text-sm text-amber-600 mt-1">Selling price is below cost price — this batch will be sold at a loss.</p>
+            )}
           </div>
         </div>
 

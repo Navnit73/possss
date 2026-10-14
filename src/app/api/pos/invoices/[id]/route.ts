@@ -24,20 +24,24 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
 
     // Build query - allow search by ObjectId or invoice_no
     const saleQuery: any = { tenant_id: tenantId };
-    if (ObjectId.isValid(id)) {
+    // ObjectId.isValid() also accepts any 12-character string (e.g. a 12-char invoice number), so match the hex form explicitly
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
       saleQuery._id = new ObjectId(id);
     } else {
       saleQuery.invoice_no = id;
     }
 
-    const sale = await db.collection("sales").findOne(saleQuery);
+    const sale = await db.collection("sales").findOne(saleQuery, { projection: { idempotency_key: 0, idempotency_fingerprint: 0 } });
     if (!sale) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     // Fetch sale items with product and batch details
     const saleIdStr = sale._id.toString();
-    const rawSaleItems = await db.collection("sale_items").find({ sale_id: saleIdStr }).toArray();
+    // cost_price / profit stay server-side: this endpoint is open to cashiers (same rule as /api/pos/search)
+    const rawSaleItems = await db.collection("sale_items")
+      .find({ sale_id: saleIdStr }, { projection: { cost_price: 0, profit: 0 } })
+      .toArray();
 
     // Collect product & batch IDs
     const productObjectIds = rawSaleItems

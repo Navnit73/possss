@@ -6,6 +6,11 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import { checkPermission } from "@/lib/rbac";
 
+/** new ObjectId() also accepts any 12-character string, which would then never match the hex customer_id stored on sales. */
+function parseId(id: string): ObjectId | null {
+  return /^[0-9a-fA-F]{24}$/.test(id) ? new ObjectId(id) : null;
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const resolvedParams = await params;
@@ -18,34 +23,30 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const db = client.db("pos");
     
-    // Validate ObjectId
-    let objectId;
-    try {
-      objectId = new ObjectId(resolvedParams.id);
-    } catch {
+    const objectId = parseId(resolvedParams.id);
+    if (!objectId) {
       return NextResponse.json({ error: "Invalid customer ID format" }, { status: 400 });
     }
+    // Sales store the customer's id as a lowercase hex string
+    const customerKey = objectId.toHexString();
 
-    const customer = await db.collection("customers").findOne({
-      _id: objectId,
-      tenant_id: tenantId
-    });
+    // Customer, recent purchases and purchase count are independent: fetch them together
+    const [customer, sales, totalSalesCount] = await Promise.all([
+      db.collection("customers").findOne({ _id: objectId, tenant_id: tenantId }),
+      db.collection("sales")
+        .find(
+          { tenant_id: tenantId, customer_id: customerKey },
+          { projection: { invoice_no: 1, payment_method: 1, total: 1, created_at: 1 } }
+        )
+        .sort({ created_at: -1 })
+        .limit(10)
+        .toArray(),
+      db.collection("sales").countDocuments({ tenant_id: tenantId, customer_id: customerKey }),
+    ]);
 
     if (!customer) {
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
-
-    // Get purchase history (sales associated with this customer)
-    const sales = await db.collection("sales")
-      .find({ tenant_id: tenantId, customer_id: resolvedParams.id })
-      .sort({ created_at: -1 })
-      .limit(10)
-      .toArray();
-
-    const totalSalesCount = await db.collection("sales").countDocuments({ 
-      tenant_id: tenantId, 
-      customer_id: resolvedParams.id 
-    });
 
     return NextResponse.json({
       ...customer,
@@ -67,15 +68,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const tenantId = (session?.user as any)?.tenant_id;
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     const validatedData = customerSchema.parse(body);
+    // The schema defaults status to ACTIVE: an update that doesn't mention status must not silently reactivate a customer
+    if (body.status === undefined) delete (validatedData as Partial<typeof validatedData>).status;
+    // A blank id would wipe the customer's existing number
+    const newCustomerId = validatedData.customer_id?.trim();
+    if (newCustomerId) validatedData.customer_id = newCustomerId;
+    else delete validatedData.customer_id;
 
     const db = client.db("pos");
     
-    let objectId;
-    try {
-      objectId = new ObjectId(resolvedParams.id);
-    } catch {
+    const objectId = parseId(resolvedParams.id);
+    if (!objectId) {
       return NextResponse.json({ error: "Invalid customer ID format" }, { status: 400 });
     }
 
@@ -123,25 +129,28 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     const db = client.db("pos");
     
-    let objectId;
-    try {
-      objectId = new ObjectId(resolvedParams.id);
-    } catch {
+    const objectId = parseId(resolvedParams.id);
+    if (!objectId) {
       return NextResponse.json({ error: "Invalid customer ID format" }, { status: 400 });
     }
+    // Sales store the customer's id as a lowercase hex string
+    const customerKey = objectId.toHexString();
 
     // Check if customer has associated sales
     const salesCount = await db.collection("sales").countDocuments({
       tenant_id: tenantId,
-      customer_id: resolvedParams.id
+      customer_id: customerKey
     });
 
     if (salesCount > 0) {
       // Soft delete / Inactivate instead
-      await db.collection("customers").updateOne(
+      const updated = await db.collection("customers").updateOne(
         { _id: objectId, tenant_id: tenantId },
         { $set: { status: "INACTIVE", updated_at: new Date() } }
       );
+      if (updated.matchedCount === 0) {
+        return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+      }
       return NextResponse.json({ message: "Customer has associated sales. Status changed to INACTIVE." });
     }
 

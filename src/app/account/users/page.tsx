@@ -14,6 +14,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -42,13 +43,17 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setLoadError("");
     // allSettled: a viewer with USERS:VIEW but no ROLES:VIEW must still see the staff list
     const [usersRes, rolesRes] = await Promise.allSettled([
       axios.get("/api/users"),
       axios.get("/api/roles")
     ]);
     if (usersRes.status === "fulfilled") setUsers(usersRes.value.data || []);
-    else console.error("Failed to fetch users", usersRes.reason);
+    else {
+      console.error("Failed to fetch users", usersRes.reason);
+      setLoadError((usersRes.reason as any)?.response?.data?.error || "Failed to load staff users. Please try again.");
+    }
 
     if (rolesRes.status === "fulfilled") {
       const fetchedRoles = rolesRes.value.data || [];
@@ -64,6 +69,7 @@ export default function UsersPage() {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setAddError("");
     try {
@@ -91,7 +97,7 @@ export default function UsersPage() {
       name: user.name,
       email: user.email,
       password: "",
-      role_id: user.role_id || (roles.length > 0 ? roles[0]._id : "")
+      role_id: user.role_id || ""
     });
     setEditError("");
     setShowEditPassword(false);
@@ -99,7 +105,7 @@ export default function UsersPage() {
 
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingUser) return;
+    if (!editingUser || isUpdating) return;
     setIsUpdating(true);
     setEditError("");
     try {
@@ -195,7 +201,7 @@ export default function UsersPage() {
             <h3 className="text-base font-bold text-foreground flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" /> Create Staff Account
             </h3>
-            <button onClick={() => setIsAddingUser(false)} className="text-muted-foreground hover:text-foreground">
+            <button type="button" aria-label="Close form" onClick={() => setIsAddingUser(false)} className="text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -252,6 +258,7 @@ export default function UsersPage() {
                   />
                   <button
                     type="button"
+                    aria-label={showNewPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
@@ -333,6 +340,11 @@ export default function UsersPage() {
           <div className="p-6">
             <TableSkeleton columns={5} rows={5} />
           </div>
+        ) : loadError ? (
+          <div role="alert" className="p-10 text-center space-y-3">
+            <p className="text-sm text-rose-600">{loadError}</p>
+            <Button variant="outline" size="sm" onClick={fetchData}>Retry</Button>
+          </div>
         ) : filteredUsers.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-muted-foreground mb-3">
@@ -399,7 +411,7 @@ export default function UsersPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDeleteUser(u)}
-                              className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                              className="h-8 px-2.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
                             >
                               <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
                             </Button>
@@ -417,19 +429,24 @@ export default function UsersPage() {
 
       {/* Edit User Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150"
+          onKeyDown={(e) => { if (e.key === "Escape" && !isUpdating) setEditingUser(null); }}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-user-title" className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-muted/40">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
                   <Edit2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground text-base leading-none">Edit Staff Account</h3>
+                  <h3 id="edit-user-title" className="font-bold text-foreground text-base leading-none">Edit Staff Account</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">Update credentials and role assignment</p>
                 </div>
               </div>
               <button 
+                type="button"
+                aria-label="Close"
                 onClick={() => setEditingUser(null)} 
                 className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors"
               >
@@ -482,6 +499,7 @@ export default function UsersPage() {
                   />
                   <button
                     type="button"
+                    aria-label={showEditPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowEditPassword(!showEditPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
@@ -499,6 +517,7 @@ export default function UsersPage() {
                     onChange={e => setEditForm({...editForm, role_id: e.target.value})}
                     className="w-full h-10 px-3 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm font-semibold text-foreground"
                   >
+                    {!editForm.role_id && <option value="" disabled>Select a role</option>}
                     {roles.map(r => (
                       <option key={r._id} value={r._id}>{r.name}</option>
                     ))}

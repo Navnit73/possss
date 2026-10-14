@@ -10,11 +10,22 @@ import Link from "next/link";
 import { ArrowLeft, Settings2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 
+// Mirrors the server rules in /api/inventory/adjust. Sales are recorded through POS only.
 const adjustSchema = z.object({
   batch_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Batch"),
-  movement_type: z.enum(["SALE", "DAMAGE", "RETURN", "ADJUSTMENT"]),
-  quantity: z.coerce.number().refine(val => val !== 0, "Quantity cannot be zero"),
-  notes: z.string().optional(),
+  movement_type: z.enum(["DAMAGE", "RETURN", "ADJUSTMENT"]),
+  quantity: z.coerce.number()
+    .refine(val => Number.isFinite(val), "Quantity must be a number")
+    .refine(val => val !== 0, "Quantity cannot be zero")
+    .refine(val => Math.abs(val) <= 1_000_000, "Quantity is too large"),
+  notes: z.string().max(500, "Notes must be 500 characters or fewer").optional(),
+}).superRefine((data, ctx) => {
+  if (data.movement_type === "DAMAGE" && data.quantity > 0) {
+    ctx.addIssue({ code: "custom", path: ["quantity"], message: "Damage must reduce stock (use a negative quantity)" });
+  }
+  if (data.movement_type === "RETURN" && data.quantity < 0) {
+    ctx.addIssue({ code: "custom", path: ["quantity"], message: "Return must add stock (use a positive quantity)" });
+  }
 });
 
 type AdjustFormType = z.infer<typeof adjustSchema>;
@@ -41,8 +52,9 @@ export default function AdjustStockPage() {
       try {
         const res = await axios.get("/api/inventory/batches");
         setBatches(res.data);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load batches", err);
+        setError(err.response?.data?.error || "Failed to load batches");
       } finally {
         setIsLoading(false);
       }
@@ -50,11 +62,14 @@ export default function AdjustStockPage() {
     fetchBatches();
   }, []);
 
-  // Group batches by product name for better dropdown UI
-  const groupedBatches = batches.reduce((acc: any, batch: any) => {
-    const pName = batch.product?.name || "Unknown Product";
-    if (!acc[pName]) acc[pName] = [];
-    acc[pName].push(batch);
+  // Group batches by product (keyed by id so same-named products with different strengths stay separate)
+  const groupedBatches = batches.reduce((acc: Record<string, { label: string; batches: any[] }>, batch: any) => {
+    const pId = batch.product?._id || batch.product_id || "unknown";
+    if (!acc[pId]) {
+      const name = batch.product?.name || "Unknown Product";
+      acc[pId] = { label: batch.product?.strength ? `${name} (${batch.product.strength})` : name, batches: [] };
+    }
+    acc[pId].batches.push(batch);
     return acc;
   }, {});
 
@@ -88,16 +103,17 @@ export default function AdjustStockPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="col-span-1 md:col-span-2">
-            <label className="text-sm font-medium text-foreground">Select Batch *</label>
+            <label htmlFor="adjust-batch" className="text-sm font-medium text-foreground">Select Batch *</label>
             <select 
+              id="adjust-batch"
               {...register("batch_id")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
               disabled={isLoading}
             >
               <option value="">Select a batch to adjust...</option>
-              {Object.entries(groupedBatches).map(([pName, pBatches]: [string, any]) => (
-                <optgroup key={pName} label={pName}>
-                  {pBatches.map((b: any) => (
+              {Object.entries(groupedBatches).map(([pId, group]) => (
+                <optgroup key={pId} label={group.label}>
+                  {group.batches.map((b: any) => (
                     <option key={b._id} value={b._id}>
                       Batch: {b.batch_number} (Current Qty: {b.qty_available})
                     </option>
@@ -109,21 +125,22 @@ export default function AdjustStockPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Movement Type *</label>
+            <label htmlFor="adjust-type" className="text-sm font-medium text-foreground">Movement Type *</label>
             <select 
+              id="adjust-type"
               {...register("movement_type")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
             >
-              <option value="DAMAGE">Damage</option>
-              <option value="SALE">Sale (Manual)</option>
-              <option value="RETURN">Return</option>
+              <option value="DAMAGE">Damage (reduces stock)</option>
+              <option value="RETURN">Return (adds stock)</option>
               <option value="ADJUSTMENT">Stock Correction / Adjustment</option>
             </select>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Quantity Offset *</label>
+            <label htmlFor="adjust-qty" className="text-sm font-medium text-foreground">Quantity Offset *</label>
             <input 
+              id="adjust-qty"
               type="number"
               step="any"
               {...register("quantity")}
@@ -134,12 +151,14 @@ export default function AdjustStockPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">Reason / Notes</label>
+            <label htmlFor="adjust-notes" className="text-sm font-medium text-foreground">Reason / Notes</label>
             <textarea 
+              id="adjust-notes"
               {...register("notes")}
               className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[100px]"
               placeholder="Explain why this adjustment is being made..."
             />
+            {errors.notes && <p className="text-sm text-red-500 mt-1">{errors.notes.message}</p>}
           </div>
         </div>
 

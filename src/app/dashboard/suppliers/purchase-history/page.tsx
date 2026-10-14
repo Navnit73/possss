@@ -6,6 +6,7 @@ import axios from "axios";
 import Link from "next/link";
 import { ArrowLeft, History, Package } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { useCurrency } from "@/context/CurrencyContext";
 
 function PurchaseHistoryContent() {
   const searchParams = useSearchParams();
@@ -14,32 +15,42 @@ function PurchaseHistoryContent() {
   const [batches, setBatches] = useState<any[]>([]);
   const [supplier, setSupplier] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
+      setIsLoading(true);
+      setError("");
       try {
         if (supplierId) {
           // Fetch specific supplier details
-          const supRes = await axios.get(`/api/suppliers/${supplierId}`);
+          const [supRes, histRes] = await Promise.all([
+            axios.get(`/api/suppliers/${supplierId}`),
+            axios.get(`/api/suppliers/${supplierId}/history`)
+          ]);
+          if (cancelled) return;
           setSupplier(supRes.data);
-
-          // Fetch batches for this supplier
-          const histRes = await axios.get(`/api/suppliers/${supplierId}/history`);
-          setBatches(histRes.data);
+          setBatches(Array.isArray(histRes.data) ? histRes.data : []);
         } else {
           // Fetch all batches and all suppliers for a general view
           // Here we just fetch all batches and we could map them, but for this page's scope,
           // if no supplierId is provided, we can fetch all batches and display them.
           const res = await axios.get("/api/inventory/batches");
-          setBatches(res.data);
+          if (cancelled) return;
+          setSupplier(null);
+          setBatches(Array.isArray(res.data) ? res.data : []);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to fetch purchase history", err);
+        if (!cancelled) setError(err.response?.data?.error || "Failed to load purchase history");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [supplierId]);
 
   return (
@@ -49,6 +60,8 @@ function PurchaseHistoryContent() {
         description="View historical stock receipts and batches."
         backHref={supplierId ? `/dashboard/suppliers/${supplierId}` : "/dashboard/suppliers"}
       />
+
+      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
         {isLoading ? (
@@ -99,10 +112,11 @@ function PurchaseHistoryContent() {
                       </td>
                     )}
                     <td className="p-4 text-sm text-foreground">
-                      {b.qty_available}
+                      {/* qty_available shrinks as stock sells; qty_received is the original receipt (older batches lack it) */}
+                      {b.qty_received ?? b.qty_available}
                     </td>
                     <td className="p-4 text-sm text-foreground">
-                      ${b.cost_price?.toFixed(2) || "0.00"}
+                      {formatCurrency(Number(b.cost_price || 0))}
                     </td>
                   </tr>
                 ))}

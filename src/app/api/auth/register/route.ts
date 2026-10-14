@@ -16,8 +16,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const validatedData = registerSchema.parse(body);
-    const email = validatedData.email.trim().toLowerCase();
+    const validatedData = registerSchema.parse({
+      ...body,
+      name: typeof body?.name === "string" ? body.name.trim() : body?.name,
+      email: typeof body?.email === "string" ? body.email.trim().toLowerCase() : body?.email,
+    });
+    const email = validatedData.email;
 
     const db = client.db("pos");
     

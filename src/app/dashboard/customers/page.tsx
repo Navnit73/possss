@@ -14,24 +14,34 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [loadError, setLoadError] = useState("");
 
-  const fetchCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get("/api/customers", {
-        params: { q: search, page, limit: 10 }
-      });
-      setCustomers(res.data.customers);
-      setTotalPages(res.data.totalPages);
-    } catch (error) {
-      console.error("Failed to fetch customers", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Debounced, and older requests are aborted so a slow response for "jo" can't replace the results for "john"
   useEffect(() => {
-    fetchCustomers();
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setLoadError("");
+        const res = await axios.get("/api/customers", {
+          params: { q: search, page, limit: 10 },
+          signal: controller.signal,
+        });
+        setCustomers(res.data.customers ?? []);
+        setTotalPages(Math.max(1, res.data.totalPages || 1));
+      } catch (error: any) {
+        if (axios.isCancel(error)) return;
+        console.error("Failed to fetch customers", error);
+        setCustomers([]);
+        setLoadError(error.response?.data?.error || "Failed to load customers.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [page, search]);
 
   return (
@@ -53,9 +63,10 @@ export default function CustomersPage() {
       <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
         <div className="p-4 border-b border-border flex gap-4 bg-surface">
           <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden />
             <input 
               type="text"
+              aria-label="Search customers by name, phone, email or ID"
               placeholder="Search customers..."
               className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               value={search}
@@ -86,6 +97,12 @@ export default function CustomersPage() {
                       <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                       Loading...
                     </div>
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-red-600" role="alert">
+                    {loadError}
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
@@ -128,9 +145,10 @@ export default function CustomersPage() {
                     <td className="px-6 py-4 text-right">
                       <Link 
                         href={`/dashboard/customers/${customer._id}`}
+                        aria-label={`View ${customer.name}`}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-4 h-4" aria-hidden />
                       </Link>
                     </td>
                   </tr>
@@ -156,7 +174,7 @@ export default function CustomersPage() {
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
+                disabled={page >= totalPages}
                 className="px-3 py-1 border border-border rounded text-sm disabled:opacity-50 hover:bg-white"
               >
                 Next

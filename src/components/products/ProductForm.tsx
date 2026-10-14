@@ -17,7 +17,27 @@ interface ProductFormProps {
   isEdit?: boolean;
 }
 
-export function ProductForm({ initialData, isEdit }: ProductFormProps) {
+/**
+ * Optional fields cleared earlier are stored as null in MongoDB. Zod's string/boolean schemas reject
+ * null, which made such products impossible to re-save (with no visible error). Map them back to
+ * form-friendly values.
+ */
+function normalizeInitialData(data?: ProductFormProps["initialData"]) {
+  if (!data) return undefined;
+  const normalized: any = { ...data };
+  Object.keys(normalized).forEach((key) => {
+    if (normalized[key] === null) normalized[key] = "";
+  });
+  if (normalized.requires_prescription === "" || normalized.requires_prescription === undefined) normalized.requires_prescription = false;
+  if (normalized.package_size === "" || normalized.package_size === undefined) normalized.package_size = 1;
+  if (normalized.minimum_stock === "") normalized.minimum_stock = 0;
+  if (normalized.tax_rate === "") normalized.tax_rate = 0;
+  if (!normalized.status) normalized.status = "ACTIVE";
+  return normalized as ProductFormType & { _id?: string };
+}
+
+export function ProductForm({ initialData: rawInitialData, isEdit }: ProductFormProps) {
+  const [initialData] = useState(() => normalizeInitialData(rawInitialData));
   const router = useRouter();
   const [categories, setCategories] = useState<any[]>([]);
   const [manufacturers, setManufacturers] = useState<any[]>([]);
@@ -29,6 +49,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
     resolver: zodResolver(productSchema) as any,
     defaultValues: initialData || {
       requires_prescription: false,
+      package_size: 1,
       minimum_stock: 0,
       tax_rate: 0,
       status: "ACTIVE"
@@ -61,8 +82,9 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
         if (initialData) {
           reset(initialData);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load select data", err);
+        setError(err.response?.data?.error || "Failed to load categories and manufacturers");
       } finally {
         setIsLoadingData(false);
       }
@@ -71,6 +93,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
   }, [isEdit, initialData, reset]);
 
   const onSubmit = async (data: ProductFormType) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
     try {
@@ -88,7 +111,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
 
   return (
     <div className="space-y-8">
-      {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {error && <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}
+      {Object.keys(errors).length > 0 && (
+        <div role="alert" className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">
+          Please fix the highlighted fields: {Object.keys(errors).map(k => k.replace(/_/g, " ")).join(", ")}.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Section 1: Basic Information */}
@@ -356,6 +384,7 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
                 />
                 <span className="text-sm text-muted-foreground whitespace-nowrap">units per pack</span>
               </div>
+              {errors.package_size && <p className="text-sm text-red-500 mt-1">{errors.package_size.message}</p>}
             </div>
           </div>
         </div>
@@ -383,10 +412,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               <label className="text-sm font-medium text-foreground">Minimum Stock Alert</label>
               <input 
                 type="number"
+                min="0"
                 {...register("minimum_stock")}
                 className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="0"
               />
+              {errors.minimum_stock && <p className="text-sm text-red-500 mt-1">{errors.minimum_stock.message}</p>}
               <p className="text-xs text-muted-foreground mt-1.5">Alerts when total stock falls below this level.</p>
             </div>
 
@@ -395,10 +426,12 @@ export function ProductForm({ initialData, isEdit }: ProductFormProps) {
               <input 
                 type="number"
                 step="0.01"
+                min="0"
                 {...register("tax_rate")}
                 className="w-full mt-1.5 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                 placeholder="0.00"
               />
+              {errors.tax_rate && <p className="text-sm text-red-500 mt-1">{errors.tax_rate.message}</p>}
             </div>
 
             <div>

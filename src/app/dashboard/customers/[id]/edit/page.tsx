@@ -75,8 +75,8 @@ export default function EditCustomerPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
-        <Link href={`/dashboard/customers/${id}`} className="text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-5 h-5" />
+        <Link href={`/dashboard/customers/${id}`} className="text-muted-foreground hover:text-foreground" aria-label="Back">
+          <ArrowLeft className="w-5 h-5" aria-hidden />
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Edit Customer</h1>
@@ -94,8 +94,9 @@ export default function EditCustomerPage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Full Name *</label>
+              <label htmlFor="customer-name" className="text-sm font-semibold text-foreground">Full Name *</label>
               <input
+                id="customer-name"
                 {...register("name")}
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 placeholder="John Doe"
@@ -104,8 +105,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Phone Number</label>
+              <label htmlFor="customer-phone" className="text-sm font-semibold text-foreground">Phone Number</label>
               <input
+                id="customer-phone"
                 {...register("phone")}
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 placeholder="+1 234 567 8900"
@@ -113,8 +115,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Email Address</label>
+              <label htmlFor="customer-email" className="text-sm font-semibold text-foreground">Email Address</label>
               <input
+                id="customer-email"
                 {...register("email")}
                 type="email"
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -124,8 +127,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Date of Birth</label>
+              <label htmlFor="customer-date_of_birth" className="text-sm font-semibold text-foreground">Date of Birth</label>
               <input
+                id="customer-date_of_birth"
                 {...register("date_of_birth")}
                 type="date"
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -133,8 +137,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-semibold text-foreground">Address</label>
+              <label htmlFor="customer-address" className="text-sm font-semibold text-foreground">Address</label>
               <textarea
+                id="customer-address"
                 {...register("address")}
                 rows={2}
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -143,8 +148,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-semibold text-foreground">Notes</label>
+              <label htmlFor="customer-notes" className="text-sm font-semibold text-foreground">Notes</label>
               <textarea
+                id="customer-notes"
                 {...register("notes")}
                 rows={3}
                 className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -153,8 +159,9 @@ export default function EditCustomerPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Status</label>
+              <label htmlFor="customer-status" className="text-sm font-semibold text-foreground">Status</label>
               <select
+                id="customer-status"
                 {...register("status")}
                 className="w-full px-3 py-2 border border-border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
@@ -164,8 +171,9 @@ export default function EditCustomerPage() {
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Custom Customer ID</label>
+              <label htmlFor="customer-customer_id" className="text-sm font-semibold text-foreground">Custom Customer ID</label>
               <input
+                id="customer-customer_id"
                 {...register("customer_id")}
                 className="w-full px-3 py-2 border border-border rounded-md bg-surface text-muted-foreground focus:outline-none"
                 placeholder="Leave blank to auto-generate"

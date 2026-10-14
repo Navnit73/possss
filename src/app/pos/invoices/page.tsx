@@ -28,6 +28,8 @@ export default function PosInvoicesPage() {
   const { formatCurrency } = useCurrency();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [filterError, setFilterError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
@@ -44,8 +46,11 @@ export default function PosInvoicesPage() {
   const limit = 100;
 
   useEffect(() => {
+    // Typing in the search box fires several requests: abort the older ones so a slow, stale response can't overwrite newer results
+    const controller = new AbortController();
     const fetchInvoices = async () => {
       setIsLoading(true);
+      setLoadError("");
       try {
         const res = await axios.get("/api/pos/invoices", {
           params: {
@@ -54,7 +59,8 @@ export default function PosInvoicesPage() {
             q: search,
             startDate: appliedStartDate,
             endDate: appliedEndDate
-          }
+          },
+          signal: controller.signal,
         });
 
         if (res.data.invoices) {
@@ -66,10 +72,13 @@ export default function PosInvoicesPage() {
           setTotalCount(res.data.length);
           setTotalPages(1);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (axios.isCancel(err)) return;
         console.error("Failed to fetch invoices", err);
+        setInvoices([]);
+        setLoadError(err.response?.data?.error || "Couldn't load invoices. Check your connection and try again.");
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     };
 
@@ -77,16 +86,25 @@ export default function PosInvoicesPage() {
       fetchInvoices();
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [page, search, appliedStartDate, appliedEndDate]);
 
   const handleApplyFilter = () => {
+    if (startDate && endDate && startDate > endDate) {
+      setFilterError("'From' must be on or before 'To'.");
+      return;
+    }
+    setFilterError("");
     setAppliedStartDate(startDate);
     setAppliedEndDate(endDate);
     setPage(1);
   };
 
   const handleResetFilter = () => {
+    setFilterError("");
     setStartDate("");
     setEndDate("");
     setAppliedStartDate("");
@@ -173,9 +191,10 @@ export default function PosInvoicesPage() {
           {/* Top Toolbar */}
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
             <div className="relative w-full lg:max-w-xs">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
               <input 
                 type="text" 
+                aria-label="Search invoices by invoice number or payment method"
                 placeholder="Search invoice # or payment..." 
                 value={search}
                 onChange={(e) => {
@@ -192,6 +211,7 @@ export default function PosInvoicesPage() {
                 <span className="text-[10px] font-extrabold uppercase text-slate-400">From</span>
                 <input 
                   type="date"
+                  aria-label="From date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="outline-none text-slate-800 text-xs font-medium bg-transparent cursor-pointer"
@@ -202,6 +222,7 @@ export default function PosInvoicesPage() {
                 <span className="text-[10px] font-extrabold uppercase text-slate-400">To</span>
                 <input 
                   type="date"
+                  aria-label="To date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="outline-none text-slate-800 text-xs font-medium bg-transparent cursor-pointer"
@@ -215,6 +236,8 @@ export default function PosInvoicesPage() {
                 <Filter className="w-3.5 h-3.5" />
                 Filter
               </button>
+
+              {filterError && <span className="text-rose-600 font-semibold" role="alert">{filterError}</span>}
 
               {(appliedStartDate || appliedEndDate || startDate || endDate) && (
                 <button
@@ -237,6 +260,7 @@ export default function PosInvoicesPage() {
                   disabled={page <= 1 || isLoading}
                   className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors cursor-pointer"
                   title="Previous Page"
+                  aria-label="Previous page"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -245,6 +269,7 @@ export default function PosInvoicesPage() {
                   disabled={page >= totalPages || isLoading}
                   className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 transition-colors cursor-pointer"
                   title="Next Page"
+                  aria-label="Next page"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -256,6 +281,8 @@ export default function PosInvoicesPage() {
             <div className="p-6">
               <TableSkeleton columns={6} rows={8} />
             </div>
+          ) : loadError ? (
+            <div className="p-16 text-center text-xs font-semibold text-rose-600" role="alert">{loadError}</div>
           ) : invoices.length === 0 ? (
             <div className="p-16 text-center flex flex-col items-center justify-center">
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">

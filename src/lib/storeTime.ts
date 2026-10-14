@@ -4,8 +4,9 @@ import { formatInTimeZone } from "date-fns-tz";
 export function resolveTimezone(tz: unknown): string {
   if (typeof tz !== "string" || !tz) return "UTC";
   try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return tz;
+    const canonical = new Intl.DateTimeFormat("en-US", { timeZone: tz }).resolvedOptions().timeZone;
+    // Intl accepts any casing ("asia/kolkata") but MongoDB date operators don't; keep well-formed names as stored
+    return /^[A-Z]/.test(tz) ? tz : canonical;
   } catch {
     return "UTC";
   }

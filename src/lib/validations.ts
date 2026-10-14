@@ -4,19 +4,19 @@ import { SUPPORTED_CURRENCIES } from "./currency";
 // --- Auth Validations ---
 
 export const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
 export const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters long"),
 });
 
 export const createUserSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters long"),
   role: z.string(), // "CUSTOM"
   role_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Role"),
@@ -30,7 +30,7 @@ export const updateUserSchema = z.object({
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
 });
 
 export const resetPasswordSchema = z.object({
@@ -69,23 +69,23 @@ export const subscriptionSchema = z.object({
 // --- Product Validations ---
 
 export const categorySchema = z.object({
-  name: z.string().min(2, "Category name is required"),
-  description: z.string().optional(),
+  name: z.string().trim().min(2, "Category name is required").max(100, "Category name is too long"),
+  description: z.string().max(500).optional(),
 });
 
 export const manufacturerSchema = z.object({
-  name: z.string().min(2, "Manufacturer name is required"),
-  contact_info: z.string().optional(),
+  name: z.string().trim().min(2, "Manufacturer name is required").max(120, "Manufacturer name is too long"),
+  contact_info: z.string().max(500).optional(),
 });
 
 export const productSchema = z.object({
   // Basic Information
-  name: z.string().min(2, "Medicine Name is required"),
+  name: z.string().trim().min(2, "Medicine Name is required").max(200, "Medicine Name is too long"),
   generic_name: z.string().transform(v => v === "" ? undefined : v).optional(),
   brand: z.string().transform(v => v === "" ? undefined : v).optional(),
   category_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Category"),
   manufacturer_id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Please select a valid Manufacturer"),
-  barcode: z.string().transform(v => v === "" ? undefined : v).optional(),
+  barcode: z.string().trim().max(64, "Barcode is too long").transform(v => v === "" ? undefined : v).optional(),
   sku: z.string().transform(v => v === "" ? undefined : v).optional(),
   
   // Regulatory & Compliance
@@ -250,13 +250,13 @@ export interface StockMovement {
 // --- Customer Validations ---
 
 export const customerSchema = z.object({
-  name: z.string().min(2, "Customer name is required"),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  address: z.string().optional(),
-  notes: z.string().optional(),
-  date_of_birth: z.string().optional(),
-  customer_id: z.string().optional(),
+  name: z.string().trim().min(2, "Customer name is required").max(120, "Name is too long"),
+  phone: z.string().trim().max(30, "Phone number is too long").optional(),
+  email: z.string().trim().max(254).email("Invalid email address").optional().or(z.literal("")),
+  address: z.string().max(500, "Address is too long").optional(),
+  notes: z.string().max(2000, "Notes are too long").optional(),
+  date_of_birth: z.string().max(40).optional(),
+  customer_id: z.string().trim().max(40, "Customer ID is too long").optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
 
@@ -283,10 +283,10 @@ export interface Customer {
 // --- Supplier Validations ---
 
 export const supplierSchema = z.object({
-  name: z.string().min(2, "Supplier name is required"),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  address: z.string().optional(),
+  name: z.string().trim().min(2, "Supplier name is required").max(120, "Supplier name is too long"),
+  phone: z.string().trim().max(30).optional(),
+  email: z.string().trim().max(254).email("Invalid email address").optional().or(z.literal("")),
+  address: z.string().max(500).optional(),
 });
 
 export interface Supplier {

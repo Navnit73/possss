@@ -7,6 +7,8 @@ import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
+const OBJECT_ID_RE = /^[0-9a-fA-F]{24}$/;
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -21,6 +23,9 @@ export async function GET(
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
+    if (!OBJECT_ID_RE.test(id)) {
+      return NextResponse.json({ error: "Invalid supplier ID" }, { status: 400 });
+    }
 
     const db = client.db("pos");
     const supplier = await db.collection("suppliers").findOne({ 
@@ -53,8 +58,12 @@ export const PUT = withAuditLog("SUPPLIER_UPDATE", "SUPPLIERS", async (
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
+    if (!OBJECT_ID_RE.test(id)) {
+      return NextResponse.json({ error: "Invalid supplier ID" }, { status: 400 });
+    }
 
     const body = await req.json();
+    if (body && typeof body.name === "string") body.name = body.name.trim();
     const validatedData = supplierSchema.parse(body);
 
     const db = client.db("pos");
@@ -88,10 +97,22 @@ export const PUT = withAuditLog("SUPPLIER_UPDATE", "SUPPLIERS", async (
       return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
     }
 
+    // Batches snapshot the supplier name (older ones have no supplier_id). Keep them linked on rename,
+    // otherwise purchase history and the delete "in use" check lose track of them.
+    if (currentSupplier.name !== validatedData.name) {
+      await db.collection("batches").updateMany(
+        { tenant_id: tenantId, $or: [{ supplier_id: id }, { supplier: currentSupplier.name }] },
+        { $set: { supplier: validatedData.name, supplier_id: id } }
+      );
+    }
+
     audit.setAfter({ ...currentSupplier, ...updatedFields });
 
     return NextResponse.json({ message: "Supplier updated" });
   } catch (error: any) {
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: "Another supplier with this name already exists" }, { status: 409 });
+    }
     return await handleApiError(error, "PUT /api/suppliers/[id]");
   }
 });
@@ -111,6 +132,9 @@ export const DELETE = withAuditLog("SUPPLIER_DELETE", "SUPPLIERS", async (
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
+    if (!OBJECT_ID_RE.test(id)) {
+      return NextResponse.json({ error: "Invalid supplier ID" }, { status: 400 });
+    }
 
     const db = client.db("pos");
 
@@ -127,7 +151,7 @@ export const DELETE = withAuditLog("SUPPLIER_DELETE", "SUPPLIERS", async (
         { supplier_id: new ObjectId(id) },
         { supplier: currentSupplier.name }
       ]
-    });
+    }, { projection: { _id: 1 } });
 
     if (inUse) {
        return NextResponse.json({ error: "Cannot delete supplier as it is linked to inventory batches." }, { status: 400 });

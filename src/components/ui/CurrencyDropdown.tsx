@@ -25,6 +25,7 @@ export function CurrencyDropdown({
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const activeCurrency =
     SUPPORTED_CURRENCIES.find((c) => c.code === currency) || {
@@ -56,18 +57,21 @@ export function CurrencyDropdown({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && isOpen) {
         closeDropdown();
+        triggerRef.current?.focus();
       }
     }
 
+    let focusTimer: ReturnType<typeof setTimeout> | undefined;
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleKeyDown);
-      setTimeout(() => {
+      focusTimer = setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
     }
 
     return () => {
+      clearTimeout(focusTimer);
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
@@ -76,6 +80,7 @@ export function CurrencyDropdown({
   const handleSelect = (c: CurrencyInfo) => {
     setCurrency(c.code);
     closeDropdown();
+    triggerRef.current?.focus();
   };
 
   const isDark = variant === "dark";
@@ -84,21 +89,22 @@ export function CurrencyDropdown({
     <div className={clsx("relative inline-block text-left", className)} ref={dropdownRef}>
       {/* Trigger Button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => canChange && setIsOpen(!isOpen)}
         disabled={!canChange}
         className={clsx(
           "group flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border shadow-2xs cursor-pointer select-none shrink-0 disabled:cursor-default",
           isDark
-            ? "bg-slate-800/90 hover:bg-slate-750 text-white border-slate-700 hover:border-emerald-500/50 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            ? "bg-slate-800/90 hover:bg-slate-700 text-white border-slate-700 hover:border-emerald-500/50 focus-visible:ring-2 focus-visible:ring-emerald-500"
             : "bg-surface hover:bg-muted text-foreground border-border hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20"
         )}
         title={`Current Currency: ${activeCurrency.name} (${activeCurrency.symbol})${canChange ? " - Click to change" : ""}`}
-        aria-label="Change Store Currency"
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
+        aria-label={canChange ? `Store currency: ${activeCurrency.code}. Change store currency` : `Store currency: ${activeCurrency.code}`}
+        aria-expanded={canChange ? isOpen : undefined}
+        aria-haspopup={canChange ? "listbox" : undefined}
       >
-        <span className="text-sm leading-none shrink-0 flex items-center">{activeCurrency.flag}</span>
+        <span className="text-sm leading-none shrink-0 flex items-center" aria-hidden="true">{activeCurrency.flag}</span>
         <span className="font-bold tracking-tight text-xs">{activeCurrency.code}</span>
         <span
           className={clsx(
@@ -122,7 +128,6 @@ export function CurrencyDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          role="listbox"
           className={clsx(
             "absolute right-0 mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 backdrop-blur-sm",
             isDark
@@ -137,7 +142,7 @@ export function CurrencyDropdown({
                 <Coins className={clsx("w-3.5 h-3.5", isDark ? "text-emerald-400" : "text-primary")} />
                 Store Currency
               </span>
-              <span className={clsx("text-[10px] font-medium px-1.5 py-0.2 rounded-full", isDark ? "bg-slate-800 text-slate-400" : "bg-muted text-muted-foreground")}>
+              <span className={clsx("text-[10px] font-medium px-1.5 py-0.5 rounded-full", isDark ? "bg-slate-800 text-slate-400" : "bg-muted text-muted-foreground")}>
                 {SUPPORTED_CURRENCIES.length} available
               </span>
             </div>
@@ -155,6 +160,7 @@ export function CurrencyDropdown({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search currency, code or symbol..."
+                aria-label="Search currencies"
                 className={clsx(
                   "w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border focus:outline-none transition-all",
                   isDark
@@ -165,7 +171,11 @@ export function CurrencyDropdown({
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch("")}
+                  onClick={() => {
+                    setSearch("");
+                    searchInputRef.current?.focus();
+                  }}
+                  aria-label="Clear search"
                   className={clsx(
                     "absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-slate-700/50 cursor-pointer",
                     isDark ? "text-slate-400 hover:text-white" : "text-muted-foreground hover:text-foreground"
@@ -178,7 +188,7 @@ export function CurrencyDropdown({
           </div>
 
           {/* Currency List */}
-          <div className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
+          <div role="listbox" aria-label="Currencies" className="max-h-60 overflow-y-auto p-1.5 space-y-0.5">
             {filteredCurrencies.length === 0 ? (
               <div className="py-6 text-center text-xs text-muted-foreground">
                 No currencies matching &ldquo;{search}&rdquo;
@@ -194,13 +204,13 @@ export function CurrencyDropdown({
                     aria-selected={isSelected}
                     onClick={() => handleSelect(c)}
                     className={clsx(
-                      "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer text-left",
+                      "w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition-colors cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       isSelected
                         ? isDark
                           ? "bg-emerald-600 text-white font-bold shadow-2xs"
                           : "bg-primary text-primary-foreground font-bold shadow-2xs"
                         : isDark
-                        ? "hover:bg-slate-800/80 text-slate-200 active:bg-slate-750"
+                        ? "hover:bg-slate-800/80 text-slate-200 active:bg-slate-700"
                         : "hover:bg-muted text-foreground active:bg-muted/80"
                     )}
                   >

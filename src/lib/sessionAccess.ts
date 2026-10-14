@@ -22,6 +22,19 @@ export async function resolveAccess(db: Db, user: Record<string, any>) {
 }
 
 /**
+ * `auth()` in route handlers and server components can't write the refreshed token back to the cookie,
+ * so a stale token would otherwise hit the database on every call (twice for audited routes).
+ * Recent lookups are shared per process for a few seconds; null means the session must end.
+ */
+const ACCESS_MEMO_MS = 10 * 1000;
+const accessMemo = new Map<string, { at: number; access: Awaited<ReturnType<typeof resolveAccess>> | null; passwordChangedAt: number }>();
+
+/** A password change (reset, self-change or admin change) ends sessions that signed in before it. Tokens without authAt predate this check. */
+function isRevokedByPasswordChange(token: Record<string, any>, passwordChangedAt: number): boolean {
+  return passwordChangedAt > 0 && Number(token.authAt) > 0 && passwordChangedAt > Number(token.authAt);
+}
+
+/**
  * Re-validates a session token against the database when it is stale (or `force` is set).
  * Returns null when the session must end: the user was removed or their store was deleted.
  * Keeps the cached state on transient database errors so an outage doesn't sign everyone out.
@@ -30,17 +43,27 @@ export async function refreshTokenAccess<T extends Record<string, any>>(token: T
   const stale = force || Date.now() - Number(token.checkedAt || 0) > ACCESS_REFRESH_MS;
   if (!token.id || !stale) return token;
 
+  const userId = String(token.id);
+  const memo = accessMemo.get(userId);
+  if (!force && memo && Date.now() - memo.at < ACCESS_MEMO_MS) {
+    if (!memo.access || isRevokedByPasswordChange(token, memo.passwordChangedAt)) return null;
+    return Object.assign(token, memo.access, { checkedAt: memo.at });
+  }
+
   try {
     const userDb = await db.collection("users").findOne(
-      { _id: new ObjectId(token.id as string) },
-      { projection: { role: 1, role_id: 1, tenant_id: 1 } }
+      { _id: new ObjectId(userId) },
+      { projection: { role: 1, role_id: 1, tenant_id: 1, password_changed_at: 1 } }
     );
-    if (!userDb) return null;
+    const access = userDb ? await resolveAccess(db, userDb) : null;
+    const valid = access && access.tenant_status !== "DELETED" ? access : null;
 
-    const access = await resolveAccess(db, userDb);
-    if (access.tenant_status === "DELETED") return null;
+    const now = Date.now();
+    if (accessMemo.size > 5000) accessMemo.clear();
+    accessMemo.set(userId, { at: now, access: valid, passwordChangedAt: userDb?.password_changed_at ? new Date(userDb.password_changed_at).getTime() : 0 });
+    if (!valid || isRevokedByPasswordChange(token, accessMemo.get(userId)!.passwordChangedAt)) return null;
 
-    Object.assign(token, access, { checkedAt: Date.now() });
+    Object.assign(token, valid, { checkedAt: now });
   } catch (error) {
     console.error("Failed to refresh session access:", error);
   }

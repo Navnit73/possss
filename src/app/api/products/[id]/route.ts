@@ -80,6 +80,8 @@ export const PUT = withAuditLog("EDIT_PRODUCT", "PRODUCTS", async (req: Request,
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
+    // Normalise the barcode so " 123" and "123" can't both exist
+    if (body && typeof body.barcode === "string") body.barcode = body.barcode.trim();
     const validatedData = productSchema.parse(body);
 
     const db = client.db("pos");
@@ -132,6 +134,10 @@ export const PUT = withAuditLog("EDIT_PRODUCT", "PRODUCTS", async (req: Request,
 
     return NextResponse.json({ message: "Product updated successfully" }, { status: 200 });
   } catch (error: any) {
+    // Unique {tenant_id, barcode} index caught a concurrent duplicate
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: "A product with this barcode already exists" }, { status: 409 });
+    }
     return await handleApiError(error, `PUT /api/products/${id}`);
   }
 });

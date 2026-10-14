@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { X, Printer, FileText, ExternalLink, CheckCircle2, RefreshCw } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
+import { lineAmount } from "@/lib/posMath";
 
 interface InvoiceReceiptModalProps {
   saleId: string;
@@ -56,7 +57,10 @@ export function InvoiceReceiptModal({ saleId, onClose }: InvoiceReceiptModalProp
     return () => {
       isMounted = false;
       controller.abort();
-      if (createdBlobUrl) URL.revokeObjectURL(createdBlobUrl);
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl);
+        setPdfBlobUrl(null); // never print from a revoked URL
+      }
     };
   }, [saleId, pdfUrl, jsonUrl, attempt]);
 
@@ -254,7 +258,7 @@ function HTMLReceiptFallback({ sale, items, tenant, customer }: any) {
           const itemPrice = Number(item.price || item.unit_price || item.selling_price || 0);
           const itemQty = Number(item.qty || 1);
           const itemDiscount = Number(item.discount || 0);
-          const lineTotal = (itemPrice * itemQty) * (1 - itemDiscount / 100);
+          const lineTotal = lineAmount(itemPrice, itemQty, itemDiscount); // same rounding the sale was billed with
 
           return (
             <div key={idx} className="space-y-0.5">

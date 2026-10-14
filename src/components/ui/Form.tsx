@@ -1,3 +1,5 @@
+"use client"
+
 import * as React from "react"
 import { Controller, ControllerProps, FieldPath, FieldValues, FormProvider, useFormContext } from "react-hook-form"
 import { cn } from "@/lib/utils"
@@ -34,11 +36,11 @@ const useFormField = () => {
   const itemContext = React.useContext(FormItemContext)
   const { getFieldState, formState } = useFormContext()
 
-  const fieldState = getFieldState(fieldContext.name, formState)
-
-  if (!fieldContext) {
+  if (!fieldContext.name) {
     throw new Error("useFormField should be used within <FormField>")
   }
+
+  const fieldState = getFieldState(fieldContext.name, formState)
 
   const { id } = itemContext
 
@@ -94,21 +96,31 @@ FormLabel.displayName = "FormLabel"
 const FormControl = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ ...props }, ref) => {
+>(({ children, ...props }, ref) => {
   const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
 
+  const a11yProps = {
+    id: formItemId,
+    "aria-describedby": !error
+      ? `${formDescriptionId}`
+      : `${formDescriptionId} ${formMessageId}`,
+    "aria-invalid": !!error,
+  }
+
+  // Put id/aria-* on the actual control (not a wrapper div) so <FormLabel htmlFor> and
+  // screen-reader error announcements reach the input.
+  if (React.isValidElement(children) && React.Children.count(children) === 1) {
+    return (
+      <div ref={ref} {...props}>
+        {React.cloneElement(children as React.ReactElement<Record<string, unknown>>, a11yProps)}
+      </div>
+    )
+  }
+
   return (
-    <div
-      ref={ref}
-      id={formItemId}
-      aria-describedby={
-        !error
-          ? `${formDescriptionId}`
-          : `${formDescriptionId} ${formMessageId}`
-      }
-      aria-invalid={!!error}
-      {...props}
-    />
+    <div ref={ref} {...a11yProps} {...props}>
+      {children}
+    </div>
   )
 })
 FormControl.displayName = "FormControl"
@@ -145,9 +157,12 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
+      role={error ? "alert" : undefined}
       className={cn("text-sm font-medium text-destructive", className)}
       {...props}
-    />
+    >
+      {body}
+    </p>
   )
 })
 FormMessage.displayName = "FormMessage"

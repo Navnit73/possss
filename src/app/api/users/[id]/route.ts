@@ -2,11 +2,23 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { Db, ObjectId } from "mongodb";
+import type { Session } from "next-auth";
 import { handleApiError } from "@/lib/errorHandler";
 import { canGrantPermissions, checkPermission } from "@/lib/rbac";
 import { updateUserSchema } from "@/lib/validations";
 import { withAuditLog, AuditContext } from "@/lib/auditLogger";
+
+/** Non-owners may only manage users whose current role grants nothing beyond their own permissions. */
+async function canManageUser(db: Db, session: Session | null, targetUser: Record<string, any>, tenantId: string): Promise<boolean> {
+  if ((session?.user as any)?.role === "OWNER") return true;
+  if (!targetUser.role_id || !ObjectId.isValid(String(targetUser.role_id))) return true;
+  const targetRole = await db.collection("roles").findOne(
+    { _id: new ObjectId(String(targetUser.role_id)), tenant_id: tenantId },
+    { projection: { permissions: 1 } }
+  );
+  return canGrantPermissions(session, targetRole?.permissions ?? []);
+}
 
 export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Request, context: any, audit: AuditContext) => {
   try {
@@ -37,6 +49,10 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
     if (targetUser.role === "OWNER" && !isOwnerCaller) {
       return NextResponse.json({ error: "Only the store owner can edit the owner account." }, { status: 403 });
     }
+    // Resetting the password of a more privileged colleague would let a staff member sign in as them.
+    if (!isOwnerCaller && id !== (session?.user as any)?.id && !(await canManageUser(db, session, targetUser, tenantId))) {
+      return NextResponse.json({ error: "You can't edit a user who has more permissions than you." }, { status: 403 });
+    }
 
     // Check email uniqueness if email is changed
     if (email !== targetUser.email.toLowerCase()) {
@@ -55,10 +71,15 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
     // Password update if provided
     const newPassword = password?.trim() ?? "";
     if (newPassword.length > 0) {
+      // Your own password goes through Account → Security (needs the current password and signs you out cleanly)
+      if (id === (session?.user as any)?.id) {
+        return NextResponse.json({ error: "Change your own password under Account → Security." }, { status: 400 });
+      }
       if (newPassword.length < 8) {
         return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
       }
       updateFields.password = await bcrypt.hash(newPassword, 12);
+      updateFields.password_changed_at = new Date();
     }
 
     // Role update if role_id provided and not editing OWNER
@@ -79,8 +100,8 @@ export const PUT = withAuditLog("STAFF_USER_UPDATED", "USERS", async (req: Reque
     audit.setBefore({ userId: id, oldName: targetUser.name, oldEmail: targetUser.email });
 
     await db.collection("users").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: updateFields }
+      { _id: new ObjectId(id), tenant_id: tenantId },
+      { $set: updateFields, ...(updateFields.password ? { $unset: { resetToken: "", resetTokenExpiry: "" } } : {}) }
     );
 
     audit.setAfter({ userId: id, newName: updateFields.name, newEmail: updateFields.email });
@@ -121,10 +142,13 @@ export const DELETE = withAuditLog("STAFF_USER_DELETED", "USERS", async (req: Re
     if (targetUser.role === "OWNER") {
       return NextResponse.json({ error: "Primary store owner cannot be deleted" }, { status: 400 });
     }
+    if (!(await canManageUser(db, session, targetUser, tenantId))) {
+      return NextResponse.json({ error: "You can't delete a user who has more permissions than you." }, { status: 403 });
+    }
 
     audit.setBefore({ userId: id, email: targetUser.email, name: targetUser.name });
 
-    await db.collection("users").deleteOne({ _id: new ObjectId(id) });
+    await db.collection("users").deleteOne({ _id: new ObjectId(id), tenant_id: tenantId, role: { $ne: "OWNER" } });
 
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (error: any) {

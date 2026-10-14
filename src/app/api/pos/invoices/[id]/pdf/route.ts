@@ -5,6 +5,8 @@ import { handleApiError } from "@/lib/errorHandler";
 import { ObjectId } from "mongodb";
 import PDFDocument from "pdfkit";
 import { checkPermissionAny } from "@/lib/rbac";
+import { lineAmount } from "@/lib/posMath";
+import { resolveTimezone } from "@/lib/storeTime";
 
 export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
   try {
@@ -24,7 +26,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     const { id } = params;
 
     const saleQuery: any = { tenant_id: tenantId };
-    if (ObjectId.isValid(id)) {
+    // ObjectId.isValid() also accepts any 12-character string (e.g. a 12-char invoice number), so match the hex form explicitly
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
       saleQuery._id = new ObjectId(id);
     } else {
       saleQuery.invoice_no = id;
@@ -134,7 +137,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
         // 2. Invoice & Date Meta
         doc.fontSize(7).fillColor("#000000");
         doc.text(`INV #: ${sale.invoice_no || sale._id.toString().substring(0, 8)}`, startX, doc.y);
-        doc.text(`DATE : ${new Date(sale.created_at || Date.now()).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" })}`, startX, doc.y);
+        doc.text(`DATE : ${new Date(sale.created_at || Date.now()).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short", timeZone: resolveTimezone(tenant?.timezone) })}`, startX, doc.y);
         if (customer) {
           doc.text(`CUST : ${customer.name}${customer.phone ? ` (${customer.phone})` : ''}`, startX, doc.y);
         }
@@ -160,7 +163,7 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
           const price = Number(item.price || 0);
           const qty = Number(item.qty || 0);
           const discount = Number(item.discount || 0);
-          const lineTotal = (price * qty) * (1 - discount / 100);
+          const lineTotal = lineAmount(price, qty, discount); // same rounding the sale was billed with
 
           doc.fillColor("#000000").font("Helvetica-Bold");
           doc.text(String(item.name).substring(0, 22), startX, tableY, { width: 108 });
@@ -231,9 +234,8 @@ export async function GET(req: Request, props: { params: Promise<{ id: string }>
     return new NextResponse(pdfBuffer as any, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="receipt_${sale.invoice_no}.pdf"`,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Access-Control-Allow-Origin": "*"
+        "Content-Disposition": `inline; filename="receipt_${String(sale.invoice_no || saleIdStr).replace(/[^\w.-]/g, "_")}.pdf"`,
+        "Cache-Control": "private, no-cache, no-store, must-revalidate",
       }
     });
 

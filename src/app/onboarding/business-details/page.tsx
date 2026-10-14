@@ -73,11 +73,11 @@ export default function BusinessDetailsPage() {
       // Already saved on the tenant above; just update the in-app currency without a second write.
       setCurrency(data.currency, false);
       router.push("/onboarding/subscription");
+      return; // stay disabled while navigating
     } catch (err: any) {
       setError(err.response?.data?.error || "An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (
@@ -88,12 +88,14 @@ export default function BusinessDetailsPage() {
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
+          {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
           
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Country</label>
+            <label htmlFor="onboarding-country" className="text-sm font-medium text-foreground">Country</label>
             <select 
               {...register("country")}
+              id="onboarding-country"
+              aria-invalid={!!errors.country}
               onChange={handleCountryChange}
               className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
@@ -107,9 +109,11 @@ export default function BusinessDetailsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Currency</label>
+            <label htmlFor="onboarding-currency" className="text-sm font-medium text-foreground">Currency</label>
             <select 
               {...register("currency")}
+              id="onboarding-currency"
+              aria-invalid={!!errors.currency}
               className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
               {SUPPORTED_CURRENCIES.map((c) => (
@@ -122,9 +126,11 @@ export default function BusinessDetailsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Timezone</label>
+            <label htmlFor="onboarding-timezone" className="text-sm font-medium text-foreground">Timezone</label>
             <select 
               {...register("timezone")}
+              id="onboarding-timezone"
+              aria-invalid={!!errors.timezone}
               className="w-full px-4 py-2 border border-border rounded-md bg-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-foreground"
             >
               {TIMEZONES.map((tz) => (

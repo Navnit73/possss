@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useCallback, useSyncExternalStore } from "react";
+import React, { createContext, useContext, useEffect, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useSession } from "next-auth/react";
 import { getCurrencySymbol, CURRENCY_SYMBOLS, formatCurrencyAmount } from "@/lib/currency";
 
@@ -121,16 +121,21 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     [currencySymbol]
   );
 
+  // Stable context value: the provider sits at the root and re-renders on every session update
+  // (SessionProvider refetches on window focus), which would otherwise re-render every consumer.
+  const value = useMemo<CurrencyContextType>(
+    () => ({
+      currency,
+      currencySymbol,
+      setCurrency: updateCurrency,
+      refreshCurrency,
+      formatCurrency,
+    }),
+    [currency, currencySymbol, updateCurrency, refreshCurrency, formatCurrency]
+  );
+
   return (
-    <CurrencyContext.Provider
-      value={{
-        currency,
-        currencySymbol,
-        setCurrency: updateCurrency,
-        refreshCurrency,
-        formatCurrency,
-      }}
-    >
+    <CurrencyContext.Provider value={value}>
       {children}
     </CurrencyContext.Provider>
   );

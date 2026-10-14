@@ -35,22 +35,25 @@ export default function RegisterPage() {
         password: data.password,
       });
       router.push(res?.error ? "/auth/login?registered=true" : "/onboarding/create-store");
+      return; // keep the button disabled while navigating so the account isn't submitted twice
     } catch (err: any) {
       setError(err.response?.data?.error || "An unexpected error occurred");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (
     <SplitLayout title="Create an account" subtitle="Start managing your pharmacy efficiently.">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {error && <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md border border-red-200">{error}</div>}
+        {error && <div role="alert" className="p-3 text-sm text-red-600 bg-red-500/10 rounded-md border border-red-500/20">{error}</div>}
         
         <div className="space-y-1">
-          <label className="text-sm font-medium text-foreground">Full Name</label>
+          <label htmlFor="register-name" className="text-sm font-medium text-foreground">Full Name</label>
           <input 
             {...register("name")}
+            id="register-name"
+            autoComplete="name"
+            aria-invalid={!!errors.name}
             type="text"
             className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />
@@ -58,9 +61,12 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-foreground">Email</label>
+          <label htmlFor="register-email" className="text-sm font-medium text-foreground">Email</label>
           <input 
             {...register("email")}
+            id="register-email"
+            autoComplete="email"
+            aria-invalid={!!errors.email}
             type="email"
             className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />
@@ -68,9 +74,12 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-foreground">Password</label>
+          <label htmlFor="register-password" className="text-sm font-medium text-foreground">Password</label>
           <input 
             {...register("password")}
+            id="register-password"
+            autoComplete="new-password"
+            aria-invalid={!!errors.password}
             type="password"
             className="w-full px-4 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />

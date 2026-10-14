@@ -14,7 +14,7 @@ export default async function AccountLayout({
     <div className="flex min-h-screen bg-background">
       <AccountSidebar session={session} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header />
+        <Header session={session} />
         {(session?.user as any)?.subscription_lapsed && (
           <div className="px-6 py-3 text-sm bg-red-500/10 border-b border-red-500/20 text-red-600">
             This store&apos;s subscription is inactive, so most features are locked.{" "}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, isValid } from "date-fns";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
@@ -43,29 +43,33 @@ function parseUserAgent(uaString?: string): string {
 }
 
 function getActionBadgeStyle(actionStr: string) {
-  if (!actionStr) return "bg-slate-100 text-slate-800 border-slate-200";
+  // Translucent tints read correctly in both light and dark themes
+  if (!actionStr) return "bg-muted text-muted-foreground border-border";
   const action = actionStr.toUpperCase();
   if (action.includes("CREATE") || action.includes("ADD") || action.includes("LOGIN")) {
-    return "bg-emerald-100 text-emerald-800 border-emerald-200";
+    return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
   }
   if (action.includes("UPDATE") || action.includes("EDIT") || action.includes("PROFILE")) {
-    return "bg-sky-100 text-sky-800 border-sky-200";
+    return "bg-sky-500/10 text-sky-600 border-sky-500/20";
   }
   if (action.includes("DELETE") || action.includes("LOGOUT") || action.includes("REMOVE")) {
-    return "bg-rose-100 text-rose-800 border-rose-200";
+    return "bg-rose-500/10 text-rose-600 border-rose-500/20";
   }
   if (action.includes("SALE") || action.includes("POS") || action.includes("INVOICE")) {
-    return "bg-purple-100 text-purple-800 border-purple-200";
+    return "bg-purple-500/10 text-purple-600 border-purple-500/20";
   }
   if (action.includes("REFUND") || action.includes("RETURN") || action.includes("ADJUST")) {
-    return "bg-amber-100 text-amber-800 border-amber-200";
+    return "bg-amber-500/10 text-amber-600 border-amber-500/20";
   }
-  return "bg-slate-100 text-slate-800 border-slate-200";
+  return "bg-secondary text-secondary-foreground border-border";
 }
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  // Only the latest request may update the table (a slow earlier response must not overwrite newer filters)
+  const requestId = useRef(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -89,7 +93,9 @@ export default function AuditLogsPage() {
   }, [search]);
 
   const fetchLogs = async () => {
+    const id = ++requestId.current;
     setLoading(true);
+    setError("");
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -100,15 +106,19 @@ export default function AuditLogsPage() {
       if (debouncedSearch) params.append("search", debouncedSearch);
 
       const res = await fetch(`/api/audit-logs?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch audit logs");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to fetch audit logs");
+      if (id !== requestId.current) return;
       setLogs(data.logs || []);
       setTotalPages(data.pages || 1);
       setTotalRecords(data.total || 0);
-    } catch (error) {
-      console.error("Error loading audit logs:", error);
+    } catch (err: any) {
+      if (id !== requestId.current) return;
+      console.error("Error loading audit logs:", err);
+      setLogs([]);
+      setError(err.message || "Failed to fetch audit logs");
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -134,7 +144,7 @@ export default function AuditLogsPage() {
   const hasActiveFilters = search !== "" || actionFilter !== "ALL" || moduleFilter !== "ALL";
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       <PageHeader 
         title="Audit Logs"
         description="Monitor system activities, user actions, and security audit events."
@@ -210,6 +220,11 @@ export default function AuditLogsPage() {
         {loading ? (
           <div className="p-6">
             <TableSkeleton columns={5} rows={7} />
+          </div>
+        ) : error ? (
+          <div role="alert" className="p-12 text-center space-y-3">
+            <p className="text-sm text-rose-600">{error}</p>
+            <Button variant="outline" size="sm" onClick={fetchLogs}>Retry</Button>
           </div>
         ) : logs.length === 0 ? (
           <div className="p-16 text-center flex flex-col items-center justify-center">
@@ -529,7 +544,7 @@ export default function AuditLogsPage() {
                   {selectedLog.before && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-rose-600 uppercase tracking-wider">State Before Change</label>
-                      <pre className="p-3 bg-rose-50/50 border border-rose-200 rounded-md font-mono text-[11px] text-rose-900 overflow-x-auto">
+                      <pre className="p-3 bg-rose-500/5 border border-rose-500/20 rounded-md font-mono text-[11px] text-rose-700 dark:text-rose-300 overflow-x-auto">
                         {JSON.stringify(selectedLog.before, null, 2)}
                       </pre>
                     </div>
@@ -539,7 +554,7 @@ export default function AuditLogsPage() {
                   {selectedLog.after && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">State After Change</label>
-                      <pre className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-md font-mono text-[11px] text-emerald-900 overflow-x-auto">
+                      <pre className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-md font-mono text-[11px] text-emerald-700 dark:text-emerald-300 overflow-x-auto">
                         {JSON.stringify(selectedLog.after, null, 2)}
                       </pre>
                     </div>

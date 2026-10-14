@@ -107,6 +107,8 @@ export default function PosSellPage() {
   const [searchError, setSearchError] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const resultsQuery = useRef(""); // query the current results belong to (lets Enter skip a redundant fetch)
+  const latestQuery = useRef(""); // what's in the search box right now (read after an await)
+  const enterBusy = useRef(false); // one scanner/Enter lookup at a time
 
   // ---- cart ----
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -203,6 +205,10 @@ export default function PosSellPage() {
     document.querySelector(`[data-flat-index="${selectedIndex}"]`)?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
+  useEffect(() => {
+    latestQuery.current = searchQuery;
+  }, [searchQuery]);
+
   // ---- product search (debounced; stale responses are cancelled) ----
   useEffect(() => {
     const q = searchQuery.trim();
@@ -227,6 +233,7 @@ export default function PosSellPage() {
     return () => {
       controller.abort();
       clearTimeout(timer);
+      setIsSearching(false); // an aborted request must not leave the results dimmed forever
     };
   }, [searchQuery]);
 
@@ -238,7 +245,7 @@ export default function PosSellPage() {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const { data } = await axios.get("/api/customers", { params: { q, limit: 6 }, signal: controller.signal });
+        const { data } = await axios.get("/api/customers", { params: { q, limit: 6, status: "ACTIVE" }, signal: controller.signal });
         setCustomerResults(data.customers ?? []);
         setCustomerIndex(0);
         setCustomerError("");
@@ -269,7 +276,10 @@ export default function PosSellPage() {
     setCart((prev) => {
       const line = prev.find((item) => item.batch_id === batch._id);
       if (line) {
-        return prev.map((item) => (item.id === line.id ? { ...item, qty: item.qty + 1, max_qty: batch.qty_available } : item));
+        // Capped here too: two fast scans both pass the check above against the same (not yet re-rendered) cart
+        return prev.map((item) =>
+          item.id === line.id ? { ...item, qty: Math.min(item.qty + 1, batch.qty_available), max_qty: batch.qty_available } : item
+        );
       }
       return [
         ...prev,
@@ -340,8 +350,19 @@ export default function PosSellPage() {
   // ---- search "Enter": scanner / keyboard add ----
   const submitSearch = async () => {
     const q = searchQuery.trim();
-    if (!q) return;
+    if (!q || enterBusy.current) return;
+    enterBusy.current = true;
+    try {
+      await lookupAndAdd(q);
+    } finally {
+      enterBusy.current = false;
+    }
+  };
 
+  /** Clears the search box only if it still holds the query that was just added (a scanner may already be typing the next code). */
+  const clearSearchIfUnchanged = (q: string) => setSearchQuery((cur) => (cur.trim() === q ? "" : cur));
+
+  const lookupAndAdd = async (q: string) => {
     let products: Product[];
     const fresh = results !== null && results.query === q;
     if (fresh) {
@@ -352,10 +373,13 @@ export default function PosSellPage() {
       try {
         const { data } = await axios.get<Product[]>("/api/pos/search", { params: { q } });
         products = data;
-        resultsQuery.current = q;
-        setResults({ query: q, products: data });
-        setSelectedIndex(0);
-        setSearchError("");
+        // Don't overwrite newer results if the cashier kept typing while this was in flight
+        if (latestQuery.current.trim() === q) {
+          resultsQuery.current = q;
+          setResults({ query: q, products: data });
+          setSelectedIndex(0);
+          setSearchError("");
+        }
       } catch (err: any) {
         setSearchError(err.response?.data?.error || "Search failed. Check your connection and try again.");
         return;
@@ -371,7 +395,7 @@ export default function PosSellPage() {
         notify("error", exact.expired_batches > 0 ? `${exact.name}: only expired stock left.` : `${exact.name} is out of stock.`);
         return;
       }
-      if (addToCart(exact, exact.batches[0])) setSearchQuery("");
+      if (addToCart(exact, exact.batches[0])) clearSearchIfUnchanged(q);
       return;
     }
 
@@ -379,7 +403,7 @@ export default function PosSellPage() {
     // Results the cashier has already seen: add the highlighted one. Results that just arrived: only auto-add an unambiguous hit.
     const pick = fresh ? flat[selectedIndex] : flat.length === 1 ? flat[0] : undefined;
     if (pick) {
-      if (addToCart(pick.product, pick.batch)) setSearchQuery("");
+      if (addToCart(pick.product, pick.batch)) clearSearchIfUnchanged(q);
     } else if (flat.length === 0) {
       notify("warn", products.length ? "No sellable stock for that medicine." : "No matching medicines found.");
     } else {
@@ -402,7 +426,9 @@ export default function PosSellPage() {
     };
 
     // Retrying the same bill reuses its key (so the server can't bill it twice); any change to the bill gets a new one.
-    const signature = JSON.stringify(payload);
+    // The payment method is deliberately left out: switching Cash -> Card after a timed-out attempt must keep the key,
+    // so the server answers 409 (if the first attempt went through) instead of billing the cart a second time.
+    const signature = JSON.stringify({ ...payload, payment_method: undefined });
     if (!attempt.current || attempt.current.signature !== signature) attempt.current = { signature, key: newKey() };
 
     try {

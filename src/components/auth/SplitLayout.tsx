@@ -5,10 +5,10 @@ export function SplitLayout({ children, title, subtitle }: { children: React.Rea
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
       {/* Form Side */}
-      <div className="flex flex-col justify-center px-8 sm:px-16 lg:px-24 bg-surface py-12">
+      <div className="flex flex-col justify-center px-6 sm:px-16 lg:px-24 bg-surface py-12">
         <div className="w-full max-w-md mx-auto space-y-8">
           <div className="flex items-center gap-2 text-primary mb-12">
-            <Activity className="w-8 h-8" />
+            <Activity className="w-8 h-8" aria-hidden="true" />
             <span className="font-display font-bold text-xl tracking-tight">Pharmacy POS</span>
           </div>
           <div>

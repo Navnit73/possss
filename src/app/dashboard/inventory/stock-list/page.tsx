@@ -22,6 +22,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useCurrency } from "@/context/CurrencyContext";
+import { format } from "date-fns";
+
+// A batch with no expiry never expires; dates are "yyyy-MM-dd" strings (same rule as POS)
+const isBatchExpired = (expiry: unknown, today: string) =>
+  typeof expiry === "string" && expiry.trim() !== "" && expiry < today;
 
 export default function StockListPage() {
   const { formatCurrency } = useCurrency();
@@ -54,7 +59,10 @@ export default function StockListPage() {
     fetchData();
   }, []);
 
-  // Group batches by product
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+
+  // Group batches by product. sellableQty excludes expired batches (they can't be sold at POS),
+  // so the low-stock status here matches the Low Stock Alerts page.
   const groupedStock = useMemo(() => {
     return batches.reduce((acc: Record<string, any>, batch: any) => {
       const pId = batch.product?._id || batch.product_id || "unknown";
@@ -63,14 +71,17 @@ export default function StockListPage() {
           pId,
           product: batch.product,
           totalQty: 0,
+          sellableQty: 0,
           batches: []
         };
       }
-      acc[pId].totalQty += Number(batch.qty_available || 0);
+      const qty = Number(batch.qty_available || 0);
+      acc[pId].totalQty += qty;
+      if (!isBatchExpired(batch.expiry_date, todayStr)) acc[pId].sellableQty += qty;
       acc[pId].batches.push(batch);
       return acc;
     }, {});
-  }, [batches]);
+  }, [batches, todayStr]);
 
   // Filter grouped stock based on search & category
   const filteredGroupedStock = useMemo(() => {
@@ -82,7 +93,7 @@ export default function StockListPage() {
       const catName = (group.product?.category?.name || "Uncategorized").toLowerCase();
       const catId = group.product?.category_id || group.product?.category?._id || "";
       const minStock = Number(group.product?.minimum_stock || 0);
-      const isLowStock = group.totalQty <= minStock;
+      const isLowStock = group.sellableQty <= minStock;
 
       // Category filter
       if (selectedCategory !== "All" && catId !== selectedCategory && catName !== selectedCategory.toLowerCase()) {
@@ -116,7 +127,7 @@ export default function StockListPage() {
     allGroups.forEach((group: any) => {
       totalStockItems += group.totalQty;
       const minStock = Number(group.product?.minimum_stock || 0);
-      if (group.totalQty <= minStock) {
+      if (group.sellableQty <= minStock) {
         lowStockCount++;
       }
     });
@@ -285,7 +296,8 @@ export default function StockListPage() {
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="overflow-x-auto">
+          <div className="divide-y divide-slate-100 min-w-[760px]">
             {/* Table Header */}
             <div className="grid grid-cols-12 gap-4 p-5 bg-slate-50/80 font-bold text-xs tracking-wider text-slate-500 uppercase border-b border-slate-100">
               <div className="col-span-1"></div>
@@ -300,16 +312,25 @@ export default function StockListPage() {
               const pId = group.pId;
               const isExpanded = expandedProducts.has(pId);
               const minStock = Number(group.product?.minimum_stock || 0);
-              const isLowStock = group.totalQty <= minStock;
+              const isLowStock = group.sellableQty <= minStock;
 
               return (
                 <div key={pId} className="flex flex-col border-b border-slate-100 last:border-0 group/parent">
                   {/* Product Parent Row */}
                   <div 
-                    className={`grid grid-cols-12 gap-4 p-4 items-center cursor-pointer transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    className={`grid grid-cols-12 gap-4 p-4 items-center cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                       isExpanded ? 'bg-emerald-50/70 hover:bg-emerald-100/60' : 'hover:bg-slate-50'
                     }`}
                     onClick={() => toggleExpand(pId)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExpand(pId);
+                      }
+                    }}
                   >
                     <div className="col-span-1 flex justify-center text-slate-400">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
@@ -393,8 +414,13 @@ export default function StockListPage() {
                             <div className="col-span-2 text-slate-500 font-medium truncate flex items-center">
                               {batch.supplier || "-"}
                             </div>
-                            <div className="col-span-2 text-slate-600 flex items-center">
+                            <div className="col-span-2 text-slate-600 flex items-center gap-2">
                               {batch.expiry_date || "-"}
+                              {isBatchExpired(batch.expiry_date, todayStr) && (
+                                <span className="text-[10px] font-bold uppercase text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  Expired
+                                </span>
+                              )}
                             </div>
                             <div className="col-span-2 text-slate-600 flex items-center">
                               {group.product?.rack_number || "-"}
@@ -416,6 +442,7 @@ export default function StockListPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         )}
       </div>

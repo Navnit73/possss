@@ -47,8 +47,9 @@ export async function POST(req: Request) {
     }
 
     const razorpay = getRazorpay();
+    const fetchedAt = new Date();
     const entity = await razorpay.subscriptions.fetch(body.razorpay_subscription_id);
-    const result = await applySubscriptionEntity(db, entity as any);
+    const result = await applySubscriptionEntity(db, entity as any, fetchedAt);
 
     // Webhooks may be slow or unreachable (e.g. localhost); record the first payment now. It's idempotent.
     try {

@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Dark mode is class-driven (matches next-themes attribute="class" if a ThemeProvider is added later).
+   Without this, Tailwind v4 defaults `dark:` to prefers-color-scheme, so stray `dark:` utilities would
+   switch on under an OS dark theme while every token below stays light. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
@@ -29,6 +34,15 @@
 
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+
+  /* Used by pages/components (bg-card, bg-popover, hover:bg-accent) but previously undefined,
+     which rendered those surfaces transparent. */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   
   /* Enforce rounded-sm globally for flat SaaS look */
   --radius: 0.70rem;
@@ -62,6 +76,16 @@
 
   --muted: #F8FAFC;
   --muted-foreground: #64748B;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+
+  /* The palette is light-only; keep native controls (date pickers, selects, scrollbars) light too. */
+  color-scheme: light;
 }
 
 body {
@@ -72,9 +96,39 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Remove heavy shadows globally */
-* {
-  box-shadow: none !important;
+/* Remove heavy shadows globally for the flat look, but only the drop-shadow layers.
+   `box-shadow: none !important` also erased Tailwind's ring utilities (rings are box-shadows),
+   which made every focus-visible:ring-* focus indicator in the app invisible. */
+*, ::before, ::after {
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-inset-shadow: 0 0 #0000 !important;
+}
+
+/* Minimal enter animation for the `animate-in fade-in zoom-in-95` classes used across the app
+   (tailwindcss-animate is not installed, so these were no-ops). */
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: scale(var(--tw-enter-scale, 1));
+  }
+}
+@utility animate-in {
+  animation: enter 150ms ease-out;
+}
+@utility fade-in {
+  --tw-enter-opacity: 0;
+}
+@utility zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Base utility for a light border instead of shadow to simulate flat SaaS cards */

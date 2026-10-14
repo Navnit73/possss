@@ -5,7 +5,8 @@ import "./globals.css";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 
 const poppins = Poppins({
-  weight: ["300", "400", "500", "600", "700", "800"],
+  // 300 was never used; 900 (font-black, ~24 usages) was being faux-bolded from 800
+  weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-poppins",
   subsets: ["latin"],
   display: "swap",

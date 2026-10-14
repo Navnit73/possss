@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useId, useMemo } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,17 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** id for the trigger button, so a <label htmlFor> can point at it */
+  id?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+  /** Shows the error border (pair with an error message linked via aria-describedby on the field) */
+  "aria-invalid"?: boolean;
 }
+
+// Rendering thousands of rows (e.g. full product catalogue, timezone list) on every keystroke is slow;
+// show the first N matches and ask the user to narrow the search.
+const MAX_RENDERED_OPTIONS = 200;
 
 export function SearchableSelect({
   options,
@@ -25,87 +35,196 @@ export function SearchableSelect({
   placeholder = "Select an option...",
   disabled = false,
   className,
+  id,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
+  "aria-invalid": ariaInvalid,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const baseId = useId();
+  const listboxId = `${baseId}-listbox`;
+  const optionId = (i: number) => `${baseId}-option-${i}`;
 
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Close dropdown when clicking outside
+  const close = (returnFocus = false) => {
+    setIsOpen(false);
+    setSearchTerm("");
+    if (returnFocus) triggerRef.current?.focus();
+  };
+
+  const open = () => {
+    if (disabled) return;
+    const selectedIdx = options.findIndex((opt) => opt.value === value);
+    setActiveIndex(selectedIdx >= 0 && selectedIdx < MAX_RENDERED_OPTIONS ? selectedIdx : 0);
+    setIsOpen(true);
+  };
+
+  // Close dropdown when clicking outside (only listen while open)
   useEffect(() => {
+    if (!isOpen) return;
     const handleOutsideClick = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchTerm("");
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
+  }, [isOpen]);
 
-  const filteredOptions = options.filter((opt) =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOptions = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return term ? options.filter((opt) => opt.label.toLowerCase().includes(term)) : options;
+  }, [options, searchTerm]);
+  const visibleOptions = filteredOptions.slice(0, MAX_RENDERED_OPTIONS);
+
+  // Keep the highlighted option scrolled into view
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, isOpen]);
+
+  const select = (option: Option) => {
+    onChange(option.value);
+    close(true);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIndex((i) => Math.min(i + 1, visibleOptions.length - 1));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((i) => Math.max(i - 1, 0));
+        break;
+      case "Home":
+        e.preventDefault();
+        setActiveIndex(0);
+        break;
+      case "End":
+        e.preventDefault();
+        setActiveIndex(Math.max(visibleOptions.length - 1, 0));
+        break;
+      case "Enter":
+        // Don't submit the surrounding form
+        e.preventDefault();
+        if (visibleOptions[activeIndex]) select(visibleOptions[activeIndex]);
+        break;
+      case "Escape":
+        e.preventDefault();
+        e.stopPropagation();
+        close(true);
+        break;
+      case "Tab":
+        close();
+        break;
+    }
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      open();
+    }
+  };
 
   return (
     <div className={cn("relative w-full", isOpen && "z-30", className)} ref={containerRef}>
       <button
+        ref={triggerRef}
+        id={id}
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => (isOpen ? close() : open())}
+        onKeyDown={handleTriggerKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? listboxId : undefined}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
+        data-invalid={ariaInvalid || undefined}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer ring-offset-background placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-invalid:border-destructive",
           !selectedOption && "text-muted-foreground"
         )}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface text-foreground shadow-lg animate-in fade-in zoom-in-95">
+        <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-surface text-foreground shadow-lg animate-in fade-in zoom-in-95" ref={listRef}>
           <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
             <input
+              role="combobox"
+              aria-expanded={true}
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+              aria-activedescendant={visibleOptions[activeIndex] ? optionId(activeIndex) : undefined}
+              aria-label="Search options"
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Search..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setActiveIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
               autoFocus
             />
           </div>
-          <div className="p-1">
-            {filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
+          <div className="p-1" role="listbox" id={listboxId} aria-label={ariaLabel ?? placeholder}>
+            {visibleOptions.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground" role="presentation">
                 No results found.
               </div>
             ) : (
-              filteredOptions.map((option) => (
-                <div
-                  key={option.value}
-                  className={cn(
-                    "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-                    value === option.value && "bg-accent/50 font-medium"
-                  )}
-                  onClick={() => {
-                    onChange(option.value);
-                    setIsOpen(false);
-                    setSearchTerm("");
-                  }}
-                >
-                  <span className="truncate">{option.label}</span>
-                  {value === option.value && (
-                    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-                      <Check className="h-4 w-4" />
-                    </span>
-                  )}
-                </div>
-              ))
+              visibleOptions.map((option, index) => {
+                const isSelected = value === option.value;
+                const isActive = index === activeIndex;
+                return (
+                  <div
+                    key={option.value}
+                    id={optionId(index)}
+                    data-index={index}
+                    role="option"
+                    aria-selected={isSelected}
+                    className={cn(
+                      "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      isActive && "bg-accent text-accent-foreground",
+                      isSelected && "font-medium"
+                    )}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    // Keep focus in the search box so keyboard navigation continues to work
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => select(option)}
+                  >
+                    <span className="truncate">{option.label}</span>
+                    {isSelected && (
+                      <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+                        <Check className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            {filteredOptions.length > MAX_RENDERED_OPTIONS && (
+              <div className="px-2 py-2 text-center text-xs text-muted-foreground" role="presentation">
+                Showing first {MAX_RENDERED_OPTIONS} of {filteredOptions.length} — type to narrow results.
+              </div>
             )}
           </div>
         </div>

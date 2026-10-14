@@ -29,7 +29,7 @@ export default function LowStockAlertsPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       <PageHeader 
         title="Low Stock Alerts"
-        description="Products currently at or below their minimum stock threshold."
+        description="Products whose sellable (non-expired) stock is at or below their minimum stock threshold."
       />
 
       {error && <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-200">{error}</div>}

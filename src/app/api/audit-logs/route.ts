@@ -3,6 +3,14 @@ import { auth } from "@/auth";
 import client from "@/lib/mongodb";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
+import { escapeRegExp } from "@/lib/utils";
+
+const MAX_PAGE = 500;
+
+function intParam(value: string | null, fallback: number): number {
+  const n = parseInt(value ?? "", 10);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export async function GET(req: Request) {
   try {
@@ -14,8 +22,9 @@ export async function GET(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const url = new URL(req.url);
-    const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-    const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get("limit") || "20")));
+    // parseInt of a bad value is NaN, which would reach $skip/$limit and fail the query
+    const page = Math.min(MAX_PAGE, Math.max(1, intParam(url.searchParams.get("page"), 1)));
+    const limit = Math.max(1, Math.min(100, intParam(url.searchParams.get("limit"), 20)));
     const skip = (page - 1) * limit;
 
     const userFilter = url.searchParams.get("user");
@@ -27,7 +36,8 @@ export async function GET(req: Request) {
     
     if (userFilter) matchQuery.user_id = userFilter;
     if (actionFilter && actionFilter !== "ALL") {
-      matchQuery.action = { $regex: actionFilter, $options: "i" };
+      // Query-string input: escape it so it can't be used as a regex (ReDoS / invalid pattern → 500)
+      matchQuery.action = { $regex: escapeRegExp(actionFilter), $options: "i" };
     }
     if (moduleFilter && moduleFilter !== "ALL") {
       matchQuery.module = moduleFilter;
@@ -36,8 +46,7 @@ export async function GET(req: Request) {
     const db = client.db("pos");
 
     if (searchFilter && searchFilter.trim().length > 0) {
-      const escapedSearch = searchFilter.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const searchRegex = { $regex: escapedSearch, $options: "i" };
+      const searchRegex = { $regex: escapeRegExp(searchFilter.trim()), $options: "i" };
       
       // Subquery: find user IDs matching the search term to filter audit logs BEFORE lookup
       const matchingUsers = await db.collection("users").find({
@@ -46,7 +55,7 @@ export async function GET(req: Request) {
           { name: searchRegex },
           { email: searchRegex }
         ]
-      }, { projection: { _id: 1 } }).toArray();
+      }, { projection: { _id: 1 } }).limit(200).toArray();
 
       const matchedUserIds = matchingUsers.map(u => u._id.toString());
       
@@ -64,25 +73,11 @@ export async function GET(req: Request) {
       matchQuery.$or = orConditions;
     }
 
+    // Page first, then join users for just the returned rows. The join is tenant-scoped and only exposes
+    // display fields (never password hashes or reset tokens).
     const pipeline: any[] = [
       { $match: matchQuery },
       { $sort: { timestamp: -1 } },
-      {
-        $addFields: {
-          user_obj_id: { $convert: { input: "$user_id", to: "objectId", onError: null, onNull: null } }
-        }
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "user_obj_id",
-          foreignField: "_id",
-          as: "user_info"
-        }
-      },
-      {
-        $unwind: { path: "$user_info", preserveNullAndEmptyArrays: true }
-      },
       {
         $facet: {
           metadata: [ { $count: "total" } ],
@@ -90,12 +85,23 @@ export async function GET(req: Request) {
             { $skip: skip },
             { $limit: limit },
             {
-              $project: {
-                user_obj_id: 0,
-                "user_info.password": 0,
-                "user_info.tenant_id": 0
+              $addFields: {
+                user_obj_id: { $convert: { input: "$user_id", to: "objectId", onError: null, onNull: null } }
               }
-            }
+            },
+            {
+              $lookup: {
+                from: "users",
+                let: { uid: "$user_obj_id" },
+                pipeline: [
+                  { $match: { $expr: { $eq: ["$_id", "$$uid"] }, tenant_id: tenantId } },
+                  { $project: { name: 1, email: 1, role: 1, role_id: 1, created_at: 1, updated_at: 1 } }
+                ],
+                as: "user_info"
+              }
+            },
+            { $unwind: { path: "$user_info", preserveNullAndEmptyArrays: true } },
+            { $project: { user_obj_id: 0 } }
           ]
         }
       }
@@ -111,7 +117,7 @@ export async function GET(req: Request) {
       total,
       page,
       pages: Math.ceil(total / limit)
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: any) {
     return await handleApiError(error, "GET /api/audit-logs");
   }

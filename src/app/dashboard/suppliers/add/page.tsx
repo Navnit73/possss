@@ -28,6 +28,7 @@ export default function AddSupplierPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
 
@@ -37,7 +38,7 @@ export default function AddSupplierPage() {
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to create supplier");
-    } finally {
+      // Only re-enable on failure; on success we're navigating away (prevents a double submit in between)
       setIsSubmitting(false);
     }
   };

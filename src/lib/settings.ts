@@ -26,7 +26,7 @@ export async function getReportSettings(tenantId: string): Promise<ReportSetting
   if (!tenantId) return null;
   const db = client.db("pos");
   const tenantIds = getTenantIdQueries(tenantId);
-  const settings = await db.collection("settings").findOne({ tenant_id: { $in: tenantIds } });
+  const settings = await db.collection("settings").findOne({ tenant_id: { $in: tenantIds } }, { projection: { reports: 1 } });
   return settings?.reports || null;
 }
 
@@ -44,9 +44,10 @@ export async function updateReportSettings(tenantId: string, settings: ReportSet
 
 export async function getAllEnabledReportSettings(): Promise<StoreSettings[]> {
   const db = client.db("pos");
-  const settingsList = await db.collection("settings").find({ 
-    "reports.enabled": true 
-  }).toArray();
+  const settingsList = await db.collection("settings").find(
+    { "reports.enabled": true },
+    { projection: { tenant_id: 1, reports: 1 } }
+  ).toArray();
   
   return settingsList.map(s => ({
     tenant_id: String(s.tenant_id),

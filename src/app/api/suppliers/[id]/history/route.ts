@@ -19,6 +19,9 @@ export async function GET(
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return NextResponse.json({ error: "Invalid supplier ID" }, { status: 400 });
+    }
 
     const db = client.db("pos");
     const supplier = await db.collection("suppliers").findOne({ 
@@ -38,10 +41,13 @@ export async function GET(
           $or: [
             { supplier: id },
             { supplier: supplier.name },
-            { supplier_id: id } // in case we update batch schema later
+            { supplier_id: id } // set on batches received since supplier ids are stored
           ]
         } 
       },
+      // Sort + cap before the join so only the rows we return are looked up
+      { $sort: { created_at: -1 } },
+      { $limit: 1000 },
       {
         $addFields: {
           product_obj_id: { 
@@ -54,15 +60,14 @@ export async function GET(
           from: "products",
           localField: "product_obj_id",
           foreignField: "_id",
+          pipeline: [{ $project: { name: 1, strength: 1 } }],
           as: "product"
         }
       },
       {
         $unwind: { path: "$product", preserveNullAndEmptyArrays: true }
       },
-      {
-        $sort: { created_at: -1 }
-      }
+      { $project: { product_obj_id: 0 } }
     ]).toArray();
 
     return NextResponse.json(batches);

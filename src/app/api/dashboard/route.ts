@@ -6,30 +6,54 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { ObjectId } from "mongodb";
 import { checkPermission } from "@/lib/rbac";
 import { handleApiError } from "@/lib/errorHandler";
+import { resolveTimezone } from "@/lib/storeTime";
+import { round2 } from "@/lib/reports/common";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Calendar-date math on "yyyy-MM-dd" strings (timezone-free).
 const shiftDay = (dateStr: string, days: number) => format(addDays(parseISO(dateStr), days), "yyyy-MM-dd");
 
-function resolveTimezone(tz: unknown): string {
-  if (typeof tz !== "string" || !tz) return "UTC";
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: tz });
-    return tz;
-  } catch {
-    return "UTC";
-  }
-}
 
-// Line revenue after the line-level discount — same definition as the Profit & Loss report.
-const lineRevenueExpr = (prefix: string) => ({
+// Line amount after the line-level discount (before the bill discount).
+const lineAmountExpr = (prefix: string) => ({
   $multiply: [
     { $ifNull: [`${prefix}.price`, 0] },
     { $ifNull: [`${prefix}.qty`, 0] },
     { $subtract: [1, { $divide: [{ $ifNull: [`${prefix}.discount`, 0] }, 100] }] },
   ],
 });
+
+// Share of each line kept after the bill-level (absolute) discount, allocated pro-rata to line amounts.
+const billFactorExpr = {
+  $cond: [
+    { $gt: [{ $ifNull: ["$subtotal", 0] }, 0] },
+    { $max: [0, { $subtract: [1, { $divide: [{ $ifNull: ["$discount", 0] }, "$subtotal"] }] }] },
+    1,
+  ],
+};
+
+// Line cost; legacy items without cost_price fall back to (line amount − stored profit).
+const lineCogsExpr = (prefix: string) => ({
+  $cond: [
+    { $isNumber: `${prefix}.cost_price` },
+    { $multiply: [`${prefix}.cost_price`, { $ifNull: [`${prefix}.qty`, 0] }] },
+    { $cond: [{ $isNumber: `${prefix}.profit` }, { $subtract: [lineAmountExpr(prefix), `${prefix}.profit`] }, 0] },
+  ],
+});
+
+/**
+ * Per-sale profit, same definition as the Profit & Loss report: revenue net of line AND bill discounts,
+ * excluding tax, minus cost of goods. (Stored item.profit ignores the bill discount, so it overstates profit.)
+ */
+const saleProfitExpr = {
+  $subtract: [
+    { $multiply: [{ $sum: { $map: { input: "$items", as: "i", in: lineAmountExpr("$$i") } } }, billFactorExpr] },
+    { $sum: { $map: { input: "$items", as: "i", in: lineCogsExpr("$$i") } } },
+  ],
+};
+
+const itemProjection = { _id: 0, product_id: 1, qty: 1, price: 1, discount: 1, cost_price: 1, profit: 1 };
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,15 +81,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Timezone-independent queries start right away, in parallel with the tenant lookup.
-    const lowStockPromise = Promise.all([
-      db.collection("products")
-        .find({ tenant_id: tenantId, status: "ACTIVE", minimum_stock: { $gt: 0 } }, { projection: { minimum_stock: 1 } })
-        .toArray(),
-      db.collection("batches").aggregate([
-        { $match: { tenant_id: tenantId, qty_available: { $gt: 0 } } },
-        { $group: { _id: "$product_id", stock: { $sum: "$qty_available" } } },
-      ]).toArray(),
-    ]);
+    const activeProductsPromise = db.collection("products")
+      .find({ tenant_id: tenantId, status: "ACTIVE" }, { projection: { minimum_stock: 1 } })
+      .toArray();
     const inventoryValuePromise = db.collection("batches").aggregate([
       { $match: { tenant_id: tenantId, qty_available: { $gt: 0 } } },
       { $group: { _id: null, value: { $sum: { $multiply: ["$cost_price", "$qty_available"] } } } },
@@ -133,13 +151,13 @@ export async function GET(req: NextRequest) {
       // One scan of the selected range + one indexed sale_items join feeds every chart.
       db.collection("sales").aggregate([
         { $match: rangeMatch },
-        { $project: { total: 1, payment_method: 1, created_at: 1, sid: { $toString: "$_id" } } },
+        { $project: { total: 1, subtotal: 1, discount: 1, payment_method: 1, created_at: 1, sid: { $toString: "$_id" } } },
         {
           $lookup: {
             from: "sale_items",
             localField: "sid",
             foreignField: "sale_id",
-            pipeline: [{ $project: { _id: 0, product_id: 1, qty: 1, price: 1, discount: 1, profit: 1 } }],
+            pipeline: [{ $project: itemProjection }], // no tenant_id match: legacy sale_items lack it; parent sale is tenant-matched
             as: "items",
           },
         },
@@ -150,7 +168,7 @@ export async function GET(req: NextRequest) {
                 $group: {
                   _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at", timezone: tz } },
                   revenue: { $sum: "$total" },
-                  profit: { $sum: { $sum: "$items.profit" } },
+                  profit: { $sum: saleProfitExpr },
                 },
               },
             ],
@@ -167,7 +185,7 @@ export async function GET(req: NextRequest) {
                 $group: {
                   _id: "$items.product_id",
                   qty_sold: { $sum: "$items.qty" },
-                  revenue: { $sum: lineRevenueExpr("$items") },
+                  revenue: { $sum: { $multiply: [lineAmountExpr("$items"), billFactorExpr] } },
                 },
               },
             ],
@@ -181,23 +199,23 @@ export async function GET(req: NextRequest) {
         { $group: { _id: null, total: { $sum: "$total" } } },
       ]).toArray(),
 
-      // This month's profit — same definition as the Profit & Loss report (sum of item profit)
+      // This month's profit — same definition as the Profit & Loss report (net of bill discounts, excl. tax)
       db.collection("sales").aggregate([
         { $match: { tenant_id: tenantId, created_at: { $gte: zonedStartOf(monthStartStr), $lt: zonedStartOf(nextMonthStartStr) } } },
-        { $project: { sid: { $toString: "$_id" } } },
+        { $project: { subtotal: 1, discount: 1, sid: { $toString: "$_id" } } },
         {
           $lookup: {
             from: "sale_items",
             localField: "sid",
             foreignField: "sale_id",
-            pipeline: [{ $project: { _id: 0, profit: 1 } }],
+            pipeline: [{ $project: itemProjection }], // no tenant_id match: legacy sale_items lack it; parent sale is tenant-matched
             as: "items",
           },
         },
-        { $group: { _id: null, totalProfit: { $sum: { $sum: "$items.profit" } } } },
+        { $group: { _id: null, totalProfit: { $sum: saleProfitExpr } } },
       ]).toArray(),
 
-      // Batches expiring within 30 days (store timezone)
+      // Batches expiring within the next 30 days (store timezone; already-expired batches are excluded)
       db.collection("batches").countDocuments({
         tenant_id: tenantId,
         qty_available: { $gt: 0 },
@@ -205,13 +223,28 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const [[lowStockProducts, stockByProduct], inventoryValueData] = await Promise.all([lowStockPromise, inventoryValuePromise]);
+    // Sellable stock per product: in stock and not expired in the store's timezone (same rule as /api/inventory/low-stock)
+    const [activeProducts, stockByProduct, inventoryValueData] = await Promise.all([
+      activeProductsPromise,
+      db.collection("batches").aggregate([
+        {
+          $match: {
+            tenant_id: tenantId,
+            qty_available: { $gt: 0 },
+            $or: [{ expiry_date: { $exists: false } }, { expiry_date: null }, { expiry_date: "" }, { expiry_date: { $gte: todayStr } }],
+          },
+        },
+        { $group: { _id: "$product_id", stock: { $sum: "$qty_available" } } },
+      ]).toArray(),
+      inventoryValuePromise,
+    ]);
 
     const { trend, payments, hourly, products: productStats } = rangeFacet[0] ?? { trend: [], payments: [], hourly: [], products: [] };
 
-    // Low stock: active products whose in-stock quantity is below their minimum (incl. products with no stock at all)
+    // Low stock — identical to /api/inventory/low-stock: active products whose sellable stock is at or below
+    // their minimum (missing minimum = 0, so out-of-stock products always count)
     const stockMap = new Map<string, number>(stockByProduct.map((b: any) => [String(b._id), b.stock]));
-    const lowStockCount = lowStockProducts.filter((p) => (stockMap.get(p._id.toString()) ?? 0) < p.minimum_stock).length;
+    const lowStockCount = activeProducts.filter((p) => (stockMap.get(p._id.toString()) ?? 0) <= (Number(p.minimum_stock) || 0)).length;
 
     // Resolve product names / categories only for products actually sold in the range
     const productIds = productStats
@@ -228,7 +261,7 @@ export async function GET(req: NextRequest) {
     const categoryIds = [...new Set(productDocs.map((p) => p.category_id).filter((id) => typeof id === "string" && ObjectId.isValid(id)))];
     const categoryDocs = categoryIds.length
       ? await db.collection("categories")
-          .find({ _id: { $in: categoryIds.map((id) => new ObjectId(id)) } }, { projection: { name: 1 } })
+          .find({ _id: { $in: categoryIds.map((id) => new ObjectId(id)) }, tenant_id: tenantId }, { projection: { name: 1 } })
           .toArray()
       : [];
     const categoryMap = new Map(categoryDocs.map((c) => [c._id.toString(), c.name as string]));
@@ -259,7 +292,7 @@ export async function GET(req: NextRequest) {
     );
     const chartData = [];
     for (let d = fromStr; d <= toStr; d = shiftDay(d, 1)) {
-      chartData.push({ date: d, revenue: trendMap.get(d)?.revenue || 0, profit: trendMap.get(d)?.profit || 0 });
+      chartData.push({ date: d, revenue: round2(trendMap.get(d)?.revenue), profit: round2(trendMap.get(d)?.profit) });
     }
 
     // Rush hours: 8 AM–10 PM by default, widened so early/late sales aren't dropped
@@ -275,11 +308,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       metrics: {
-        todaySales: todaySalesData[0]?.total || 0,
-        monthlyProfit: monthlyProfitData[0]?.totalProfit || 0,
+        todaySales: round2(todaySalesData[0]?.total),
+        monthlyProfit: round2(monthlyProfitData[0]?.totalProfit),
         lowStockCount,
         expiringSoonCount: expiringSoonData,
-        inventoryValue: inventoryValueData[0]?.value || 0,
+        inventoryValue: round2(inventoryValueData[0]?.value),
       },
       chartData,
       paymentMethods: payments.map((p: any) => ({ method: p._id || "OTHER", revenue: p.revenue, count: p.count })),

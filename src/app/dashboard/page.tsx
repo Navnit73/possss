@@ -343,43 +343,47 @@ export default function DashboardPage() {
                 2. Revenue by Payment Method
               </h3>
               <div className="h-72 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.paymentMethods}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="revenue"
-                      nameKey="method"
-                    >
-                      {data.paymentMethods.map((entry: any) => (
-                        <Cell
-                          key={entry.method}
-                          fill={PAYMENT_COLORS[entry.method] || "#f59e0b"}
-                        />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(val: any) => formatCurrency(val)}
-                      contentStyle={{
-                        borderRadius: "4px",
-                        border: "1px solid #e4e4e7",
-                        fontFamily: "monospace",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Legend
-                      iconType="circle"
-                      wrapperStyle={{
-                        fontSize: "11px",
-                        fontFamily: "monospace",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {data.paymentMethods.length === 0 ? (
+                  <p className="text-xs text-zinc-400 font-mono">No sales recorded for this period.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={data.paymentMethods}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="revenue"
+                        nameKey="method"
+                      >
+                        {data.paymentMethods.map((entry: any) => (
+                          <Cell
+                            key={entry.method}
+                            fill={PAYMENT_COLORS[entry.method] || "#f59e0b"}
+                          />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(val: any) => formatCurrency(val)}
+                        contentStyle={{
+                          borderRadius: "4px",
+                          border: "1px solid #e4e4e7",
+                          fontFamily: "monospace",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        wrapperStyle={{
+                          fontSize: "11px",
+                          fontFamily: "monospace",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </div>
@@ -448,47 +452,51 @@ export default function DashboardPage() {
                 4. Sales by Medicine Category
               </h3>
               <div className="h-64 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.categoryBreakdown}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={75}
-                      paddingAngle={3}
-                      dataKey="revenue"
-                      nameKey="name"
-                    >
-                      {data.categoryBreakdown.map(
-                        (entry: any, index: number) => (
-                          <Cell
-                            key={entry.name}
-                            fill={
-                              CATEGORY_COLORS[index % CATEGORY_COLORS.length]
-                            }
-                          />
-                        ),
-                      )}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(val: any) => formatCurrency(val)}
-                      contentStyle={{
-                        borderRadius: "4px",
-                        border: "1px solid #e4e4e7",
-                        fontFamily: "monospace",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Legend
-                      iconType="circle"
-                      wrapperStyle={{
-                        fontSize: "11px",
-                        fontFamily: "monospace",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {data.categoryBreakdown.length === 0 ? (
+                  <p className="text-xs text-zinc-400 font-mono">No sales recorded for this period.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={data.categoryBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={3}
+                        dataKey="revenue"
+                        nameKey="name"
+                      >
+                        {data.categoryBreakdown.map(
+                          (entry: any, index: number) => (
+                            <Cell
+                              key={entry.name}
+                              fill={
+                                CATEGORY_COLORS[index % CATEGORY_COLORS.length]
+                              }
+                            />
+                          ),
+                        )}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(val: any) => formatCurrency(val)}
+                        contentStyle={{
+                          borderRadius: "4px",
+                          border: "1px solid #e4e4e7",
+                          fontFamily: "monospace",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        wrapperStyle={{
+                          fontSize: "11px",
+                          fontFamily: "monospace",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 

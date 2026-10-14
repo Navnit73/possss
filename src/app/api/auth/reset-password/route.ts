@@ -21,13 +21,10 @@ export async function POST(req: Request) {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     const db = client.db("pos");
-    const user = await db.collection("users").findOne({ 
-      $or: [
-        { resetToken: hashedToken },
-        { resetToken: token }
-      ],
-      resetTokenExpiry: { $gt: Date.now() }
-    });
+    // Only the hash is stored. (Never match the raw value too: that would let anyone holding a copy of the
+    // stored hash use it directly as a token.)
+    const tokenFilter = { resetToken: hashedToken, resetTokenExpiry: { $gt: Date.now() } };
+    const user = await db.collection("users").findOne(tokenFilter, { projection: { _id: 1 } });
 
     if (!user) {
       return NextResponse.json({ error: "Invalid or expired reset token" }, { status: 400 });
@@ -35,13 +32,17 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    await db.collection("users").updateOne(
-      { _id: user._id },
+    // Consume the token atomically so two concurrent submissions can't both use it
+    const consumed = await db.collection("users").updateOne(
+      { _id: user._id, ...tokenFilter },
       { 
-        $set: { password: hashedPassword },
+        $set: { password: hashedPassword, password_changed_at: new Date() },
         $unset: { resetToken: "", resetTokenExpiry: "" }
       }
     );
+    if (consumed.modifiedCount === 0) {
+      return NextResponse.json({ error: "Invalid or expired reset token" }, { status: 400 });
+    }
 
     await logAction({
       action: "PASSWORD_RESET_COMPLETED",

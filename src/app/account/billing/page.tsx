@@ -13,14 +13,26 @@ export default function BillingPage() {
     fetchPayments();
   }, []);
 
+  const [openingReceipt, setOpeningReceipt] = useState<string | null>(null);
+
   const openReceipt = async (paymentId: string) => {
+    if (openingReceipt) return;
+    // Open the tab during the click: popup blockers reject window.open() after an await
+    const tab = window.open("", "_blank");
+    if (tab) tab.opener = null;
+    setOpeningReceipt(paymentId);
+    setError("");
     try {
       const res = await fetch(`/api/account/billing/receipt?payment=${encodeURIComponent(paymentId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      if (tab) tab.location.href = data.url;
+      else window.open(data.url, "_blank", "noopener,noreferrer");
     } catch (err: any) {
+      tab?.close();
       setError(err.message || "Could not open receipt");
+    } finally {
+      setOpeningReceipt(null);
     }
   };
 
@@ -40,20 +52,20 @@ export default function BillingPage() {
   if (loading) return <div className="p-8"><TableSkeleton columns={5} rows={5} /></div>;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing History</h1>
         <p className="text-muted-foreground">Your subscription payments and receipts.</p>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-sm">
+        <div role="alert" className="p-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-sm">
           {error}
         </div>
       )}
 
-      <div className="bg-surface border border-border rounded-sm overflow-hidden">
-        <table className="w-full text-sm text-left">
+      <div className="bg-surface border border-border rounded-sm overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm text-left">
           <thead className="bg-muted/50 border-b border-border">
             <tr>
               <th className="px-6 py-3 font-medium text-muted-foreground">Date</th>
@@ -96,8 +108,10 @@ export default function BillingPage() {
                   <td className="px-6 py-4 text-right">
                     {payment.has_receipt && payment.payment_id ? (
                       <button
+                        type="button"
                         onClick={() => openReceipt(payment.payment_id)}
-                        className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 text-sm font-medium"
+                        disabled={openingReceipt !== null}
+                        className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1 text-sm font-medium disabled:opacity-50"
                       >
                         <Download className="w-4 h-4" />
                         Receipt

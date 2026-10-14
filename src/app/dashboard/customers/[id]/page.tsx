@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
 import { ArrowLeft, UserCircle, Phone, Mail, MapPin, Calendar, CreditCard, ShoppingBag, Receipt } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function CustomerProfilePage() {
   const { id } = useParams();
-  const router = useRouter();
+  const { formatCurrency } = useCurrency();
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,8 +61,8 @@ export default function CustomerProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/customers" className="text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="w-5 h-5" />
+          <Link href="/dashboard/customers" className="text-muted-foreground hover:text-foreground" aria-label="Back to customers">
+            <ArrowLeft className="w-5 h-5" aria-hidden />
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -103,7 +104,7 @@ export default function CustomerProfilePage() {
               <div className="flex items-start gap-3 text-muted-foreground">
                 <Calendar className="w-4 h-4 mt-0.5 shrink-0" />
                 <span className="text-foreground">
-                  {customer.date_of_birth ? format(new Date(customer.date_of_birth), 'MMM d, yyyy') : "No DOB provided"}
+                  {customer.date_of_birth ? format(parseISO(customer.date_of_birth), 'MMM d, yyyy') : "No DOB provided"}
                 </span>
               </div>
             </div>
@@ -129,7 +130,7 @@ export default function CustomerProfilePage() {
               <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
                 <CreditCard className="w-3.5 h-3.5" /> Lifetime
               </div>
-              <div className="text-2xl font-bold text-slate-900">${customer.lifetime_spending?.toFixed(2) || "0.00"}</div>
+              <div className="text-2xl font-bold text-slate-900">{formatCurrency(customer.lifetime_spending || 0)}</div>
             </div>
             <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
               <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
@@ -141,7 +142,7 @@ export default function CustomerProfilePage() {
               <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
                 <Receipt className="w-3.5 h-3.5" /> Avg Order
               </div>
-              <div className="text-2xl font-bold text-slate-900">${avgPurchase.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-slate-900">{formatCurrency(avgPurchase)}</div>
             </div>
             <div className="bg-white p-4 rounded-lg border border-border shadow-sm">
               <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider flex items-center gap-1.5">
@@ -191,7 +192,7 @@ export default function CustomerProfilePage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold text-slate-900">
-                          ${sale.total.toFixed(2)}
+                          {formatCurrency(sale.total)}
                         </td>
                       </tr>
                     ))

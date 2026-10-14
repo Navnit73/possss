@@ -6,6 +6,7 @@ import {
   ShieldAlert, CheckCircle2, AlertCircle, RefreshCw, Check, Zap, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { signOut } from "next-auth/react";
 
 function calculatePasswordStrength(pass: string): { score: number; label: string; color: string; width: string } {
   if (!pass) return { score: 0, label: "", color: "bg-muted", width: "0%" };
@@ -41,6 +42,7 @@ export default function SecurityPage() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
     setSuccess("");
 
@@ -74,8 +76,10 @@ export default function SecurityPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update password");
 
-      setSuccess("Password updated successfully! An audit log entry has been recorded.");
+      setSuccess("Password updated. For your security, all sessions are being signed out — please sign in again with your new password.");
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      // A password change ends every existing session (including this one) on its next access check
+      setTimeout(() => signOut({ callbackUrl: "/auth/login" }), 2500);
     } catch (err: any) {
       setError(err.message || "Failed to update password");
     } finally {
@@ -98,14 +102,14 @@ export default function SecurityPage() {
 
       {/* Notifications */}
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
+        <div role="alert" className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-lg flex items-center gap-3 text-sm">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg flex items-center gap-3 text-sm">
+        <div role="status" className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 rounded-lg flex items-center gap-3 text-sm">
           <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-500" />
           <span>{success}</span>
         </div>
@@ -155,9 +159,11 @@ export default function SecurityPage() {
           <form onSubmit={handlePasswordChange} className="p-6 space-y-6">
             {/* Current Password */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Password</label>
+              <label htmlFor="current-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Password</label>
               <div className="relative">
                 <input
+                  id="current-password"
+                  autoComplete="current-password"
                   type={showCurrent ? "text" : "password"}
                   required
                   value={passwordForm.currentPassword}
@@ -168,6 +174,7 @@ export default function SecurityPage() {
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
+                  aria-label={showCurrent ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -178,7 +185,7 @@ export default function SecurityPage() {
             {/* New Password */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Password</label>
+                <label htmlFor="new-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Password</label>
                 {passwordForm.newPassword && (
                   <span className={`text-xs font-bold ${
                     strength.label === "Weak" ? "text-rose-500" :
@@ -191,6 +198,8 @@ export default function SecurityPage() {
               </div>
               <div className="relative">
                 <input
+                  id="new-password"
+                  autoComplete="new-password"
                   type={showNew ? "text" : "password"}
                   required
                   minLength={8}
@@ -202,6 +211,7 @@ export default function SecurityPage() {
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
+                  aria-label={showNew ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -231,9 +241,11 @@ export default function SecurityPage() {
 
             {/* Confirm New Password */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm New Password</label>
+              <label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Confirm New Password</label>
               <div className="relative">
                 <input
+                  id="confirm-password"
+                  autoComplete="new-password"
                   type={showConfirm ? "text" : "password"}
                   required
                   minLength={8}
@@ -245,6 +257,7 @@ export default function SecurityPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

@@ -4,6 +4,7 @@ import client from "@/lib/mongodb";
 import { manufacturerSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/errorHandler";
 import { checkPermission } from "@/lib/rbac";
+import { withAuditLog, AuditContext } from "@/lib/auditLogger";
 
 export async function GET(req: Request) {
   try {
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+export const POST = withAuditLog("CREATE_MANUFACTURER", "PRODUCTS", async (req: Request, context: any, audit: AuditContext) => {
   try {
     const session = await auth();
     const permError = checkPermission(session, "PRODUCTS", "CREATE");
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
     if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
+    if (body && typeof body.name === "string") body.name = body.name.trim();
     const validatedData = manufacturerSchema.parse(body);
 
     const db = client.db("pos");
@@ -48,14 +50,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Manufacturer already exists" }, { status: 400 });
     }
 
-    const result = await db.collection("manufacturers").insertOne({
+    const newDoc = {
       ...validatedData,
       tenant_id: tenantId,
       created_at: new Date(),
-    });
+    };
+    const result = await db.collection("manufacturers").insertOne(newDoc);
+    audit.setAfter({ _id: result.insertedId, ...newDoc });
 
     return NextResponse.json({ _id: result.insertedId, message: "Manufacturer created" }, { status: 201 });
   } catch (error: any) {
+    if (error?.code === 11000) {
+      return NextResponse.json({ error: "Manufacturer already exists" }, { status: 409 });
+    }
     return await handleApiError(error, "POST /api/manufacturers");
   }
-}
+});

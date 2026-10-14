@@ -14,6 +14,8 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // If the supplier couldn't be loaded, saving would overwrite it with an empty form
+  const [loadFailed, setLoadFailed] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -33,8 +35,9 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
           email: supplier.email || "",
           address: supplier.address || "",
         });
-      } catch (err) {
-        setError("Failed to fetch supplier details.");
+      } catch (err: any) {
+        setError(err.response?.data?.error || "Failed to fetch supplier details.");
+        setLoadFailed(true);
       } finally {
         setIsLoading(false);
       }
@@ -51,6 +54,7 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError("");
 
@@ -60,7 +64,7 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
       router.refresh();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to update supplier");
-    } finally {
+      // Only re-enable on failure; on success we're navigating away (prevents a double submit in between)
       setIsSubmitting(false);
     }
   };
@@ -135,7 +139,7 @@ export default function EditSupplierPage({ params }: { params: Promise<{ id: str
           <div className="flex justify-end pt-4 border-t border-border">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || loadFailed}
               className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-2 rounded-md hover:bg-primary/90 transition-colors disabled:opacity-70"
             >
               <Save className="w-4 h-4" />
