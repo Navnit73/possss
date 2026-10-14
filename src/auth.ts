@@ -7,8 +7,9 @@ import bcrypt from "bcryptjs"
 import { authConfig } from "./auth.config"
 import { rateLimit } from "./lib/rateLimit"
 import { logAuditDirectly } from "./lib/auditLogger"
-import { after } from "next/server"
+import { runAfterResponse } from "./lib/runAfterResponse"
 import { refreshTokenAccess, resolveAccess } from "./lib/sessionAccess"
+import { sendSignInNotificationEmail } from "./lib/mail"
 
 // Only `code` reaches the client (signIn() returns it as `res.code`); the message is server-side only.
 class CustomAuthError extends CredentialsSignin {
@@ -109,12 +110,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (user && (user as any).tenant_id) {
         // Don't hold the login response open for an audit write.
-        after(() => logAuditDirectly({
+        runAfterResponse(() => logAuditDirectly({
           tenantId: (user as any).tenant_id,
           userId: user.id,
           action: "LOGIN",
           module: "AUTH",
         }));
+      }
+
+      if (user?.email) {
+        const userEmail = user.email;
+        const userName = user.name || "there";
+        runAfterResponse(async () => {
+          try {
+            // Avoid duplicate notifications on repeated logins within 60s
+            const allowed = await rateLimit(`signin-email-${userEmail.toLowerCase()}`, 1, 60 * 1000);
+            if (allowed) {
+              await sendSignInNotificationEmail(userEmail, userName, { time: new Date() });
+            }
+          } catch (err) {
+            console.error("Sign-in notification email dispatch failed:", err);
+          }
+        });
       }
     },
     async signOut(params: any) {

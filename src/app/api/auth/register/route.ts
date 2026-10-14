@@ -1,4 +1,5 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
+import { runAfterResponse } from "@/lib/runAfterResponse";
 import bcrypt from "bcryptjs";
 import client from "@/lib/mongodb";
 import { registerSchema } from "@/lib/validations";
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
     const userId = result.insertedId.toString();
     // Audit log + welcome email run after the response is sent so they don't slow sign-up
     // (and the email isn't dropped when the function instance is frozen).
-    after(async () => {
+    runAfterResponse(async () => {
       await logAction({
         action: "USER_REGISTERED",
         userId,

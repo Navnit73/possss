@@ -4,6 +4,8 @@ const envSchema = z.object({
   MONGODB_URI: z.string().url("MONGODB_URI must be a valid URL"),
   AUTH_SECRET: z.string().min(1, "AUTH_SECRET is required"),
   RESEND_API_KEY: z.string().optional(),
+  ENRESEND_MEDISHELF_API: z.string().optional(),
+  RESEND_MEDISHELF_API: z.string().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL").optional(),
   NEXT_PUBLIC_API_URL: z.string().optional(),
   // Razorpay subscriptions (billing is disabled until the key pair is set)
@@ -27,6 +29,8 @@ if (!_env.success) {
       MONGODB_URI: process.env.MONGODB_URI || "mongodb+srv://build-mock-user:build-mock-pass@cluster0.example.mongodb.net/pos?retryWrites=true&w=majority",
       AUTH_SECRET: process.env.AUTH_SECRET || "build-time-secret-placeholder-for-compilation-at-least-32-chars",
       RESEND_API_KEY: process.env.RESEND_API_KEY,
+      ENRESEND_MEDISHELF_API: process.env.ENRESEND_MEDISHELF_API,
+      RESEND_MEDISHELF_API: process.env.RESEND_MEDISHELF_API,
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api",
       RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,

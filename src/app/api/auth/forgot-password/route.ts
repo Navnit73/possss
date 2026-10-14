@@ -1,4 +1,5 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
+import { runAfterResponse } from "@/lib/runAfterResponse";
 import crypto from "crypto";
 import client from "@/lib/mongodb";
 import { forgotPasswordSchema } from "@/lib/validations";
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const db = client.db("pos");
-    const user = await db.collection("users").findOne({ email }, { projection: { _id: 1 } });
+    const user = await db.collection("users").findOne({ email }, { projection: { _id: 1, name: 1 } });
 
     if (!user) {
       // Don't leak whether user exists or not
@@ -47,9 +48,10 @@ export async function POST(req: Request) {
 
     // Send the email (unhashed token) after responding, so response time doesn't reveal which emails are registered
     const userId = user._id.toString();
-    after(async () => {
+    const userName = (user as any).name;
+    runAfterResponse(async () => {
       try {
-        await sendPasswordResetEmail(email, resetToken);
+        await sendPasswordResetEmail(email, resetToken, userName);
       } catch (err) {
         console.error("Failed to send password reset email:", err);
       }
